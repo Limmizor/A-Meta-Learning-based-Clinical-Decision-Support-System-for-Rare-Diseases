@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>患者列表</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">添加患者</button>
+</div>
+
+<!-- 添加模型状态卡片 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">AI模型状态</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert {% if model_trained %}alert-success{% else %}alert-warning{% endif %}">
+            <strong>MAML模型状态:</strong> 
+            {% if model_trained %}
+            <span>已训练</span>
+            {% else %}
+            <span>未训练</span>
+            <button class="btn btn-sm btn-outline-primary ms-2" onclick="trainModel()">训练模型</button>
+            {% endif %}
+        </div>
+        
+        {% if model_trained %}
+        <img src="{{ url_for('static', filename='images/maml_training_loss.png') }}" 
+             class="img-fluid" alt="训练损失曲线" style="max-height: 200px;">
+        {% endif %}
+    </div>
+</div>
+
+
+<div class="row">
+    {% for patient in patients %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ patient.name }}</h5>
+                <p class="card-text">
+                    <strong>年龄:</strong> {{ patient.age or '未知' }}<br>
+                    <strong>性别:</strong> {{ patient.gender or '未知' }}<br>
+                    <strong>联系方式:</strong> {{ patient.contact_number or '未知' }}
+                </p>
+                <a href="{{ url_for('patient_detail', patient_id=patient.patient_id) }}" class="btn btn-primary">查看详情</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-info">暂无患者数据</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 添加患者模态框 -->
+<div class="modal fade" id="addPatientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加新患者</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPatientForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="age" class="form-label">年龄</label>
+                        <input type="number" class="form-control" id="age" name="age">
+                    </div>
+                    <div class="mb-3">
+                        <label for="gender" class="form-label">性别</label>
+                        <select class="form-select" id="gender" name="gender">
+                            <option value="">请选择</option>
+                            <option value="male">男</option>
+                            <option value="female">女</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_number" class="form-label">联系方式</label>
+                        <input type="text" class="form-control" id="contact_number" name="contact_number">
+                    </div>
+                    <div class="mb-3">
+                        <label for="medical_history" class="form-label">病史</label>
+                        <textarea class="form-control" id="medical_history" name="medical_history" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addPatient()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 添加训练模型函数
+function trainModel() {
+    if (confirm('确定要训练模型吗？这可能需要几分钟时间。')) {
+        fetch('/train_model', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('模型训练成功');
+                location.reload();
+            } else {
+                alert('模型训练失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('发生错误，请重试');
+        });
+    }
+}
+</script>
+{% endblock %}

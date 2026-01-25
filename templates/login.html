@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body p-5">
+                <h2 class="card-title text-center mb-4">问诊系统</h2>
+                
+                <form method="POST" action="{{ url_for('login') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">账号</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               placeholder="请输入账号" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               placeholder="请输入密码" required>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">记住我</label>
+                        <a href="#" class="float-end">忘记密码？</a>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-2">登录</button>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <span class="text-muted">没有账户？</span>
+                        <a href="{{ url_for('register') }}">注册新账户</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

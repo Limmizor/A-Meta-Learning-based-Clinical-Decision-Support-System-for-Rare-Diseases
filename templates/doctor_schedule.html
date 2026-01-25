@@ -1,0 +1,654 @@
+[file name]: doctor_schedule.html
+[file content begin]
+{% extends "base.html" %}
+
+{% block title %}今日日程 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 页面标题和操作按钮 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-calendar-check me-2"></i>今日日程</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="addNewSchedule()">
+                <i class="bi bi-plus-circle"></i> 新增日程
+            </button>
+            <button class="btn btn-outline-success" onclick="saveAllSchedules()">
+                <i class="bi bi-check-circle"></i> 保存全部
+            </button>
+        </div>
+    </div>
+
+    <!-- 日期选择器 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-date"></i> 
+                        <span id="currentDate">{{ today }}</span>
+                    </h5>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="changeDate(-1)">
+                            <i class="bi bi-chevron-left"></i> 前一天
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="goToToday()">
+                            今天
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="changeDate(1)">
+                            后一天 <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：时间轴日程 -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-task"></i> 时间安排
+                    </h5>
+                    <span class="badge bg-light text-primary" id="scheduleCount">0 个日程</span>
+                </div>
+                <div class="card-body">
+                    <!-- 时间轴日程列表 -->
+                    <div id="scheduleList" class="schedule-timeline">
+                        <!-- 日程项将通过JavaScript动态生成 -->
+                        <div class="text-center py-5" id="emptySchedule">
+                            <i class="bi bi-calendar-x display-1 text-muted"></i>
+                            <h5 class="mt-3 text-muted">暂无日程安排</h5>
+                            <p class="text-muted">点击"新增日程"开始规划您的一天</p>
+                            <button class="btn btn-primary" onclick="addNewSchedule()">
+                                <i class="bi bi-plus-circle"></i> 添加第一个日程
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速笔记区域 -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-journal-text"></i> 工作笔记
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <textarea class="form-control" id="workNotes" rows="6" 
+                              placeholder="记录今日的工作重点、注意事项、会议要点等..."></textarea>
+                    <div class="mt-3 d-flex justify-content-between">
+                        <small class="text-muted">自动保存</small>
+                        <button class="btn btn-sm btn-outline-primary" onclick="saveNotes()">
+                            <i class="bi bi-save"></i> 手动保存
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：统计和快捷操作 -->
+        <div class="col-lg-4">
+            <!-- 今日统计 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up"></i> 今日统计
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-item text-center p-3 border rounded">
+                            <h4 class="text-primary mb-1" id="totalSchedules">0</h4>
+                            <small class="text-muted">总日程</small>
+                        </div>
+                        <div class="stat-item text-center p-3 border rounded">
+                            <h4 class="text-warning mb-1" id="pendingSchedules">0</h4>
+                            <small class="text-muted">待完成</small>
+                        </div>
+                        <div class="stat-item text-center p-3 border rounded">
+                            <h4 class="text-success mb-1" id="completedSchedules">0</h4>
+                            <small class="text-muted">已完成</small>
+                        </div>
+                        <div class="stat-item text-center p-3 border rounded">
+                            <h4 class="text-info mb-1" id="importantSchedules">0</h4>
+                            <small class="text-muted">重要</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷操作 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning"></i> 快捷操作
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm text-start" onclick="addPatientAppointment()">
+                            <i class="bi bi-person-plus me-2"></i> 添加患者预约
+                        </button>
+                        <button class="btn btn-outline-success btn-sm text-start" onclick="addMeeting()">
+                            <i class="bi bi-people me-2"></i> 添加会议
+                        </button>
+                        <button class="btn btn-outline-info btn-sm text-start" onclick="addSurgery()">
+                            <i class="bi bi-scissors me-2"></i> 添加手术
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm text-start" onclick="addUrgentTask()">
+                            <i class="bi bi-exclamation-triangle me-2"></i> 添加紧急任务
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 今日提醒 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bell"></i> 即将开始
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="upcomingSchedules">
+                        <!-- 即将开始的日程将通过JavaScript动态生成 -->
+                        <div class="text-center py-3">
+                            <p class="text-muted mb-0">暂无即将开始的日程</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑日程模态框 -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalTitle">新增日程</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <input type="hidden" id="scheduleId">
+                    <div class="mb-3">
+                        <label class="form-label">日程标题</label>
+                        <input type="text" class="form-control" id="scheduleTitle" required 
+                               placeholder="请输入日程标题">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">开始时间</label>
+                                <input type="time" class="form-control" id="startTime" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">结束时间</label>
+                                <input type="time" class="form-control" id="endTime" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">日程类型</label>
+                        <select class="form-select" id="scheduleType">
+                            <option value="appointment">患者预约</option>
+                            <option value="meeting">会议</option>
+                            <option value="surgery">手术</option>
+                            <option value="rounds">查房</option>
+                            <option value="research">科研</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">详细描述</label>
+                        <textarea class="form-control" id="scheduleDescription" rows="3" 
+                                  placeholder="请输入日程的详细描述..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isImportant">
+                            <label class="form-check-label" for="isImportant">
+                                重要日程
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isCompleted">
+                            <label class="form-check-label" for="isCompleted">
+                                已完成
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deleteScheduleBtn" style="display: none;" 
+                        onclick="deleteSchedule()">删除</button>
+                <button type="button" class="btn btn-primary" onclick="saveSchedule()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.schedule-timeline {
+    position: relative;
+}
+
+.schedule-item {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.schedule-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.schedule-item.important {
+    border-left: 4px solid #dc3545;
+}
+
+.schedule-item.completed {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+}
+
+.schedule-item.completed .schedule-title {
+    text-decoration: line-through;
+}
+
+.schedule-time {
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.schedule-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.schedule-type {
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-right: 8px;
+}
+
+.schedule-type.appointment { background: #e3f2fd; color: #1976d2; }
+.schedule-type.meeting { background: #f3e5f5; color: #7b1fa2; }
+.schedule-type.surgery { background: #ffebee; color: #c62828; }
+.schedule-type.rounds { background: #e8f5e8; color: #2e7d32; }
+.schedule-type.research { background: #fff3e0; color: #ef6c00; }
+.schedule-type.other { background: #f5f5f5; color: #616161; }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.stat-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.upcoming-item {
+    padding: 10px;
+    border-left: 3px solid #dc3545;
+    background: #fff5f5;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.schedule-actions {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.schedule-item:hover .schedule-actions {
+    opacity: 1;
+}
+</style>
+
+<script>
+// 日程数据
+let schedules = [];
+let currentDate = new Date();
+let editingScheduleId = null;
+
+// 初始化页面
+document.addEventListener('DOMContentLoaded', function() {
+    loadSchedules();
+    updateDateDisplay();
+    startAutoSave();
+});
+
+// 更新日期显示
+function updateDateDisplay() {
+    const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+    document.getElementById('currentDate').textContent = currentDate.toLocaleDateString('zh-CN', options);
+}
+
+// 改变日期
+function changeDate(days) {
+    currentDate.setDate(currentDate.getDate() + days);
+    updateDateDisplay();
+    loadSchedules();
+}
+
+// 回到今天
+function goToToday() {
+    currentDate = new Date();
+    updateDateDisplay();
+    loadSchedules();
+}
+
+// 加载日程
+function loadSchedules() {
+    // 从localStorage加载数据（实际应用中应该从后端API加载）
+    const saved = localStorage.getItem(`schedules_${currentDate.toDateString()}`);
+    schedules = saved ? JSON.parse(saved) : [];
+    
+    renderSchedules();
+    updateStatistics();
+}
+
+// 保存日程
+function saveSchedules() {
+    localStorage.setItem(`schedules_${currentDate.toDateString()}`, JSON.stringify(schedules));
+    updateStatistics();
+}
+
+// 渲染日程列表
+function renderSchedules() {
+    const scheduleList = document.getElementById('scheduleList');
+    const emptySchedule = document.getElementById('emptySchedule');
+    
+    if (schedules.length === 0) {
+        emptySchedule.style.display = 'block';
+        scheduleList.innerHTML = '';
+        scheduleList.appendChild(emptySchedule);
+        return;
+    }
+    
+    emptySchedule.style.display = 'none';
+    
+    // 按开始时间排序
+    schedules.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    
+    scheduleList.innerHTML = schedules.map(schedule => `
+        <div class="schedule-item ${schedule.important ? 'important' : ''} ${schedule.completed ? 'completed' : ''}" 
+             onclick="editSchedule('${schedule.id}')">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="schedule-type ${schedule.type}">${getTypeText(schedule.type)}</span>
+                        <span class="schedule-time">
+                            <i class="bi bi-clock"></i> ${schedule.startTime} - ${schedule.endTime}
+                        </span>
+                    </div>
+                    <div class="schedule-title">${schedule.title}</div>
+                    ${schedule.description ? `<div class="text-muted small mt-1">${schedule.description}</div>` : ''}
+                </div>
+                <div class="schedule-actions">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" onclick="event.stopPropagation(); toggleComplete('${schedule.id}')">
+                            <i class="bi ${schedule.completed ? 'bi-arrow-counterclockwise' : 'bi-check'}"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="event.stopPropagation(); deleteSchedule('${schedule.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    renderUpcomingSchedules();
+}
+
+// 渲染即将开始的日程
+function renderUpcomingSchedules() {
+    const upcomingSchedules = document.getElementById('upcomingSchedules');
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    const upcoming = schedules
+        .filter(s => !s.completed && s.startTime > currentTime)
+        .slice(0, 3);
+    
+    if (upcoming.length === 0) {
+        upcomingSchedules.innerHTML = `
+            <div class="text-center py-3">
+                <p class="text-muted mb-0">暂无即将开始的日程</p>
+            </div>
+        `;
+        return;
+    }
+    
+    upcomingSchedules.innerHTML = upcoming.map(schedule => `
+        <div class="upcoming-item">
+            <div class="fw-bold">${schedule.title}</div>
+            <div class="small text-muted">
+                <i class="bi bi-clock"></i> ${schedule.startTime}
+                <span class="badge bg-secondary ms-2">${getTypeText(schedule.type)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 获取类型文本
+function getTypeText(type) {
+    const typeMap = {
+        'appointment': '患者预约',
+        'meeting': '会议',
+        'surgery': '手术',
+        'rounds': '查房',
+        'research': '科研',
+        'other': '其他'
+    };
+    return typeMap[type] || '其他';
+}
+
+// 更新统计信息
+function updateStatistics() {
+    document.getElementById('scheduleCount').textContent = `${schedules.length} 个日程`;
+    document.getElementById('totalSchedules').textContent = schedules.length;
+    document.getElementById('pendingSchedules').textContent = schedules.filter(s => !s.completed).length;
+    document.getElementById('completedSchedules').textContent = schedules.filter(s => s.completed).length;
+    document.getElementById('importantSchedules').textContent = schedules.filter(s => s.important).length;
+}
+
+// 添加新日程
+function addNewSchedule() {
+    editingScheduleId = null;
+    document.getElementById('scheduleModalTitle').textContent = '新增日程';
+    document.getElementById('scheduleForm').reset();
+    document.getElementById('deleteScheduleBtn').style.display = 'none';
+    
+    // 设置默认时间为下一个整点
+    const now = new Date();
+    const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+    const defaultTime = nextHour.toTimeString().slice(0, 5);
+    
+    document.getElementById('startTime').value = defaultTime;
+    document.getElementById('endTime').value = 
+        new Date(nextHour.getTime() + 60 * 60 * 1000).toTimeString().slice(0, 5);
+    
+    new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+}
+
+// 编辑日程
+function editSchedule(scheduleId) {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule) return;
+    
+    editingScheduleId = scheduleId;
+    document.getElementById('scheduleModalTitle').textContent = '编辑日程';
+    document.getElementById('deleteScheduleBtn').style.display = 'block';
+    
+    document.getElementById('scheduleId').value = schedule.id;
+    document.getElementById('scheduleTitle').value = schedule.title;
+    document.getElementById('startTime').value = schedule.startTime;
+    document.getElementById('endTime').value = schedule.endTime;
+    document.getElementById('scheduleType').value = schedule.type;
+    document.getElementById('scheduleDescription').value = schedule.description || '';
+    document.getElementById('isImportant').checked = schedule.important || false;
+    document.getElementById('isCompleted').checked = schedule.completed || false;
+    
+    new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+}
+
+// 保存日程
+function saveSchedule() {
+    const form = document.getElementById('scheduleForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const scheduleData = {
+        id: editingScheduleId || generateId(),
+        title: document.getElementById('scheduleTitle').value,
+        startTime: document.getElementById('startTime').value,
+        endTime: document.getElementById('endTime').value,
+        type: document.getElementById('scheduleType').value,
+        description: document.getElementById('scheduleDescription').value,
+        important: document.getElementById('isImportant').checked,
+        completed: document.getElementById('isCompleted').checked
+    };
+    
+    if (editingScheduleId) {
+        // 更新现有日程
+        const index = schedules.findIndex(s => s.id === editingScheduleId);
+        if (index !== -1) {
+            schedules[index] = scheduleData;
+        }
+    } else {
+        // 添加新日程
+        schedules.push(scheduleData);
+    }
+    
+    saveSchedules();
+    renderSchedules();
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleModal'));
+    modal.hide();
+    
+    showToast('日程保存成功', 'success');
+}
+
+// 删除日程
+function deleteSchedule(scheduleId = null) {
+    const idToDelete = scheduleId || editingScheduleId;
+    if (!idToDelete) return;
+    
+    if (confirm('确定要删除这个日程吗？')) {
+        schedules = schedules.filter(s => s.id !== idToDelete);
+        saveSchedules();
+        renderSchedules();
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleModal'));
+        modal.hide();
+        
+        showToast('日程删除成功', 'success');
+    }
+}
+
+// 切换完成状态
+function toggleComplete(scheduleId) {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (schedule) {
+        schedule.completed = !schedule.completed;
+        saveSchedules();
+        renderSchedules();
+        
+        showToast(`日程已标记为${schedule.completed ? '完成' : '未完成'}`, 'info');
+    }
+}
+
+// 生成ID
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// 快捷操作函数
+function addPatientAppointment() {
+    addNewSchedule();
+    document.getElementById('scheduleType').value = 'appointment';
+    document.getElementById('scheduleTitle').focus();
+}
+
+function addMeeting() {
+    addNewSchedule();
+    document.getElementById('scheduleType').value = 'meeting';
+    document.getElementById('scheduleTitle').focus();
+}
+
+function addSurgery() {
+    addNewSchedule();
+    document.getElementById('scheduleType').value = 'surgery';
+    document.getElementById('scheduleTitle').focus();
+}
+
+function addUrgentTask() {
+    addNewSchedule();
+    document.getElementById('scheduleType').value = 'other';
+    document.getElementById('isImportant').checked = true;
+    document.getElementById('scheduleTitle').focus();
+}
+
+// 保存所有日程
+function saveAllSchedules() {
+    saveSchedules();
+    showToast('所有日程已保存', 'success');
+}
+
+// 保存笔记
+function saveNotes() {
+    const notes = document.getElementById('workNotes').value;
+    localStorage.setItem(`workNotes_${currentDate.toDateString()}`, notes);
+    showToast('笔记已保存', 'success');
+}
+
+// 自动保存
+function startAutoSave() {
+    // 加载保存的笔记
+    const savedNotes = localStorage.getItem(`workNotes_${currentDate.toDateString()}`);
+    if (savedNotes) {
+        document.getElementById('workNotes').value = savedNotes;
+    }
+    
+    // 设置自动保存
+    setInterval(() => {
+        saveSchedules();
+        saveNotes();
+    }, 30000); // 每30秒自动保存一次
+}
+
+// 显示Toast消息
+function showToast(message, type = 'info') {
+    // 简单的消息提示
+    alert(message);
+}
+
+</script>
+{% endblock %}
+[file content end]

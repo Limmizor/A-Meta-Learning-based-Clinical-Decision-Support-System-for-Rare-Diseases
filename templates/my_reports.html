@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}我的报告 - 罕见病诊断系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>我的诊断报告</h2>
+    
+    {% if reports %}
+        <div class="row">
+            {% for report in reports %}
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">报告 #{{ report.report_id }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>医生:</strong> {{ report.doctor_name }}</p>
+                        <p><strong>临床记录:</strong> {{ report.clinical_notes or '无' }}</p>
+                        <p><strong>诊断结果:</strong> {{ report.findings or '待诊断' }}</p>
+                        <p><strong>创建时间:</strong> {{ report.created_at }}</p>
+                        
+                        {% if report.predictions %}
+                        <hr>
+                        <h6>疾病预测:</h6>
+                        <ul class="list-group">
+                            {% for prediction in report.predictions %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ prediction.disease_name }}
+                                <span class="badge bg-primary rounded-pill">{{ "%.1f"|format(prediction.confidence * 100) }}%</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <h4 class="alert-heading">暂无报告</h4>
+            <p>您目前还没有任何诊断报告。请等待医生为您创建诊断报告。</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

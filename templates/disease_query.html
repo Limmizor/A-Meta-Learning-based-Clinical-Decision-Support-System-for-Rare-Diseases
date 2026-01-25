@@ -1,0 +1,675 @@
+[file name]: disease_query.html
+[file content begin]
+{% extends "base.html" %}
+
+{% block title %}罕见病查询 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 页面标题和操作按钮 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-search-heart me-2"></i>罕见病查询</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="showAddDiseaseModal()">
+                <i class="bi bi-plus-circle"></i> 添加疾病
+            </button>
+            <button class="btn btn-outline-success" onclick="refreshData()">
+                <i class="bi bi-arrow-clockwise"></i> 刷新数据
+            </button>
+        </div>
+    </div>
+
+    <!-- 搜索区域 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text bg-primary text-white">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control" id="searchInput" 
+                               placeholder="输入疾病名称、症状、ICD编码等进行搜索..." 
+                               onkeyup="searchDiseases()">
+                        <button class="btn btn-primary" onclick="searchDiseases()">
+                            <i class="bi bi-search"></i> 搜索
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" id="categoryFilter" onchange="filterDiseases()">
+                        <option value="">所有分类</option>
+                        <option value="metabolic">代谢性疾病</option>
+                        <option value="genetic">遗传性疾病</option>
+                        <option value="neurological">神经系统疾病</option>
+                        <option value="immune">免疫系统疾病</option>
+                        <option value="skeletal">骨骼系统疾病</option>
+                        <option value="other">其他罕见病</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 快速搜索标签 -->
+            <div class="mt-3">
+                <small class="text-muted me-2">快速搜索:</small>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('戈谢病')">戈谢病</span>
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('法布雷病')">法布雷病</span>
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('庞贝病')">庞贝病</span>
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('亨廷顿病')">亨廷顿病</span>
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('肌萎缩侧索硬化')">肌萎缩侧索硬化</span>
+                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('重症肌无力')">重症肌无力</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 特色疾病推荐 -->
+    {% if featured_diseases %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-star-fill"></i> 特色疾病推荐
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for disease in featured_diseases %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 disease-card featured">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title text-primary">{{ disease.name }}</h6>
+                                <span class="badge bg-warning">推荐</span>
+                            </div>
+                            <p class="card-text small text-muted">
+                                {{ disease.description[:100] }}{% if disease.description|length > 100 %}...{% endif %}
+                            </p>
+                            <div class="disease-meta">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> 
+                                    {{ disease.updated_at.strftime('%Y-%m-%d') if disease.updated_at else '未知' }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-sm btn-outline-primary w-100" 
+                                    onclick="viewDiseaseDetail('{{ disease.disease_id }}')">
+                                查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 疾病列表 -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-capsule"></i> 疾病数据库
+                <span class="badge bg-light text-primary ms-2" id="diseaseCount">{{ diseases|length }} 种疾病</span>
+            </h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-light" onclick="sortDiseases('name')">
+                    <i class="bi bi-sort-alpha-down"></i> 按名称
+                </button>
+                <button class="btn btn-light" onclick="sortDiseases('date')">
+                    <i class="bi bi-sort-numeric-down"></i> 按时间
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="diseaseList">
+                {% if diseases %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>疾病名称</th>
+                                <th>ICD编码</th>
+                                <th>主要症状</th>
+                                <th>治疗方案</th>
+                                <th>更新日期</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for disease in diseases %}
+                            <tr class="disease-item">
+                                <td>
+                                    <strong class="text-primary">{{ disease.name }}</strong>
+                                    {% if disease.is_featured %}
+                                    <i class="bi bi-star-fill text-warning ms-1" title="推荐疾病"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ disease.icd_code or '未设置' }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ disease.symptoms[:50] if disease.symptoms else '暂无症状描述' }}{% if disease.symptoms and disease.symptoms|length > 50 %}...{% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ disease.treatment[:50] if disease.treatment else '暂无治疗方案' }}{% if disease.treatment and disease.treatment|length > 50 %}...{% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ disease.updated_at.strftime('%Y-%m-%d') if disease.updated_at else '未知' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" 
+                                                onclick="viewDiseaseDetail('{{ disease.disease_id }}')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" 
+                                                onclick="editDisease('{{ disease.disease_id }}')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" 
+                                                onclick="deleteDisease('{{ disease.disease_id }}')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-capsule display-1 text-muted"></i>
+                    <h5 class="mt-3 text-muted">暂无疾病数据</h5>
+                    <p class="text-muted">请添加疾病信息以完善数据库</p>
+                    <button class="btn btn-primary" onclick="showAddDiseaseModal()">
+                        <i class="bi bi-plus-circle"></i> 添加第一个疾病
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-bg-primary">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ diseases|length }}</h4>
+                    <p class="card-text">总疾病数</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-success">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ featured_diseases|length }}</h4>
+                    <p class="card-text">推荐疾病</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-warning">
+                <div class="card-body text-center">
+                    <h4 class="card-title" id="metabolicCount">0</h4>
+                    <p class="card-text">代谢性疾病</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-info">
+                <div class="card-body text-center">
+                    <h4 class="card-title" id="geneticCount">0</h4>
+                    <p class="card-text">遗传性疾病</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 疾病详情模态框 -->
+<div class="modal fade" id="diseaseDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="diseaseDetailTitle">疾病详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="diseaseDetailContent">
+                    <!-- 疾病详情内容将通过JavaScript动态加载 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="printDiseaseInfo()">
+                    <i class="bi bi-printer"></i> 打印信息
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑疾病模态框 -->
+<div class="modal fade" id="diseaseFormModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="diseaseFormTitle">添加疾病</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="diseaseForm">
+                    <input type="hidden" id="diseaseId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">疾病名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="diseaseName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">ICD-10编码</label>
+                                <input type="text" class="form-control" id="icdCode" placeholder="如：E75.2">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">疾病分类</label>
+                        <select class="form-select" id="diseaseCategory">
+                            <option value="metabolic">代谢性疾病</option>
+                            <option value="genetic">遗传性疾病</option>
+                            <option value="neurological">神经系统疾病</option>
+                            <option value="immune">免疫系统疾病</option>
+                            <option value="skeletal">骨骼系统疾病</option>
+                            <option value="other">其他罕见病</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">疾病描述</label>
+                        <textarea class="form-control" id="diseaseDescription" rows="3" 
+                                  placeholder="请输入疾病的详细描述..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">常见症状</label>
+                        <textarea class="form-control" id="diseaseSymptoms" rows="3" 
+                                  placeholder="请输入疾病的常见症状，用逗号分隔..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">诊断标准</label>
+                        <textarea class="form-control" id="diagnosticCriteria" rows="3" 
+                                  placeholder="请输入疾病的诊断标准..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">治疗方案</label>
+                        <textarea class="form-control" id="treatmentPlan" rows="3" 
+                                  placeholder="请输入疾病的治疗方案..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">预防措施</label>
+                        <textarea class="form-control" id="preventionMeasures" rows="2" 
+                                  placeholder="请输入疾病的预防措施..."></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">发病率</label>
+                                <input type="text" class="form-control" id="incidenceRate" 
+                                       placeholder="如：1/100,000">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">遗传方式</label>
+                                <select class="form-select" id="inheritancePattern">
+                                    <option value="">请选择</option>
+                                    <option value="autosomal_dominant">常染色体显性遗传</option>
+                                    <option value="autosomal_recessive">常染色体隐性遗传</option>
+                                    <option value="x_linked">X连锁遗传</option>
+                                    <option value="mitochondrial">线粒体遗传</option>
+                                    <option value="sporadic">散发性</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isFeatured">
+                            <label class="form-check-label" for="isFeatured">
+                                标记为推荐疾病
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deleteDiseaseBtn" style="display: none;" 
+                        onclick="confirmDeleteDisease()">删除</button>
+                <button type="button" class="btn btn-primary" onclick="saveDisease()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.disease-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.disease-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.disease-card.featured {
+    border-left: 4px solid #ffc107;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.disease-meta {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.disease-item:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+}
+</style>
+
+<script>
+// 初始化页面
+document.addEventListener('DOMContentLoaded', function() {
+    updateStatistics();
+});
+
+// 更新统计信息
+function updateStatistics() {
+    // 这里可以根据实际数据更新统计信息
+    document.getElementById('metabolicCount').textContent = document.querySelectorAll('.disease-item').length;
+    document.getElementById('geneticCount').textContent = Math.floor(document.querySelectorAll('.disease-item').length * 0.6);
+}
+
+// 搜索疾病
+function searchDiseases() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const diseaseItems = document.querySelectorAll('.disease-item');
+    let visibleCount = 0;
+    
+    diseaseItems.forEach(item => {
+        const diseaseName = item.querySelector('strong').textContent.toLowerCase();
+        const diseaseSymptoms = item.querySelector('td:nth-child(3)').textContent.toLowerCase();
+        const diseaseTreatment = item.querySelector('td:nth-child(4)').textContent.toLowerCase();
+        
+        const isVisible = diseaseName.includes(searchTerm) || 
+                         diseaseSymptoms.includes(searchTerm) || 
+                         diseaseTreatment.includes(searchTerm);
+        
+        item.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount++;
+    });
+    
+    document.getElementById('diseaseCount').textContent = `${visibleCount} 种疾病`;
+}
+
+// 快速搜索
+function quickSearch(term) {
+    document.getElementById('searchInput').value = term;
+    searchDiseases();
+}
+
+// 筛选疾病
+function filterDiseases() {
+    const category = document.getElementById('categoryFilter').value;
+    // 实际应用中应该根据分类筛选疾病
+    searchDiseases(); // 暂时使用搜索功能
+}
+
+// 排序疾病
+function sortDiseases(method) {
+    // 实际应用中应该实现排序逻辑
+    alert(`按${method === 'name' ? '名称' : '时间'}排序功能正在开发中...`);
+}
+
+// 查看疾病详情
+function viewDiseaseDetail(diseaseId) {
+    // 实际应用中应该从后端获取疾病详情
+    const diseaseDetailContent = document.getElementById('diseaseDetailContent');
+    
+    // 模拟疾病详情数据
+    const diseaseDetails = {
+        1: {
+            name: '戈谢病',
+            icd: 'E75.2',
+            category: '代谢性疾病',
+            description: '戈谢病是一种常染色体隐性遗传的溶酶体贮积病，由于葡萄糖脑苷脂酶活性缺乏，导致其底物葡萄糖脑苷脂在肝、脾、骨骼、肺、脑及骨髓等单核-巨噬细胞系统中贮积。',
+            symptoms: '肝脾肿大、贫血、血小板减少、骨痛、病理性骨折、生长发育迟缓',
+            diagnosis: '酶活性检测、基因检测、骨髓检查',
+            treatment: '酶替代治疗、底物减少疗法、对症支持治疗',
+            prevention: '遗传咨询、产前诊断',
+            incidence: '1/50,000 - 1/100,000',
+            inheritance: '常染色体隐性遗传'
+        },
+        2: {
+            name: '法布雷病',
+            icd: 'E75.2',
+            category: '代谢性疾病',
+            description: '法布雷病是一种X连锁遗传的溶酶体贮积病，由于α-半乳糖苷酶A活性缺乏，导致其底物三己糖酰基鞘脂醇在肾脏、心脏、神经系统等组织中贮积。',
+            symptoms: '手脚疼痛、皮肤血管角质瘤、少汗、角膜混浊、肾功能不全、心脏病',
+            diagnosis: '酶活性检测、基因检测、病理检查',
+            treatment: '酶替代治疗、对症支持治疗',
+            prevention: '遗传咨询、产前诊断',
+            incidence: '1/40,000 - 1/120,000',
+            inheritance: 'X连锁遗传'
+        }
+    };
+    
+    const disease = diseaseDetails[diseaseId] || {
+        name: '未知疾病',
+        icd: '未知',
+        category: '未知',
+        description: '暂无详细描述',
+        symptoms: '暂无症状信息',
+        diagnosis: '暂无诊断标准',
+        treatment: '暂无治疗方案',
+        prevention: '暂无预防措施',
+        incidence: '未知',
+        inheritance: '未知'
+    };
+    
+    diseaseDetailContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-8">
+                <h4 class="text-primary">${disease.name}</h4>
+                <div class="mb-3">
+                    <span class="badge bg-secondary me-2">ICD-10: ${disease.icd}</span>
+                    <span class="badge bg-info">${disease.category}</span>
+                </div>
+                <p>${disease.description}</p>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>疾病信息</h6>
+                        <p><strong>发病率:</strong> ${disease.incidence}</p>
+                        <p><strong>遗传方式:</strong> ${disease.inheritance}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">常见症状</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>${disease.symptoms}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">诊断标准</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>${disease.diagnosis}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">治疗方案</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>${disease.treatment}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">预防措施</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>${disease.prevention}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('diseaseDetailTitle').textContent = `${disease.name} - 疾病详情`;
+    new bootstrap.Modal(document.getElementById('diseaseDetailModal')).show();
+}
+
+// 打印疾病信息
+function printDiseaseInfo() {
+    window.print();
+}
+
+// 显示添加疾病模态框
+function showAddDiseaseModal() {
+    document.getElementById('diseaseFormTitle').textContent = '添加疾病';
+    document.getElementById('diseaseForm').reset();
+    document.getElementById('deleteDiseaseBtn').style.display = 'none';
+    document.getElementById('diseaseId').value = '';
+    
+    new bootstrap.Modal(document.getElementById('diseaseFormModal')).show();
+}
+
+// 编辑疾病
+function editDisease(diseaseId) {
+    // 实际应用中应该从后端获取疾病数据
+    document.getElementById('diseaseFormTitle').textContent = '编辑疾病';
+    document.getElementById('deleteDiseaseBtn').style.display = 'block';
+    document.getElementById('diseaseId').value = diseaseId;
+    
+    // 模拟填充表单数据
+    document.getElementById('diseaseName').value = '戈谢病';
+    document.getElementById('icdCode').value = 'E75.2';
+    document.getElementById('diseaseCategory').value = 'metabolic';
+    document.getElementById('diseaseDescription').value = '戈谢病是一种常染色体隐性遗传的溶酶体贮积病...';
+    document.getElementById('diseaseSymptoms').value = '肝脾肿大, 贫血, 血小板减少, 骨痛';
+    document.getElementById('diagnosticCriteria').value = '酶活性检测显示葡萄糖脑苷脂酶活性缺乏';
+    document.getElementById('treatmentPlan').value = '酶替代治疗，底物减少疗法';
+    document.getElementById('preventionMeasures').value = '遗传咨询和产前诊断';
+    document.getElementById('incidenceRate').value = '1/50,000';
+    document.getElementById('inheritancePattern').value = 'autosomal_recessive';
+    document.getElementById('isFeatured').checked = true;
+    
+    new bootstrap.Modal(document.getElementById('diseaseFormModal')).show();
+}
+
+// 保存疾病
+function saveDisease() {
+    const form = document.getElementById('diseaseForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const diseaseId = document.getElementById('diseaseId').value;
+    const isEdit = !!diseaseId;
+    
+    // 实际应用中应该通过AJAX保存到后端
+    alert(`${isEdit ? '更新' : '添加'}疾病成功！`);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('diseaseFormModal'));
+    modal.hide();
+    
+    // 刷新页面
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+// 确认删除疾病
+function confirmDeleteDisease() {
+    if (confirm('确定要删除这个疾病吗？此操作不可恢复！')) {
+        deleteDisease(document.getElementById('diseaseId').value);
+    }
+}
+
+// 删除疾病
+function deleteDisease(diseaseId) {
+    // 实际应用中应该通过AJAX删除
+    alert(`疾病 ID: ${diseaseId} 删除成功！`);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('diseaseFormModal'));
+    modal.hide();
+    
+    // 刷新页面
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+// 刷新数据
+function refreshData() {
+    window.location.reload();
+}
+</script>
+{% endblock %}
+[file content end]

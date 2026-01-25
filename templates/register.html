@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-body p-5">
+                <h2 class="card-title text-center mb-4">注册账号</h2>
+                
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">账号</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">邮箱</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       placeholder="例：example@123.com" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">设置密码</label>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       placeholder="5个字符到10个字符" minlength="5" maxlength="10" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">确认密码</label>
+                                <input type="password" class="form-control" id="confirm_password" 
+                                       name="confirm_password" placeholder="确认密码" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">昵称</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" 
+                               placeholder="2个字符到12个字符" minlength="2" maxlength="12" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="user_type" class="form-label">身份</label>
+                        <select class="form-select" id="user_type" name="user_type" required>
+                            <option value="">请选择身份</option>
+                            <option value="doctor">医生用户</option>
+                            <option value="patient">患者用户</option>
+                        </select>
+                    </div>
+                    
+                    <div id="patient_fields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="patient_name" class="form-label">患者姓名</label>
+                                    <input type="text" class="form-control" id="patient_name" name="patient_name" 
+                                           placeholder="患者姓名">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="patient_gender" class="form-label">患者性别</label>
+                                    <select class="form-select" id="patient_gender" name="patient_gender">
+                                        <option value="">请选择</option>
+                                        <option value="male">男</option>
+                                        <option value="female">女</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="patient_age" class="form-label">患者年龄</label>
+                            <input type="number" class="form-control" id="patient_age" name="patient_age" min="0" max="120">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-2">注册</button>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <span class="text-muted">已有账户？</span>
+                        <a href="{{ url_for('login') }}">立即登录</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('user_type').addEventListener('change', function() {
+    const patientFields = document.getElementById('patient_fields');
+    if (this.value === 'patient') {
+        patientFields.style.display = 'block';
+    } else {
+        patientFields.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

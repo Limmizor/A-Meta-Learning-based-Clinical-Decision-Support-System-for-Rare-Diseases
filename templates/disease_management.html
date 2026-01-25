@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}疾病管理 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>疾病管理</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDiseaseModal">
+            <i class="bi bi-plus-circle"></i> 添加疾病
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">疾病数据库</h5>
+        </div>
+        <div class="card-body">
+            {% if diseases %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>疾病ID</th>
+                            <th>疾病名称</th>
+                            <th>描述</th>
+                            <th>常见症状</th>
+                            <th>治疗方案</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for disease in diseases %}
+                        <tr>
+                            <td>D{{ disease.disease_id }}</td>
+                            <td><strong>{{ disease.name }}</strong></td>
+                            <td>{{ disease.description[:100] }}{% if disease.description|length > 100 %}...{% endif %}</td>
+                            <td>{{ disease.symptoms[:100] }}{% if disease.symptoms|length > 100 %}...{% endif %}</td>
+                            <td>{{ disease.treatment[:100] }}{% if disease.treatment|length > 100 %}...{% endif %}</td>
+                            <td>{{ disease.created_at.strftime('%Y-%m-%d') if disease.created_at else '未知' }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="editDisease('{{ disease.disease_id }}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteDisease('{{ disease.disease_id }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-capsule display-1 text-muted"></i>
+                <h5 class="mt-3">暂无疾病数据</h5>
+                <p class="text-muted">请添加疾病信息以完善数据库</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDiseaseModal">
+                    <i class="bi bi-plus-circle"></i> 添加第一个疾病
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 添加疾病的模态框 -->
+<div class="modal fade" id="addDiseaseModal" tabindex="-1" aria-labelledby="addDiseaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDiseaseModalLabel">添加新疾病</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDiseaseForm">
+                    <div class="mb-3">
+                        <label for="diseaseName" class="form-label">疾病名称</label>
+                        <input type="text" class="form-control" id="diseaseName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="diseaseDescription" class="form-label">疾病描述</label>
+                        <textarea class="form-control" id="diseaseDescription" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="diseaseSymptoms" class="form-label">常见症状</label>
+                        <textarea class="form-control" id="diseaseSymptoms" name="symptoms" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="diseaseTreatment" class="form-label">治疗方案</label>
+                        <textarea class="form-control" id="diseaseTreatment" name="treatment" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addDisease()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 添加疾病
+function addDisease() {
+    const form = document.getElementById('addDiseaseForm');
+    const formData = new FormData(form);
+    
+    // 简单的表单验证
+    const diseaseName = formData.get('name');
+    if (!diseaseName || diseaseName.trim() === '') {
+        alert('疾病名称不能为空');
+        return;
+    }
+    
+    // 显示加载状态
+    const submitBtn = document.querySelector('#addDiseaseModal .btn-primary');
+    const originalText = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 添加中...';
+    submitBtn.disabled = true;
+    
+    // 修复：使用正确的URL，这里假设后端路由是 '/add_disease'
+    fetch('/add_disease', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('疾病添加成功');
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addDiseaseModal'));
+            modal.hide();
+            // 刷新页面
+            location.reload();
+        } else {
+            alert('添加失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('错误详情:', error);
+        alert('网络错误: ' + error.message);
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function editDisease(diseaseId) {
+    // 实现编辑功能
+    alert('编辑疾病 ID: ' + diseaseId);
+}
+
+function deleteDisease(diseaseId) {
+    if (confirm('确定要删除这个疾病吗？此操作无法撤销。')) {
+        // 修复：使用正确的URL
+        fetch('/delete_disease/' + diseaseId, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('疾病删除成功');
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('网络错误: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

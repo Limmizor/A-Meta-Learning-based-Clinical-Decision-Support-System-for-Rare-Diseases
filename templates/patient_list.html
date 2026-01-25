@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}患者列表 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-people-fill"></i> 患者列表</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+            <i class="bi bi-person-plus"></i> 添加患者
+        </button>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="搜索患者姓名或ID..." id="searchInput">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="genderFilter">
+                        <option value="">所有性别</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                        <i class="bi bi-arrow-clockwise"></i> 重置筛选
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 患者列表 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-list-ul"></i> 患者信息
+                <span class="badge bg-primary ms-2">{{ patients|length }} 位患者</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if patients %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="patientsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>患者ID</th>
+                            <th>姓名</th>
+                            <th>年龄</th>
+                            <th>性别</th>
+                            <th>联系方式</th>
+                            <th>病史摘要</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">PT{{ patient.patient_id }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ patient.name }}</strong>
+                            </td>
+                            <td>
+                                {% if patient.age %}
+                                    <span class="badge bg-info">{{ patient.age }}岁</span>
+                                {% else %}
+                                    <span class="text-muted">未填写</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if patient.gender == 'male' %}
+                                    <span class="badge bg-primary">男</span>
+                                {% elif patient.gender == 'female' %}
+                                    <span class="badge bg-danger">女</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">其他</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if patient.contact_number %}
+                                    <i class="bi bi-telephone"></i> {{ patient.contact_number }}
+                                {% else %}
+                                    <span class="text-muted">未填写</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if patient.medical_history %}
+                                    {{ patient.medical_history[:50] }}{% if patient.medical_history|length > 50 %}...{% endif %}
+                                {% else %}
+                                    <span class="text-muted">无</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '未知' }}
+                                </small>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('patient_detail', patient_id=patient.patient_id) }}" 
+                                       class="btn btn-outline-primary" title="查看详情">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-outline-secondary" onclick="editPatient('{{ patient.patient_id }}')" title="编辑">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deletePatient('{{ patient.patient_id }}')" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-people display-1 text-muted"></i>
+                <h4 class="mt-3 text-muted">暂无患者数据</h4>
+                <p class="text-muted">请添加患者信息以开始管理</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+                    <i class="bi bi-person-plus"></i> 添加第一个患者
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    {% if patients %}
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-bg-primary">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ patients|length }}</h4>
+                    <p class="card-text">总患者数</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-success">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ patients|selectattr('gender', 'equalto', 'male')|list|length }}</h4>
+                    <p class="card-text">男性患者</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-danger">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ patients|selectattr('gender', 'equalto', 'female')|list|length }}</h4>
+                    <p class="card-text">女性患者</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-info">
+                <div class="card-body text-center">
+                    <h4 class="card-title">{{ patients|selectattr('age')|list|length }}</h4>
+                    <p class="card-text">已记录年龄</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 添加患者模态框 -->
+<div class="modal fade" id="addPatientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> 添加新患者</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPatientForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">患者姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="age" class="form-label">年龄</label>
+                                <input type="number" class="form-control" id="age" name="age" min="0" max="120">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="gender" class="form-label">性别</label>
+                                <select class="form-select" id="gender" name="gender">
+                                    <option value="">请选择</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_number" class="form-label">联系方式</label>
+                        <input type="text" class="form-control" id="contact_number" name="contact_number">
+                    </div>
+                    <div class="mb-3">
+                        <label for="medical_history" class="form-label">病史记录</label>
+                        <textarea class="form-control" id="medical_history" name="medical_history" rows="3" placeholder="请输入患者的病史信息..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addPatient()">保存患者</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 搜索功能
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchText = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#patientsTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchText) ? '' : 'none';
+    });
+});
+
+// 性别筛选
+document.getElementById('genderFilter').addEventListener('change', function() {
+    const gender = this.value;
+    const rows = document.querySelectorAll('#patientsTable tbody tr');
+    
+    rows.forEach(row => {
+        if (!gender) {
+            row.style.display = '';
+            return;
+        }
+        
+        const genderCell = row.cells[3].textContent;
+        const show = (gender === 'male' && genderCell.includes('男')) || 
+                     (gender === 'female' && genderCell.includes('女'));
+        row.style.display = show ? '' : 'none';
+    });
+});
+
+// 清除筛选
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('genderFilter').value = '';
+    const rows = document.querySelectorAll('#patientsTable tbody tr');
+    rows.forEach(row => row.style.display = '');
+}
+
+// 添加患者
+function addPatient() {
+    const form = document.getElementById('addPatientForm');
+    const formData = new FormData(form);
+    
+    // 表单验证
+    const patientName = formData.get('name');
+    if (!patientName || patientName.trim() === '') {
+        alert('患者姓名不能为空');
+        return;
+    }
+    
+    // 显示加载状态
+    const submitBtn = document.querySelector('#addPatientModal .btn-primary');
+    const originalText = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 添加中...';
+    submitBtn.disabled = true;
+    
+    fetch('/add_patient', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('患者添加成功');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addPatientModal'));
+            modal.hide();
+            location.reload();
+        } else {
+            alert('添加失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('错误:', error);
+        alert('网络错误: ' + error.message);
+    })
+    .finally(() => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// 编辑患者（占位函数）
+function editPatient(patientId) {
+    alert('编辑患者功能开发中，患者ID: ' + patientId);
+    // 后续可以跳转到编辑页面或打开编辑模态框
+}
+
+// 删除患者
+function deletePatient(patientId) {
+    if (confirm('确定要删除这个患者吗？此操作无法撤销，相关的诊断记录也会被删除。')) {
+        fetch('/delete_patient/' + patientId, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('患者删除成功');
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('网络错误: ' + error);
+        });
+    }
+}
+</script>
+
+<style>
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+}
+</style>
+{% endblock %}

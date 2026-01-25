@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h4><i class="bi bi-clipboard-check"></i> 症状自查结果分析</h4>
+            <p class="text-white-50 mb-0">结果仅供参考，具体诊断请咨询专业医师</p>
+        </div>
+        <div class="card-body">
+            <!-- 用户输入信息概览 -->
+            <div class="alert alert-info">
+                <h5><i class="bi bi-person-circle"></i> 自查信息概览</h5>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <strong>年龄:</strong> {{ user_input.age or '未填写' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>性别:</strong> {{ user_input.gender or '未填写' }}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>症状数量:</strong> {{ user_input.symptoms|length }} 个
+                    </div>
+                </div>
+                {% if user_input.medical_history %}
+                <div class="mt-2">
+                    <strong>病史:</strong> {{ user_input.medical_history }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 可能相关的罕见病 -->
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle"></i> 可能相关的罕见病</h5>
+                <p class="mb-0">根据您提供的症状信息，系统分析可能与以下罕见病相关：</p>
+            </div>
+
+            <div class="row mt-4">
+                {% for disease in possible_diseases %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-{% if disease.match_score > 0.7 %}danger{% elif disease.match_score > 0.4 %}warning{% else %}info{% endif %}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">{{ disease.name }}</h5>
+                            <span class="badge bg-{% if disease.match_score > 0.7 %}danger{% elif disease.match_score > 0.4 %}warning{% else %}info{% endif %}">
+                                匹配度: {{ (disease.match_score * 100)|int }}%
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ disease.description }}</p>
+                            {% if disease.common_symptoms %}
+                            <div class="mt-3">
+                                <strong>常见症状:</strong>
+                                <div class="mt-1">
+                                    {% for symptom in disease.common_symptoms %}
+                                    <span class="badge bg-light text-dark me-1">{{ symptom }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> ICD编码: {{ disease.icd_code or '未知' }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-success text-center">
+                        <i class="bi bi-check-circle display-4"></i>
+                        <h4 class="mt-3">未发现明显的罕见病匹配</h4>
+                        <p>根据您提供的症状，系统未发现与已知罕见病的高度匹配。</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- 建议行动 -->
+            <div class="mt-5">
+                <h5><i class="bi bi-lightbulb"></i> 建议行动</h5>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <i class="bi bi-hospital text-primary me-2"></i>
+                        <strong>专业就诊:</strong> 建议尽快前往专科医院进行进一步检查
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-file-text text-success me-2"></i>
+                        <strong>携带报告:</strong> 打印此自查报告供医生参考
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-journal-text text-info me-2"></i>
+                        <strong>症状记录:</strong> 持续记录症状变化情况，便于医生诊断
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-telephone text-warning me-2"></i>
+                        <strong>紧急情况:</strong> 如症状加重，请立即就医或拨打急救电话
+                    </div>
+                </div>
+            </div>
+
+            <!-- 免责声明 -->
+            <div class="alert alert-light mt-4">
+                <h6><i class="bi bi-shield-exclamation"></i> 免责声明</h6>
+                <p class="small mb-0">
+                    本自查结果基于人工智能算法分析，仅供参考，不能替代专业医生的诊断。
+                    如果您有任何健康问题，请及时咨询医疗专业人员。系统不对任何因使用本自查功能而产生的后果负责。
+                </p>
+            </div>
+
+            <div class="mt-5 text-center">
+                <a href="{{ url_for('patient_dashboard') }}" class="btn btn-primary">
+                    <i class="bi bi-house"></i> 返回首页
+                </a>
+                <button class="btn btn-success ms-2" onclick="window.print()">
+                    <i class="bi bi-printer"></i> 打印报告
+                </button>
+                <a href="{{ url_for('symptom_check') }}" class="btn btn-outline-primary ms-2">
+                    <i class="bi bi-arrow-repeat"></i> 重新自查
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .alert-light {
+        display: none !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}

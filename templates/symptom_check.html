@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4>罕见病症状自查</h4>
+        </div>
+        <div class="card-body">
+            <form id="symptomForm" onsubmit="event.preventDefault(); submitSymptomCheck();">
+                <div class="mb-3">
+                    <label for="symptoms" class="form-label">请描述您的症状（可多选）</label>
+                    <div class="row">
+                        <!-- 常见症状选项 -->
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="疲劳">
+                                <label class="form-check-label">疲劳</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="肌肉疼痛">
+                                <label class="form-check-label">肌肉疼痛</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="关节疼痛">
+                                <label class="form-check-label">关节疼痛</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="皮疹">
+                                <label class="form-check-label">皮疹</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="发热">
+                                <label class="form-check-label">发热</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="体重下降">
+                                <label class="form-check-label">体重下降</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="呼吸困难">
+                                <label class="form-check-label">呼吸困难</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="symptoms" value="其他">
+                                <label class="form-check-label">其他</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="symptomDetails" class="form-label">症状详细描述</label>
+                    <textarea class="form-control" id="symptomDetails" name="symptomDetails" rows="3" placeholder="请详细描述您的症状、持续时间和特点"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label for="age" class="form-label">年龄</label>
+                    <input type="number" class="form-control" id="age" name="age" min="0" max="120">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">性别</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="gender" value="男">
+                        <label class="form-check-label">男</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="gender" value="女">
+                        <label class="form-check-label">女</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="medicalHistory" class="form-label">既往病史</label>
+                    <textarea class="form-control" id="medicalHistory" name="medicalHistory" rows="2" placeholder="如有既往病史，请在此说明"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">提交自查</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

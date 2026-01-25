@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}在线咨询 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- 页面标题和操作按钮 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-chat-dots me-2"></i>在线咨询</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="clearChat()">
+                <i class="bi bi-trash"></i> 清空记录
+            </button>
+            <button class="btn btn-outline-success" onclick="downloadChat()">
+                <i class="bi bi-download"></i> 导出记录
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：聊天主界面 -->
+        <div class="col-lg-8">
+            <!-- 聊天窗口 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-chat-left-text"></i> 咨询对话
+                        <span class="badge bg-light text-primary ms-2" id="messageCount">3 条消息</span>
+                    </h5>
+                    <div class="doctor-info">
+                        <span class="badge bg-success">
+                            <i class="bi bi-circle-fill"></i> 张医生 - 在线
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- 消息区域 -->
+                    <div class="chat-messages p-3" id="chatMessages" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+                        {% for message in messages %}
+                        <div class="message {% if message.sender == 'patient' %}message-sent{% else %}message-received{% endif %} mb-3">
+                            <div class="d-flex {% if message.sender == 'patient' %}justify-content-end{% endif %}">
+                                {% if message.sender != 'patient' %}
+                                <div class="avatar me-3">
+                                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                         style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                                        {{ message.avatar }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="message-content {% if message.sender == 'patient' %}text-end{% endif %}" style="max-width: 70%;">
+                                    <div class="message-bubble {% if message.sender == 'patient' %}bg-primary text-white{% else %}bg-white border{% endif %} rounded-3 p-3">
+                                        <div class="message-text">{{ message.content }}</div>
+                                        <div class="message-time small mt-1 {% if message.sender == 'patient' %}text-white-50{% else %}text-muted{% endif %}">
+                                            {{ message.timestamp }}
+                                        </div>
+                                    </div>
+                                    <div class="sender-name small mt-1 {% if message.sender == 'patient' %}text-end{% endif %}">
+                                        {{ message.sender_name }}
+                                    </div>
+                                </div>
+                                
+                                {% if message.sender == 'patient' %}
+                                <div class="avatar ms-3">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                         style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                                        {{ patient.name[0] if patient else 'P' }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- 输入区域 -->
+                    <div class="chat-input border-top p-3 bg-white">
+                        <form id="messageForm">
+                            <div class="input-group">
+                                <textarea class="form-control" id="messageInput" rows="2" 
+                                          placeholder="输入您的问题或症状描述..." style="resize: none;"></textarea>
+                                <button type="submit" class="btn btn-primary" id="sendButton">
+                                    <i class="bi bi-send"></i> 发送
+                                </button>
+                            </div>
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <div class="quick-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addQuickMessage('我最近关节疼痛')">
+                                        关节疼痛
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addQuickMessage('我有视力模糊的问题')">
+                                        视力模糊
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addQuickMessage('感觉疲劳乏力')">
+                                        疲劳乏力
+                                    </button>
+                                </div>
+                                <div class="file-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="attachImage()">
+                                        <i class="bi bi-image"></i> 图片
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="attachFile()">
+                                        <i class="bi bi-paperclip"></i> 文件
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 咨询历史 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history"></i> 咨询历史
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">与张医生的咨询</h6>
+                                    <p class="mb-1 text-muted">最近消息：我最近感觉关节有些疼痛...</p>
+                                    <small class="text-muted">2024-01-15 10:33:45</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">进行中</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">与李医生的咨询</h6>
+                                    <p class="mb-1 text-muted">咨询已完成，感谢您的咨询</p>
+                                    <small class="text-muted">2024-01-10 14:20:30</small>
+                                </div>
+                                <span class="badge bg-secondary rounded-pill">已结束</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：医生信息和快速操作 -->
+        <div class="col-lg-4">
+            <!-- 当前医生信息 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-badge"></i> 当前医生
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="doctor-avatar mb-3">
+                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto" 
+                             style="width: 80px; height: 80px; font-size: 24px; font-weight: bold;">
+                            D
+                        </div>
+                    </div>
+                    <h5>张医生</h5>
+                    <p class="text-muted mb-2">罕见病专科主任医师</p>
+                    <div class="doctor-stats">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <small class="text-muted">接诊数</small>
+                                <div class="fw-bold text-success">1,248</div>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted">评分</small>
+                                <div class="fw-bold text-warning">4.9</div>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted">响应</small>
+                                <div class="fw-bold text-info">98%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary btn-sm me-2" onclick="viewDoctorProfile()">
+                            <i class="bi bi-info-circle"></i> 医生详情
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="endConsultation()">
+                            <i class="bi bi-telephone-x"></i> 结束咨询
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在线医生 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people"></i> 在线医生
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if online_doctors %}
+                    <div class="list-group">
+                        {% for doctor in online_doctors %}
+                        <div class="list-group-item">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar me-3">
+                                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                         style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                                        {{ doctor.full_name[0] if doctor.full_name else 'D' }}
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0">{{ doctor.full_name }}</h6>
+                                    <small class="text-muted">{{ doctor.specialty or '罕见病专科' }}</small>
+                                </div>
+                                <span class="badge bg-success">
+                                    <i class="bi bi-circle-fill"></i> 在线
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="bi bi-people display-1 text-muted"></i>
+                        <p class="text-muted mt-2">暂无在线医生</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 咨询指南 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle"></i> 咨询指南
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-lightbulb"></i> 温馨提示</h6>
+                        <ul class="small mb-0">
+                            <li>请详细描述您的症状和不适</li>
+                            <li>提供相关的检查报告和病史</li>
+                            <li>医生通常在5分钟内回复</li>
+                            <li>紧急情况请立即前往医院</li>
+                        </ul>
+                    </div>
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-exclamation-triangle"></i> 注意事项</h6>
+                        <p class="small mb-0">在线咨询不能替代面诊，如有紧急情况请拨打急救电话</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图片上传模态框 -->
+<div class="modal fade" id="imageUploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传图片</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" class="form-control" id="imageFile" accept="image/*">
+                <div class="mt-3">
+                    <small class="text-muted">支持 JPG、PNG 格式，最大 5MB</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadImage()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-messages {
+    background-color: #f8f9fa;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+.message-bubble {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.message-received .message-bubble {
+    border-left: 3px solid #0dcaf0;
+}
+
+.message-sent .message-bubble {
+    border-right: 3px solid #0d6efd;
+}
+
+.avatar {
+    flex-shrink: 0;
+}
+
+.message-content {
+    word-wrap: break-word;
+}
+
+.quick-actions .btn {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.file-actions .btn {
+    margin-left: 5px;
+}
+
+.list-group-item {
+    border: 1px solid rgba(0,0,0,0.125);
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+}
+
+.btn {
+    border-radius: 6px;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+
+<script>
+// 初始化页面
+document.addEventListener('DOMContentLoaded', function() {
+    // 滚动到消息底部
+    scrollToBottom();
+    
+    // 表单提交事件
+    document.getElementById('messageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        sendMessage();
+    });
+});
+
+// 滚动到底部
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 发送消息
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (!message) {
+        alert('请输入消息内容');
+        return;
+    }
+    
+    // 显示发送中的消息
+    addMessageToChat('patient', message);
+    
+    // 清空输入框
+    messageInput.value = '';
+    
+    // 模拟医生回复（实际应用中应该通过WebSocket等方式实现）
+    setTimeout(() => {
+        const responses = [
+            '收到您的消息，我会尽快为您分析。',
+            '这种情况持续多久了？',
+            '建议您提供更多的症状描述。',
+            '根据您的描述，建议进行相关检查。',
+            '请继续观察症状变化。'
+        ];
+        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+        addMessageToChat('doctor', randomResponse);
+    }, 2000);
+}
+
+// 添加消息到聊天窗口
+function addMessageToChat(sender, content) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageId = Date.now();
+    const timestamp = new Date().toLocaleString('zh-CN');
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender === 'patient' ? 'message-sent' : 'message-received'} mb-3`;
+    
+    const isPatient = sender === 'patient';
+    
+    messageDiv.innerHTML = `
+        <div class="d-flex ${isPatient ? 'justify-content-end' : ''}">
+            ${!isPatient ? `
+            <div class="avatar me-3">
+                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center" 
+                     style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                    D
+                </div>
+            </div>
+            ` : ''}
+            
+            <div class="message-content ${isPatient ? 'text-end' : ''}" style="max-width: 70%;">
+                <div class="message-bubble ${isPatient ? 'bg-primary text-white' : 'bg-white border'} rounded-3 p-3">
+                    <div class="message-text">${content}</div>
+                    <div class="message-time small mt-1 ${isPatient ? 'text-white-50' : 'text-muted'}">
+                        ${timestamp}
+                    </div>
+                </div>
+                <div class="sender-name small mt-1 ${isPatient ? 'text-end' : ''}">
+                    ${isPatient ? '我' : '张医生'}
+                </div>
+            </div>
+            
+            ${isPatient ? `
+            <div class="avatar ms-3">
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                     style="width: 40px; height: 40px; font-size: 14px; font-weight: bold;">
+                    ${'{{ patient.name[0] if patient else "P" }}'}
+                </div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    scrollToBottom();
+    updateMessageCount();
+}
+
+// 更新消息计数
+function updateMessageCount() {
+    const messageCount = document.querySelectorAll('.message').length;
+    document.getElementById('messageCount').textContent = `${messageCount} 条消息`;
+}
+
+// 添加快捷消息
+function addQuickMessage(message) {
+    document.getElementById('messageInput').value = message;
+}
+
+// 清空聊天记录
+function clearChat() {
+    if (confirm('确定要清空聊天记录吗？此操作不可恢复。')) {
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        updateMessageCount();
+    }
+}
+
+// 导出聊天记录
+function downloadChat() {
+    alert('聊天记录导出功能正在开发中...');
+}
+
+// 查看医生详情
+function viewDoctorProfile() {
+    alert('医生详情功能正在开发中...');
+}
+
+// 结束咨询
+function endConsultation() {
+    if (confirm('确定要结束本次咨询吗？')) {
+        alert('咨询已结束，感谢您的使用。');
+        // 实际应用中应该更新咨询状态
+    }
+}
+
+// 上传图片
+function attachImage() {
+    const imageModal = new bootstrap.Modal(document.getElementById('imageUploadModal'));
+    imageModal.show();
+}
+
+// 上传文件
+function attachFile() {
+    alert('文件上传功能正在开发中...');
+}
+
+// 上传图片处理
+function uploadImage() {
+    const fileInput = document.getElementById('imageFile');
+    if (fileInput.files.length === 0) {
+        alert('请选择图片文件');
+        return;
+    }
+    
+    // 模拟图片上传
+    alert('图片上传成功！');
+    const imageModal = bootstrap.Modal.getInstance(document.getElementById('imageUploadModal'));
+    imageModal.hide();
+    
+    // 在聊天中显示图片消息
+    addMessageToChat('patient', '[图片] 已上传症状图片');
+}
+</script>
+{% endblock %}

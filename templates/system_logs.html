@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}系统日志 - 罕病智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>系统日志</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="exportLogs()">
+                <i class="bi bi-download"></i> 导出日志
+            </button>
+            <button class="btn btn-outline-danger" onclick="clearLogs()">
+                <i class="bi bi-trash"></i> 清空日志
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">系统操作记录</h5>
+        </div>
+        <div class="card-body">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>日志ID</th>
+                            <th>用户</th>
+                            <th>操作类型</th>
+                            <th>操作详情</th>
+                            <th>IP地址</th>
+                            <th>时间戳</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>L{{ log.log_id }}</td>
+                            <td>{{ log.username }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if log.action_level == 'error' %}bg-danger
+                                    {% elif log.action_level == 'warning' %}bg-warning
+                                    {% elif log.action_level == 'info' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td>{{ log.details }}</td>
+                            <td>{{ log.ip_address or '未知' }}</td>
+                            <td>{{ log.log_time.strftime('%Y-%m-%d %H:%M:%S') if log.log_time else '未知' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            <nav aria-label="日志分页">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#">上一页</a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">下一页</a>
+                    </li>
+                </ul>
+            </nav>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-file-text display-1 text-muted"></i>
+                <h5 class="mt-3">暂无系统日志</h5>
+                <p class="text-muted">系统操作记录将显示在这里</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 统计信息卡片 -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ logs|length }}</h5>
+                    <p class="card-text">总日志数</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">0</h5>
+                    <p class="card-text">今日新增</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">0</h5>
+                    <p class="card-text">警告日志</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">0</h5>
+                    <p class="card-text">错误日志</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportLogs() {
+    if (confirm('确定要导出系统日志吗？')) {
+        fetch('/export_logs', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('日志导出成功');
+                // 这里可以添加下载逻辑
+            } else {
+                alert('导出失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('网络错误: ' + error);
+        });
+    }
+}
+
+function clearLogs() {
+    if (confirm('确定要清空所有系统日志吗？此操作不可恢复！')) {
+        fetch('/clear_logs', {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('日志清空成功');
+                location.reload();
+            } else {
+                alert('清空失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('网络错误: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

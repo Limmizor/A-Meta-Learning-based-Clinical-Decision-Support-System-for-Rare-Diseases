@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>患者详情 - {{ patient.name }}</h1>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadImageModal">上传影像</button>
+        <button class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#diagnoseModal">开始诊断</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">基本信息</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>年龄:</strong> {{ patient.age or '未知' }}</p>
+                <p><strong>性别:</strong> {{ patient.gender or '未知' }}</p>
+                <p><strong>联系方式:</strong> {{ patient.contact_number or '未知' }}</p>
+                <p><strong>病史:</strong> {{ patient.medical_history or '无' }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">医学影像</h5>
+            </div>
+            <div class="card-body">
+                {% if images %}
+                <div class="row">
+                    {% for image in images %}
+                    <div class="col-md-6 mb-3">
+                        <img src="{{ url_for('uploaded_file', filename=image.image_path) }}" 
+                             class="img-thumbnail" alt="{{ image.description }}"
+                             style="width: 100%; height: 150px; object-fit: cover;">
+                        <p class="small mt-1 mb-0">{{ image.description }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">暂无医学影像</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">诊断报告</h5>
+    </div>
+    <div class="card-body">
+        {% if reports %}
+        <div class="accordion" id="reportsAccordion">
+            {% for report in reports %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading{{ report.report_id }}">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#collapse{{ report.report_id }}">
+                        报告 #{{ report.report_id }} - {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </button>
+                </h2>
+                <div id="collapse{{ report.report_id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
+                     data-bs-parent="#reportsAccordion">
+                    <div class="accordion-body">
+                        <p><strong>医生:</strong> {{ report.doctor_name }}</p>
+                        <p><strong>临床笔记:</strong> {{ report.clinical_notes or '无' }}</p>
+                        <p><strong>诊断结果:</strong> {{ report.findings or '无' }}</p>
+                        
+                        {% if report.predictions %}
+                        <h6>疾病预测:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>排名</th>
+                                        <th>疾病名称</th>
+                                        <th>置信度</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for prediction in report.predictions %}
+                                    <tr>
+                                        <td>{{ prediction.rank }}</td>
+                                        <td>{{ prediction.disease_name }}</td>
+                                        <td>{{ "%.2f"|format(prediction.confidence * 100) }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">暂无诊断报告</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 上传影像模态框 -->
+<div class="modal fade" id="uploadImageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传医学影像</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadImageForm" enctype="multipart/form-data">
+                    <input type="hidden" name="patient_id" value="{{ patient.patient_id }}">
+                    <div class="mb-3">
+                        <label for="imageFile" class="form-label">选择影像文件</label>
+                        <input class="form-control" type="file" id="imageFile" name="file" accept="image/*" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="imageType" class="form-label">影像类型</label>
+                        <select class="form-select" id="imageType" name="image_type" required>
+                            <option value="">请选择</option>
+                            <option value="X-ray">X光</option>
+                            <option value="CT">CT</option>
+                            <option value="MRI">MRI</option>
+                            <option value="Ultrasound">超声</option>
+                            <option value="Dermatology">皮肤镜</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="imageDescription" class="form-label">描述</label>
+                        <textarea class="form-control" id="imageDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadImage()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 诊断模态框 -->
+<div class="modal fade" id="diagnoseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">AI辅助诊断</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="diagnoseForm">
+                    <input type="hidden" name="patient_id" value="{{ patient.patient_id }}">
+                    <div class="mb-3">
+                        <label for="clinicalNotes" class="form-label">临床笔记</label>
+                        <textarea class="form-control" id="clinicalNotes" name="clinical_notes" rows="4" 
+                                  placeholder="输入患者的症状、体征等信息..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="startDiagnosis()">开始诊断</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 上传医学影像
+function uploadImage() {
+    const formData = new FormData(document.getElementById('uploadImageForm'));
+    
+    fetch('/upload_image', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('影像上传成功');
+            $('#uploadImageModal').modal('hide');
+            location.reload();
+        } else {
+            alert('上传失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('发生错误，请重试');
+    });
+}
+
+// 开始诊断
+function startDiagnosis() {
+    const formData = new FormData(document.getElementById('diagnoseForm'));
+    
+    // 显示加载中
+    const diagnoseBtn = document.querySelector('#diagnoseModal .btn-primary');
+    const originalText = diagnoseBtn.textContent;
+    diagnoseBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 诊断中...';
+    diagnoseBtn.disabled = true;
+    
+    fetch('/diagnose', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('诊断完成');
+            $('#diagnoseModal').modal('hide');
+            location.reload();
+        } else {
+            alert('诊断失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('发生错误，请重试');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        diagnoseBtn.textContent = originalText;
+        diagnoseBtn.disabled = false;
+    });
+}
+</script>
+{% endblock %}
