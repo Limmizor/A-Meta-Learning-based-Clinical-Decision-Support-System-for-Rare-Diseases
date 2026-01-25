@@ -1,0 +1,63 @@
+# Python 缓存文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyi
+.pytest_cache/
+.mypy_cache/
+
+# 数据文件（数据集和模型）
+data/
+*.pth
+*.pt
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.csv
+*.xlsx
+*.db
+*.sqlite
+
+# VS Code 配置
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志文件
+*.log
+logs/
+
+# 环境配置文件
+.env
+.env.local
+.env.*.local
+
+# 临时文件
+*.tmp
+*.temp
+temp/
+
+# IDE 文件
+.idea/
+*.swp
+*.swo
+*~
+
+# Python 虚拟环境
+venv/
+env/
+ENV/
+
+# Jupyter Notebook 检查点
+.ipynb_checkpoints/
