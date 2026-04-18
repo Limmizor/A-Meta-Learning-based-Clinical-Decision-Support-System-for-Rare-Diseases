@@ -95,6 +95,14 @@ def register():
         full_name = request.form.get('full_name')
         user_type = request.form.get('user_type')
         
+        if not username or not password or not email or not full_name:
+            flash('请填写所有必填字段', 'danger')
+            return render_template('register.html')
+        
+        if not user_type or user_type not in ['doctor', 'patient']:
+            flash('请选择有效的身份', 'danger')
+            return render_template('register.html')
+        
         if password != confirm_password:
             flash('密码不匹配', 'danger')
             return render_template('register.html')
@@ -110,20 +118,34 @@ def register():
             db.disconnect()
             return render_template('register.html')
         
+        existing_email = db.execute_query("SELECT * FROM users WHERE email = %s", (email,))
+        if existing_email:
+            flash('邮箱已存在', 'danger')
+            db.disconnect()
+            return render_template('register.html')
+        
         hashed_password = generate_password_hash(password)
         user_id = db.execute_insert(
             "INSERT INTO users (username, password_hash, email, full_name, role) VALUES (%s, %s, %s, %s, %s)",
             (username, hashed_password, email, full_name, user_type)
         )
         
+        if user_id is None:
+            db.disconnect()
+            flash('注册失败，请重试', 'danger')
+            return render_template('register.html')
+        
         if user_type == 'patient':
             patient_name = request.form.get('patient_name') or full_name
             patient_gender = request.form.get('patient_gender')
             patient_age = request.form.get('patient_age')
-            db.execute_insert(
+            patient_insert_result = db.execute_insert(
                 "INSERT INTO patients (name, age, gender, user_id) VALUES (%s, %s, %s, %s)",
                 (patient_name, patient_age, patient_gender, user_id)
             )
+            if patient_insert_result is None:
+                # 如果患者信息插入失败，可以选择删除用户或只是警告
+                flash('注册成功，但患者信息保存失败，请联系管理员', 'warning')
         
         db.disconnect()
         flash('注册成功，请登录', 'success')
@@ -899,42 +921,46 @@ def doctor_ai_diagnosis():
 @app.route('/api/ai_diagnose', methods=['POST'])
 @login_required
 def api_ai_diagnose():
-    patient_id = request.form.get('patient_id')
-    if not patient_id:
-        return jsonify({'success': False, 'message': '请选择患者'})
-    files = request.files.getlist('images')
-    if not files:
-        return jsonify({'success': False, 'message': '请至少上传一张CT切片'})
-    
-    db = Database()
-    if not db.connect():
-        return jsonify({'success': False, 'message': '数据库连接失败'})
-    saved_paths = []
-    for file in files:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            file.save(filepath)
-            db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
-            saved_paths.append(filepath)
-    db.disconnect()
-    if not saved_paths:
-        return jsonify({'success': False, 'message': '文件上传失败'})
-    
-    predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
-        pf_service.predict_from_paths(saved_paths, patient_id)
-    
-    return jsonify({
-        'success': True,
-        'predictions': predictions,
-        'heatmap_url': heatmap_url,
-        'lesion_area_ratio': lesion_ratio,
-        'distribution_range': distribution,
-        'imaging_findings': findings,
-        'suggestions': suggestions,
-        'time_cost': 32
-    })
+    try:
+        patient_id = request.form.get('patient_id')
+        if not patient_id:
+            return jsonify({'success': False, 'message': '请选择患者'})
+        files = request.files.getlist('images')
+        if not files:
+            return jsonify({'success': False, 'message': '请至少上传一张CT切片'})
+        
+        db = Database()
+        if not db.connect():
+            return jsonify({'success': False, 'message': '数据库连接失败'})
+        saved_paths = []
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(filepath)
+                db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
+                saved_paths.append(filepath)
+        db.disconnect()
+        if not saved_paths:
+            return jsonify({'success': False, 'message': '文件上传失败'})
+        
+        predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
+            pf_service.predict_from_paths(saved_paths, patient_id)
+        
+        return jsonify({
+            'success': True,
+            'predictions': predictions,
+            'heatmap_url': heatmap_url,
+            'lesion_area_ratio': lesion_ratio,
+            'distribution_range': distribution,
+            'imaging_findings': findings,
+            'suggestions': suggestions,
+            'time_cost': 32
+        })
+    except Exception as e:
+        print(f"AI诊断错误: {e}")
+        return jsonify({'success': False, 'message': 'AI诊断服务暂时不可用，请稍后重试'})
 
 @app.route('/update_profile', methods=['POST'])
 @login_required
