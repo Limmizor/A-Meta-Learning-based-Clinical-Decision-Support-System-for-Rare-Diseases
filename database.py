@@ -60,9 +60,8 @@ class Database:
     def add_disease(self, name, description, symptoms, treatment):
         """添加新疾病"""
         return self.execute_insert(
-            """INSERT INTO diseases (name, description, symptoms, treatment, created_at) 
-               VALUES (%s, %s, %s, %s, %s)""",
-            (name, description, symptoms, treatment, datetime.datetime.now())
+            """INSERT INTO diseases (name, description, symptoms, treatment_options) VALUES (%s, %s, %s, %s)""",
+            (name, description, symptoms, treatment)
         )
 
     def update_disease(self, disease_id, name, description, symptoms, treatment):

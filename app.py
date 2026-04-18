@@ -6,7 +6,8 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from database import Database
-from maml_service import MAMLService, train_model
+from pf_diagnosis_service import PFDianosisService
+# 如果不再需要训练功能，可以删除 train_model 导入
 import datetime
 
 app = Flask(__name__)
@@ -43,7 +44,7 @@ def load_user(user_id):
     return None
 
 # 初始化MAML服务
-maml_service = MAMLService(model_path='./models/maml_model.pth')
+    maml_service = MAMLService(model_path='./models/maml_model.pth')
 
 # 添加登录路由
 @app.route('/login', methods=['GET', 'POST'])
