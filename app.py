@@ -42,7 +42,9 @@ def load_user(user_id):
     return None
 
 # 初始化肺纤维化诊断服务（全局单例）
-pf_service = PFDianosisService(model_path='./models/pf_maml_model.pth')
+import os
+model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'maml_model_final .pth')
+pf_service = PFDianosisService(model_path=model_path)
 
 # 登录路由
 @app.route('/login', methods=['GET', 'POST'])

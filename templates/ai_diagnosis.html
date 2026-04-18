@@ -403,7 +403,8 @@
             thumb.src = url;
             thumb.classList.add('thumbnail');
             thumb.dataset.index = idx;
-            thumb.addEventListener('click', () => {
+            thumb.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止事件冒泡，避免触发dropzone的click事件
                 currentImageIndex = idx;
                 mainImage.src = url;
                 document.querySelectorAll('.thumbnail').forEach(el => el.classList.remove('active'));
