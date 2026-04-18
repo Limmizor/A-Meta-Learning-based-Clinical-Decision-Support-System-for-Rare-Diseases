@@ -13,7 +13,7 @@
     </div>
     <div class="card-body">
         <div class="alert {% if model_trained %}alert-success{% else %}alert-warning{% endif %}">
-            <strong>MAML模型状态:</strong> 
+            <strong>MTL-MAML模型状态:</strong> 
             {% if model_trained %}
             <span>已训练</span>
             {% else %}
@@ -21,14 +21,12 @@
             <button class="btn btn-sm btn-outline-primary ms-2" onclick="trainModel()">训练模型</button>
             {% endif %}
         </div>
-        
         {% if model_trained %}
         <img src="{{ url_for('static', filename='images/maml_training_loss.png') }}" 
              class="img-fluid" alt="训练损失曲线" style="max-height: 200px;">
         {% endif %}
     </div>
 </div>
-
 
 <div class="row">
     {% for patient in patients %}
@@ -97,25 +95,12 @@
 </div>
 
 <script>
-// 添加训练模型函数
 function trainModel() {
-    if (confirm('确定要训练模型吗？这可能需要几分钟时间。')) {
-        fetch('/train_model', {
-            method: 'POST'
-        })
+    if (confirm('确定要训练MTL-MAML模型吗？这可能需要几分钟时间。')) {
+        fetch('/train_model', { method: 'POST' })
         .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('模型训练成功');
-                location.reload();
-            } else {
-                alert('模型训练失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('发生错误，请重试');
-        });
+        .then(data => { if(data.success){ alert('模型训练成功'); location.reload(); } else alert('模型训练失败: '+data.message); })
+        .catch(error => alert('发生错误，请重试'));
     }
 }
 </script>
