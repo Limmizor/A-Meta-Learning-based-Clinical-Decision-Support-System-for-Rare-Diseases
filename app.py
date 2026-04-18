@@ -927,6 +927,94 @@ def api_ai_diagnose():
         'time_cost': 32
     })
 
+@app.route('/update_profile', methods=['POST'])
+@login_required
+def update_profile():
+    """更新当前用户的基本信息"""
+    user_id = current_user.id
+    full_name = request.form.get('full_name')
+    email = request.form.get('email')
+    # 可选：专业领域、个人简介等（需要 users 表有相应字段，若没有可先忽略或扩展）
+    specialty = request.form.get('specialty')
+    bio = request.form.get('bio')
+    
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    
+    # 更新 users 表
+    update_query = "UPDATE users SET full_name=%s, email=%s WHERE user_id=%s"
+    params = [full_name, email, user_id]
+    db.execute_insert(update_query, params)
+    
+    # 如果是医生，可能还有 specialty 等字段，如果表中有则更新
+    if current_user.user_type == 'doctor' and specialty:
+        # 假设 users 表有 specialty 字段，如果没有请先 ALTER TABLE users ADD COLUMN specialty VARCHAR(100)
+        db.execute_insert("UPDATE users SET specialty=%s WHERE user_id=%s", (specialty, user_id))
+    
+    db.disconnect()
+    return jsonify({'success': True, 'message': '资料更新成功'})
+
+@app.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    old_pwd = request.form.get('old_password')
+    new_pwd = request.form.get('new_password')
+    confirm = request.form.get('confirm_password')
+    
+    if new_pwd != confirm:
+        return jsonify({'success': False, 'message': '两次新密码不一致'})
+    
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    
+    user_data = db.execute_query("SELECT password_hash FROM users WHERE user_id=%s", (current_user.id,))
+    if not user_data or not check_password_hash(user_data[0]['password_hash'], old_pwd):
+        db.disconnect()
+        return jsonify({'success': False, 'message': '原密码错误'})
+    
+    new_hash = generate_password_hash(new_pwd)
+    db.execute_insert("UPDATE users SET password_hash=%s WHERE user_id=%s", (new_hash, current_user.id))
+    db.disconnect()
+    return jsonify({'success': True, 'message': '密码修改成功，请重新登录'})
+
+@app.route('/update_patient_profile', methods=['POST'])
+@login_required
+def update_patient_profile():
+    if current_user.user_type != 'patient':
+        return jsonify({'success': False, 'message': '无权操作'})
+    
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    
+    # 获取患者记录
+    patient_data = db.execute_query("SELECT * FROM patients WHERE user_id=%s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '未找到患者信息'})
+    
+    patient_id = patient_data[0]['patient_id']
+    name = request.form.get('name')
+    age = request.form.get('age')
+    gender = request.form.get('gender')
+    contact_number = request.form.get('contact_number')
+    medical_history = request.form.get('medical_history')
+    # 可选：血型、紧急联系人等（如果表中有相应字段）
+    
+    update_query = """
+        UPDATE patients SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s
+        WHERE patient_id=%s
+    """
+    db.execute_insert(update_query, (name, age, gender, contact_number, medical_history, patient_id))
+    
+    # 同时更新 users 表的 full_name（与患者姓名同步）
+    db.execute_insert("UPDATE users SET full_name=%s WHERE user_id=%s", (name, current_user.id))
+    
+    db.disconnect()
+    return jsonify({'success': True, 'message': '资料更新成功'})
+
 if __name__ == '__main__':
     # 确保必要目录存在
     if not os.path.exists(app.config['UPLOAD_FOLDER']):

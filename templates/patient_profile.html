@@ -386,5 +386,24 @@ function saveHealthInfo() {
     const editModal = bootstrap.Modal.getInstance(document.getElementById('editHealthModal'));
     editModal.hide();
 }
+
+function saveHealthInfo() {
+    const form = document.getElementById('editHealthForm');
+    const formData = new FormData(form);
+    fetch('/update_patient_profile', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('信息更新成功');
+            location.reload();
+        } else {
+            alert('更新失败: ' + data.message);
+        }
+    })
+    .catch(error => alert('网络错误: ' + error));
+}
 </script>
 {% endblock %}

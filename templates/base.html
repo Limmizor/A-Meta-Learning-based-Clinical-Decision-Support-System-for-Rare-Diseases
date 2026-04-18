@@ -7,17 +7,54 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* 用户头像样式 */
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #0d6efd;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            text-transform: uppercase;
+            margin-right: 8px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: rgba(255,255,255,0.85);
+            transition: color 0.2s;
+        }
+        .user-info:hover {
+            color: white;
+        }
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .navbar-nav .nav-link {
+            color: rgba(255,255,255,0.85);
+        }
+        .navbar-nav .nav-link:hover {
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <!-- 导航栏部分 -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('index') }}">肺影智诊系统</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav mr-auto">
+            <ul class="navbar-nav me-auto">
                 {% if current_user.is_authenticated %}
                     {% if current_user.user_type == 'doctor' %}
                         <li class="nav-item">
@@ -37,13 +74,18 @@
                             <a class="nav-link" href="{{ url_for('my_reports') }}">我的报告</a>
                         </li>
                     {% endif %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('profile') }}">个人资料</a>
-                        </li>
                 {% endif %}
             </ul>
+            
             <ul class="navbar-nav">
                 {% if current_user.is_authenticated %}
+                    <!-- 用户头像和名称（可点击跳转个人资料） -->
+                    <li class="nav-item">
+                        <a class="nav-link user-info" href="{{ url_for('profile') }}">
+                            <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else 'U' }}</div>
+                            <span class="user-name">{{ current_user.full_name or '用户' }}</span>
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('logout') }}">退出登录</a>
                     </li>

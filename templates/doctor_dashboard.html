@@ -517,11 +517,12 @@
                     <i class="bi bi-bell"></i>
                     <span class="notification-badge">5</span>
                 </div>
-                <div class="user-info">
+                <!-- 修改：将用户信息区域改为可点击链接，跳转到个人资料页面 -->
+                <a href="{{ url_for('profile') }}" class="user-info">
                     <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '医' }}</div>
                     <div class="user-name">{{ current_user.full_name or '医生' }}</div>
                     <i class="bi bi-chevron-down" style="font-size: 12px; color: var(--secondary);"></i>
-                </div>
+                </a>
             </div>
         </div>
     </header>
@@ -679,7 +680,7 @@
         </main>
     </div>
 
-    <!-- 添加患者模态框（不变） -->
+    <!-- 添加患者模态框 -->
     <div class="modal fade" id="addPatientModal" tabindex="-1">
         <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">添加新患者</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -699,7 +700,7 @@
     <!-- 诊断模态框 -->
     <div class="modal fade" id="diagnoseModal" tabindex="-1">
         <div class="modal-dialog modal-lg"><div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">AI辅助诊断（肺纤维化）</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5 class="modal-title">AI辅助诊断</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <form id="diagnoseForm">
                     <div class="mb-3"><label class="form-label">选择患者</label><select class="form-control" name="patient_id" required><option value="">请选择患者</option>{% for patient in patients %}<option value="{{ patient.patient_id }}">{{ patient.name }} (ID: PT{{ patient.patient_id }})</option>{% endfor %}</select></div>
