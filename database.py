@@ -22,7 +22,6 @@ class Database:
             print(f"数据库连接错误: {e}")
             return False
 
-
     def disconnect(self):
         if self.connection and self.connection.is_connected():
             self.connection.close()
@@ -52,35 +51,33 @@ class Database:
         finally:
             cursor.close()
 
-    # 新增疾病管理相关方法
+    # 疾病管理相关方法（字段名已统一为 treatment_options）
     def get_diseases(self):
         """获取所有疾病信息"""
         return self.execute_query("SELECT * FROM diseases ORDER BY disease_id DESC")
 
-    def add_disease(self, name, description, symptoms, treatment):
+    def add_disease(self, name, description, symptoms, treatment_options):
         """添加新疾病"""
         return self.execute_insert(
-            """INSERT INTO diseases (name, description, symptoms, treatment_options) VALUES (%s, %s, %s, %s)""",
-            (name, description, symptoms, treatment)
+            """INSERT INTO diseases (name, description, symptoms, treatment_options) 
+               VALUES (%s, %s, %s, %s)""",
+            (name, description, symptoms, treatment_options)
         )
 
-    def update_disease(self, disease_id, name, description, symptoms, treatment):
+    def update_disease(self, disease_id, name, description, symptoms, treatment_options):
         """更新疾病信息"""
         query = """UPDATE diseases SET name=%s, description=%s, symptoms=%s, 
-                   treatment=%s, updated_at=%s WHERE disease_id=%s"""
+                   treatment_options=%s, updated_at=%s WHERE disease_id=%s"""
         return self.execute_insert(
             query,
-            (name, description, symptoms, treatment, datetime.datetime.now(), disease_id)
+            (name, description, symptoms, treatment_options, datetime.datetime.now(), disease_id)
         )
 
     def delete_disease(self, disease_id):
         """删除疾病"""
-        return self.execute_insert(
-            "DELETE FROM diseases WHERE disease_id=%s",
-            (disease_id,)
-        )
+        return self.execute_insert("DELETE FROM diseases WHERE disease_id=%s", (disease_id,))
 
-    # 新增系统日志相关方法
+    # 系统日志相关方法
     def get_system_logs(self, limit=100):
         """获取系统日志"""
         return self.execute_query(
@@ -98,7 +95,7 @@ class Database:
             (user_id, action, details, datetime.datetime.now())
         )
 
-    # 以下为原有方法（保持不变）
+    # 患者管理相关方法
     def get_patients(self):
         return self.execute_query("SELECT * FROM patients ORDER BY patient_id DESC")
 
@@ -112,6 +109,7 @@ class Database:
             (name, age, gender, contact_number, medical_history, datetime.datetime.now())
         )
 
+    # 医学影像相关方法
     def get_medical_images(self, patient_id):
         return self.execute_query(
             "SELECT * FROM medical_images WHERE patient_id = %s ORDER BY uploaded_at DESC",
@@ -125,6 +123,7 @@ class Database:
             (patient_id, filename, image_type, description, datetime.datetime.now())
         )
 
+    # 诊断报告相关方法
     def get_diagnosis_reports(self, patient_id):
         return self.execute_query(
             """SELECT r.*, u.full_name as doctor_name FROM diagnosis_reports r
@@ -140,6 +139,7 @@ class Database:
             (patient_id, doctor_id, clinical_notes, conclusion, datetime.datetime.now())
         )
 
+    # 疾病预测相关方法
     def get_disease_predictions(self, report_id):
         return self.execute_query(
             """SELECT p.*, d.name as disease_name FROM disease_predictions p
