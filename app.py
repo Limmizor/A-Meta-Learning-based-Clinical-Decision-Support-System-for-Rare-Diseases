@@ -51,28 +51,37 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         remember = True if request.form.get('remember') else False
-        
+
         db = Database()
         if not db.connect():
             flash('数据库连接失败', 'danger')
             return render_template('login.html')
-        
+
         user_data = db.execute_query("SELECT * FROM users WHERE username = %s", (username,))
-        db.disconnect()
-        
-        if not user_data or not check_password_hash(user_data[0]['password_hash'], password):
-            flash('用户名或密码错误', 'danger')
+        if not user_data:
+            db.disconnect()
+            flash('用户名不存在', 'danger')
             return render_template('login.html')
-        
-        user = User(user_data[0]['user_id'], user_data[0]['username'], 
-                   user_data[0]['role'], user_data[0]['full_name'])
-        login_user(user, remember=remember)
-        
-        if user.user_type == 'doctor':
+
+        user = user_data[0]
+        if not check_password_hash(user['password_hash'], password):
+            db.disconnect()
+            flash('密码错误', 'danger')
+            return render_template('login.html')
+
+        # 登录成功，创建 session
+        login_user(User(user['user_id'], user['username'], user['role'], user['full_name']), remember=remember)
+
+        # 更新最后登录时间（如果表中没有该列，请先添加，或注释下行）
+        db.execute_insert("UPDATE users SET last_login = NOW() WHERE user_id = %s", (user['user_id'],))
+        db.disconnect()
+
+        # 跳转
+        if user['role'] == 'doctor':
             return redirect(url_for('doctor_dashboard'))
         else:
             return redirect(url_for('patient_dashboard'))
-    
+
     return render_template('login.html')
 
 # 注册路由
