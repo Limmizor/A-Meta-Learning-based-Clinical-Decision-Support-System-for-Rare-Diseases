@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AI辅助诊断 - 肺影智诊</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #eef2f7;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+        }
+        /* 整体布局 */
+        .diagnosis-container {
+            display: flex;
+            height: calc(100vh - 56px);
+            margin-top: 56px;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+        /* 左侧区域 (上传+浏览) */
+        .left-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        /* 右侧报告面板 */
+        .right-panel {
+            flex: 1.2;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            transition: all 0.2s;
+        }
+        /* 上传卡片 */
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 1.8rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            background-color: #fafcff;
+        }
+        .dropzone.dragover {
+            border-color: #0d6efd;
+            background-color: #eef4ff;
+            transform: scale(0.99);
+        }
+        .thumbnail-scroll {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+            max-height: 130px;
+            overflow-y: auto;
+            padding: 6px 2px;
+        }
+        .thumbnail {
+            width: 85px;
+            height: 85px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .thumbnail.active {
+            border-color: #0d6efd;
+            transform: scale(1.02);
+            box-shadow: 0 4px 10px rgba(13,110,253,0.2);
+        }
+        /* 影像浏览区 */
+        .viewer-card {
+            background: #16181f;
+            border-radius: 24px;
+            padding: 1rem;
+            color: #eef2ff;
+        }
+        .image-canvas {
+            text-align: center;
+            background: #00000030;
+            border-radius: 18px;
+            padding: 12px;
+        }
+        .main-med-image {
+            max-width: 100%;
+            max-height: 460px;
+            border-radius: 16px;
+            transition: transform 0.1s ease;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+        }
+        .toolbar {
+            margin-top: 12px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .toolbar button {
+            background: #2d313a;
+            border: none;
+            color: #e2e8f0;
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .toolbar button:hover {
+            background: #3b4252;
+            color: white;
+        }
+        /* 右侧报告样式 */
+        .report-section {
+            padding: 1.2rem 1.4rem;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .confidence-bar {
+            background-color: #e9ecef;
+            border-radius: 20px;
+            height: 8px;
+            overflow: hidden;
+            margin: 8px 0 4px;
+        }
+        .confidence-fill {
+            background: linear-gradient(90deg, #0d6efd, #0b5ed7);
+            height: 100%;
+            width: 0%;
+            border-radius: 20px;
+        }
+        .heatmap-img {
+            max-width: 100%;
+            border-radius: 18px;
+            margin-top: 12px;
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+        }
+        .btn-export {
+            background: #198754;
+            color: white;
+            width: 100%;
+            padding: 10px;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 12px;
+            border: none;
+        }
+        .btn-export:hover {
+            background: #157347;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 50px;
+        }
+        .progress-sm {
+            height: 5px;
+        }
+        .disease-item {
+            margin-bottom: 1rem;
+        }
+        .disease-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .badge-time {
+            background: #f1f3f5;
+            color: #2c3e50;
+        }
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c9d2;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark fixed-top shadow-sm">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-lungs me-2"></i>肺影智诊 · AI辅助诊断
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-light small"><i class="fas fa-user-md"></i> {{ current_user.full_name }}</span>
+            <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-tachometer-alt"></i> 返回仪表板
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="diagnosis-container">
+    <!-- 左侧区域 -->
+    <div class="left-panel">
+        <!-- 上传模块 -->
+        <div class="upload-card">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h5 class="mb-0"><i class="fas fa-cloud-upload-alt text-primary me-1"></i> 上传CT序列</h5>
+                <select id="patientSelect" class="form-select w-auto" style="min-width: 180px;">
+                    <option value="">-- 选择患者 --</option>
+                    {% for patient in patients %}
+                    <option value="{{ patient.patient_id }}">{{ patient.name }} (ID:{{ patient.patient_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="dropzone" class="dropzone">
+                <i class="fas fa-dicom fa-3x mb-2" style="color:#6c86a3;"></i>
+                <p class="mb-1">拖拽或点击选择 DICOM / CT 切片</p>
+                <small class="text-muted">支持 JPG, PNG, DICOM (多张)</small>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open"></i> 选择文件
+                    </button>
+                </div>
+                <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/dcm,.dcm" style="display:none">
+            </div>
+            <div id="uploadProgress" class="progress progress-sm mt-2 d-none">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+            </div>
+            <div id="thumbnailContainer" class="thumbnail-scroll"></div>
+        </div>
+
+        <!-- 切片浏览与标注区 -->
+        <div class="viewer-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="fas fa-images me-1"></i> 切片浏览与标注区</h6>
+                <span id="imageIndex" class="badge bg-secondary">0 / 0</span>
+            </div>
+            <div class="image-canvas">
+                <img id="mainImage" class="main-med-image" src="" alt="预览区域">
+            </div>
+            <div class="toolbar">
+                <button id="btnZoomIn"><i class="fas fa-search-plus"></i> 放大</button>
+                <button id="btnZoomOut"><i class="fas fa-search-minus"></i> 缩小</button>
+                <button id="btnReset"><i class="fas fa-sync-alt"></i> 复位</button>
+                <button id="btnMeasure"><i class="fas fa-draw-polygon"></i> 测量</button>
+            </div>
+            <div class="small text-muted mt-2" id="imageInfo"></div>
+        </div>
+    </div>
+
+    <!-- 右侧报告面板 -->
+    <div class="right-panel">
+        <div class="report-section bg-light rounded-top-3">
+            <div class="row align-items-center">
+                <div class="col-7">
+                    <small class="text-secondary">当前病例</small><br>
+                    <strong id="caseInfo">未选择患者</strong>
+                </div>
+                <div class="col-5 text-end">
+                    <small>诊断状态</small><br>
+                    <span id="diagnosisStatus" class="badge bg-secondary status-badge">待诊断</span>
+                </div>
+            </div>
+            <div class="small text-muted mt-1" id="timeCost"></div>
+        </div>
+
+        <div class="report-section">
+            <h6><i class="fas fa-eye"></i> 影像所见</h6>
+            <p id="imagingFindings" class="small text-secondary">--</p>
+        </div>
+
+        <div class="report-section">
+            <h6><i class="fas fa-chart-line"></i> 量化指标</h6>
+            <div class="d-flex justify-content-between"><span>病灶面积占比：</span><strong id="lesionRatio">--</strong></div>
+            <div class="d-flex justify-content-between mt-1"><span>分布范围：</span><strong id="distributionRange">--</strong></div>
+        </div>
+
+        <div class="report-section">
+            <h6><i class="fas fa-chart-simple"></i> Top-3 疑似亚型及置信度</h6>
+            <div id="predictionsList" class="mt-2"></div>
+        </div>
+
+        <div class="report-section">
+            <h6><i class="fas fa-fire"></i> Grad-CAM 热力图</h6>
+            <img id="heatmapImage" class="heatmap-img" src="" alt="热力图将在此显示">
+        </div>
+
+        <div class="report-section">
+            <h6><i class="fas fa-clinic-medical"></i> 检查建议</h6>
+            <p id="suggestions" class="small">--</p>
+            <button id="exportPdfBtn" class="btn-export"><i class="fas fa-file-pdf"></i> 导出PDF报告</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    // DOM 元素
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const thumbnailContainer = document.getElementById('thumbnailContainer');
+    const mainImage = document.getElementById('mainImage');
+    const patientSelect = document.getElementById('patientSelect');
+    const exportBtn = document.getElementById('exportPdfBtn');
+
+    let uploadedFiles = [];       // 存储上传的文件对象 { file, url, id? }
+    let currentImageIndex = 0;
+    let currentScale = 1;
+
+    // ---------- 上传交互 ----------
+    dropzone.addEventListener('click', (e) => {
+        if(e.target === dropzone || dropzone.contains(e.target))
+            fileInput.click();
+    });
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if(files.length) handleFiles(files);
+    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    // 处理上传 & 诊断
+    async function handleFiles(files) {
+        if(!patientSelect.value) {
+            alert('请先选择患者');
+            return;
+        }
+        if(!files.length) return;
+
+        const progressBar = document.querySelector('#uploadProgress .progress-bar');
+        const progressDiv = document.getElementById('uploadProgress');
+        progressDiv.classList.remove('d-none');
+        progressBar.style.width = '30%';
+
+        const formData = new FormData();
+        for(let file of files) {
+            formData.append('images', file);
+        }
+        formData.append('patient_id', patientSelect.value);
+
+        try {
+            const response = await fetch('/api/ai_diagnose', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            progressBar.style.width = '100%';
+            setTimeout(() => progressDiv.classList.add('d-none'), 800);
+
+            if(result.success) {
+                // 更新报告面板
+                updateReportPanel(result);
+                // 更新顶部状态
+                document.getElementById('caseInfo').innerText = `患者ID: ${patientSelect.value}`;
+                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-success">已完成</span>';
+                document.getElementById('timeCost').innerHTML = `<i class="far fa-clock"></i> 耗时：${result.time_cost || '28'} 秒`;
+                // 构建缩略图列表
+                buildThumbnails(files);
+            } else {
+                alert('诊断失败: ' + result.message);
+                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-danger">失败</span>';
+            }
+        } catch(err) {
+            console.error(err);
+            alert('网络或服务器错误');
+            progressDiv.classList.add('d-none');
+        }
+    }
+
+    function buildThumbnails(files) {
+        thumbnailContainer.innerHTML = '';
+        uploadedFiles = Array.from(files);
+        uploadedFiles.forEach((file, idx) => {
+            const url = URL.createObjectURL(file);
+            const thumb = document.createElement('img');
+            thumb.src = url;
+            thumb.classList.add('thumbnail');
+            thumb.dataset.index = idx;
+            thumb.addEventListener('click', () => {
+                currentImageIndex = idx;
+                mainImage.src = url;
+                document.querySelectorAll('.thumbnail').forEach(el => el.classList.remove('active'));
+                thumb.classList.add('active');
+                document.getElementById('imageIndex').innerText = `${idx+1}/${uploadedFiles.length}`;
+                // 重置缩放
+                currentScale = 1;
+                mainImage.style.transform = `scale(1)`;
+            });
+            thumbnailContainer.appendChild(thumb);
+            if(idx === 0) {
+                mainImage.src = url;
+                thumb.classList.add('active');
+                document.getElementById('imageIndex').innerText = `1/${uploadedFiles.length}`;
+            }
+        });
+    }
+
+    function updateReportPanel(data) {
+        // 影像所见
+        document.getElementById('imagingFindings').innerText = data.imaging_findings || '无异常发现';
+        // 量化指标
+        let ratio = data.lesion_area_ratio ? (data.lesion_area_ratio * 100).toFixed(1) : '--';
+        document.getElementById('lesionRatio').innerHTML = ratio !== '--' ? `${ratio}%` : '--';
+        document.getElementById('distributionRange').innerText = data.distribution_range || '--';
+
+        // 预测列表
+        const predContainer = document.getElementById('predictionsList');
+        predContainer.innerHTML = '';
+        if(data.predictions && data.predictions.length) {
+            data.predictions.forEach(pred => {
+                const div = document.createElement('div');
+                div.className = 'disease-item';
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <span class="disease-name">${pred.disease_name}</span>
+                        <span class="fw-bold">${(pred.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="confidence-bar"><div class="confidence-fill" style="width: ${pred.confidence * 100}%;"></div></div>
+                `;
+                predContainer.appendChild(div);
+            });
+        } else {
+            predContainer.innerHTML = '<div class="text-muted">暂无预测结果</div>';
+        }
+
+        // 热力图
+        if(data.heatmap_url) {
+            document.getElementById('heatmapImage').src = data.heatmap_url;
+        } else {
+            document.getElementById('heatmapImage').src = '';
+        }
+        // 建议
+        document.getElementById('suggestions').innerText = data.suggestions || '请结合临床进一步评估。';
+    }
+
+    // 导出PDF (右侧面板)
+    exportBtn.addEventListener('click', () => {
+        const element = document.querySelector('.right-panel');
+        const opt = {
+            margin:        [0.5, 0.5, 0.5, 0.5],
+            filename:     `肺影智诊_报告_${patientSelect.value || 'patient'}_${new Date().toISOString().slice(0,19)}.pdf`,
+            image:        { type: 'jpeg', quality: 0.95 },
+            html2canvas:  { scale: 2, letterRendering: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    });
+
+    // 图像浏览工具 (缩放)
+    const imgElement = mainImage;
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+        currentScale = Math.min(2.5, currentScale + 0.2);
+        imgElement.style.transform = `scale(${currentScale})`;
+    });
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+        currentScale = Math.max(0.5, currentScale - 0.2);
+        imgElement.style.transform = `scale(${currentScale})`;
+    });
+    document.getElementById('btnReset').addEventListener('click', () => {
+        currentScale = 1;
+        imgElement.style.transform = `scale(1)`;
+    });
+    document.getElementById('btnMeasure').addEventListener('click', () => {
+        alert('标注测量功能即将开放，未来可绘制ROI并计算直径。');
+    });
+</script>
+</body>
+</html>

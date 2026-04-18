@@ -965,6 +965,72 @@ def patient_chat():
                          messages=messages,
                          online_doctors=online_doctors)
 
+
+# ==================== 新增 AI 诊断独立页面 ====================
+@app.route('/doctor/ai_diagnosis')
+@login_required
+def doctor_ai_diagnosis():
+    if current_user.user_type != 'doctor':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('patient_dashboard'))
+    
+    db = Database()
+    if not db.connect():
+        patients = []
+    else:
+        patients = db.get_patients()
+        db.disconnect()
+    
+    return render_template('ai_diagnosis.html', patients=patients)
+
+@app.route('/api/ai_diagnose', methods=['POST'])
+@login_required
+def api_ai_diagnose():
+    """接收CT切片，返回诊断结果（含热力图、量化指标）"""
+    patient_id = request.form.get('patient_id')
+    if not patient_id:
+        return jsonify({'success': False, 'message': '请选择患者'})
+    
+    files = request.files.getlist('images')
+    if not files:
+        return jsonify({'success': False, 'message': '请至少上传一张CT切片'})
+    
+    # 保存文件并记录路径
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    
+    saved_paths = []
+    for file in files:
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            file.save(filepath)
+            db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
+            saved_paths.append(filepath)
+    db.disconnect()
+    
+    if not saved_paths:
+        return jsonify({'success': False, 'message': '文件上传失败'})
+    
+    # 调用肺纤维化诊断服务（新增方法）
+    from pf_diagnosis_service import PFDianosisService
+    pf_service = PFDianosisService()   # 若已有全局实例，可复用
+    predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
+        pf_service.predict_from_paths(saved_paths, patient_id)
+    
+    return jsonify({
+        'success': True,
+        'predictions': predictions,
+        'heatmap_url': heatmap_url,
+        'lesion_area_ratio': lesion_ratio,
+        'distribution_range': distribution,
+        'imaging_findings': findings,
+        'suggestions': suggestions,
+        'time_cost': 32   # 模拟耗时，可替换为真实计算时间
+    })
+
 if __name__ == '__main__':
     # 确保上传目录存在
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
