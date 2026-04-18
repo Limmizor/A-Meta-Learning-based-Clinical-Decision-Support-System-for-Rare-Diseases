@@ -11,7 +11,7 @@
             box-sizing: border-box;
         }
         body {
-            background-color: #eef2f7;
+            background-color: #f8f9fa;
             font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             overflow: hidden;
         }
@@ -92,14 +92,15 @@
         }
         /* 影像浏览区 */
         .viewer-card {
-            background: #16181f;
+            background: #343a40;
             border-radius: 24px;
             padding: 1rem;
-            color: #eef2ff;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         }
         .image-canvas {
             text-align: center;
-            background: #00000030;
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 18px;
             padding: 12px;
         }
@@ -108,7 +109,7 @@
             max-height: 460px;
             border-radius: 16px;
             transition: transform 0.1s ease;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
         }
         .toolbar {
             margin-top: 12px;
@@ -118,9 +119,9 @@
             flex-wrap: wrap;
         }
         .toolbar button {
-            background: #2d313a;
-            border: none;
-            color: #e2e8f0;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #ffffff;
             padding: 5px 14px;
             border-radius: 40px;
             font-size: 13px;
@@ -128,8 +129,9 @@
             transition: 0.2s;
         }
         .toolbar button:hover {
-            background: #3b4252;
-            color: white;
+            background: #6c757d;
+            border-color: #adb5bd;
+            color: #ffffff;
         }
         /* 右侧报告样式 */
         .report-section {
@@ -204,7 +206,7 @@
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark fixed-top shadow-sm">
+<nav class="navbar navbar-dark bg-primary fixed-top shadow-sm">
     <div class="container-fluid px-4">
         <a class="navbar-brand" href="#">
             <i class="fas fa-lungs me-2"></i>肺影智诊 · AI辅助诊断
