@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}随访计划 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-calendar-heart"></i> 随访计划管理</h1>
+        <button class="btn btn-primary" onclick="showCreatePlanModal()">
+            <i class="bi bi-plus-circle"></i> 新建随访计划
+        </button>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-bg-primary">
+                <div class="card-body text-center">
+                    <h4 id="pendingCount">0</h4>
+                    <p class="mb-0">待执行</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-bg-success">
+                <div class="card-body text-center">
+                    <h4 id="completedCount">0</h4>
+                    <p class="mb-0">已完成</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-bg-secondary">
+                <div class="card-body text-center">
+                    <h4 id="totalCount">0</h4>
+                    <p class="mb-0">总计</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 计划列表 -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">我的随访计划</h5>
+        </div>
+        <div class="card-body">
+            <div id="planList" class="list-group">
+                <div class="text-center py-4">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建/编辑模态框 -->
+<div class="modal fade" id="planModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="planModalTitle">新建随访计划</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="planForm">
+                    <input type="hidden" id="planId">
+                    <div class="mb-3">
+                        <label class="form-label">建议复查日期</label>
+                        <input type="date" class="form-control" id="suggestedDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="planNotes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deletePlanBtn" style="display:none" onclick="deletePlan()">删除</button>
+                <button type="button" class="btn btn-primary" onclick="savePlan()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEditId = null;
+
+    async function loadPlans() {
+        try {
+            const response = await fetch('/api/followup');
+            if (!response.ok) throw new Error();
+            const plans = await response.json();
+            const pending = plans.filter(p => p.status === 'pending');
+            const completed = plans.filter(p => p.status === 'completed');
+            document.getElementById('pendingCount').innerText = pending.length;
+            document.getElementById('completedCount').innerText = completed.length;
+            document.getElementById('totalCount').innerText = plans.length;
+
+            const container = document.getElementById('planList');
+            if (plans.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-muted">暂无随访计划，点击“新建随访计划”添加</div>';
+                return;
+            }
+            container.innerHTML = plans.map(plan => `
+                <div class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">📅 建议日期：${plan.suggested_date}</h6>
+                        <p class="mb-1 small">${plan.notes || '无备注'}</p>
+                        <small class="text-muted">创建时间：${new Date(plan.created_at).toLocaleString()}</small>
+                    </div>
+                    <div>
+                        <span class="badge ${plan.status === 'pending' ? 'bg-warning' : 'bg-success'} me-2">
+                            ${plan.status === 'pending' ? '待执行' : '已完成'}
+                        </span>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editPlan(${plan.plan_id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deletePlan(${plan.plan_id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        ${plan.status === 'pending' ? `
+                            <button class="btn btn-sm btn-outline-success" onclick="markComplete(${plan.plan_id})">
+                                <i class="bi bi-check-circle"></i> 标记完成
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error(error);
+            document.getElementById('planList').innerHTML = '<div class="text-center py-4 text-danger">加载失败，请刷新重试</div>';
+        }
+    }
+
+    function showCreatePlanModal() {
+        currentEditId = null;
+        document.getElementById('planModalTitle').innerText = '新建随访计划';
+        document.getElementById('planForm').reset();
+        document.getElementById('deletePlanBtn').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('planModal')).show();
+    }
+
+    function editPlan(planId) {
+        currentEditId = planId;
+        // 从列表中获取已有数据填充表单（简化：可再次请求API）
+        fetch(`/api/followup?plan_id=${planId}`)
+            .then(res => res.json())
+            .then(plan => {
+                document.getElementById('planModalTitle').innerText = '编辑随访计划';
+                document.getElementById('suggestedDate').value = plan.suggested_date;
+                document.getElementById('planNotes').value = plan.notes || '';
+                document.getElementById('deletePlanBtn').style.display = 'block';
+                new bootstrap.Modal(document.getElementById('planModal')).show();
+            })
+            .catch(err => alert('获取计划详情失败'));
+    }
+
+    async function savePlan() {
+        const suggestedDate = document.getElementById('suggestedDate').value;
+        if (!suggestedDate) {
+            alert('请填写建议复查日期');
+            return;
+        }
+        const notes = document.getElementById('planNotes').value;
+        const url = currentEditId ? `/api/followup?plan_id=${currentEditId}` : '/api/followup';
+        const method = currentEditId ? 'PUT' : 'POST';
+        const body = currentEditId ? JSON.stringify({ plan_id: currentEditId, status: 'pending', suggested_date: suggestedDate, notes }) : JSON.stringify({ suggested_date: suggestedDate, notes });
+        try {
+            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body });
+            const result = await response.json();
+            if (result.success) {
+                alert(currentEditId ? '更新成功' : '创建成功');
+                bootstrap.Modal.getInstance(document.getElementById('planModal')).hide();
+                loadPlans();
+            } else {
+                alert('操作失败: ' + (result.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('网络错误');
+        }
+    }
+
+    async function deletePlan(planId) {
+        if (!confirm('确定删除该随访计划吗？')) return;
+        try {
+            const response = await fetch(`/api/followup?plan_id=${planId}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (result.success) {
+                alert('删除成功');
+                loadPlans();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('planModal'));
+                if (modal) modal.hide();
+            } else {
+                alert('删除失败');
+            }
+        } catch (error) {
+            alert('网络错误');
+        }
+    }
+
+    async function markComplete(planId) {
+        if (!confirm('标记为已完成？')) return;
+        try {
+            const response = await fetch('/api/followup', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan_id: planId, status: 'completed' })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert('已标记完成');
+                loadPlans();
+            } else {
+                alert('操作失败');
+            }
+        } catch (error) {
+            alert('网络错误');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPlans);
+</script>
+{% endblock %}

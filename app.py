@@ -233,6 +233,24 @@ def patient_dashboard():
                          reports=reports, 
                          patient=patient[0] if patient else None)
 
+@app.route('/patient/trend')
+@login_required
+def patient_trend():
+    if current_user.user_type != 'patient':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+    return render_template('patient_trend.html')
+
+@app.route('/patient/followup')
+@login_required
+def patient_followup():
+    if current_user.user_type != 'patient':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+    return render_template('patient_followup.html')
+
+
+
 # 首页
 @app.route('/')
 def index():
@@ -1060,26 +1078,19 @@ def update_patient_profile():
     
     db.disconnect()
     return jsonify({'success': True, 'message': '资料更新成功'})
-#  新增趋势图 API
-@app.route('/api/patient/trend/<int:patient_id>')
+
+# 患者趋势数据 API
+@app.route('/api/patient/trend')
 @login_required
-def patient_trend(patient_id):
-    """获取患者的病灶量化趋势数据"""
-    if current_user.user_type == 'patient':
-        # 患者只能查看自己的数据
-        db = Database()
-        if not db.connect():
-            return jsonify({'error': '数据库连接失败'}), 500
-        patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
-        db.disconnect()
-        if not patient_data or patient_data[0]['patient_id'] != patient_id:
-            return jsonify({'error': '无权访问'}), 403
-    elif current_user.user_type != 'doctor':
+def api_patient_trend():
+    if current_user.user_type != 'patient':
         return jsonify({'error': '权限不足'}), 403
-    
     db = Database()
-    if not db.connect():
-        return jsonify({'error': '数据库连接失败'}), 500
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        return jsonify({'error': '未找到患者信息'}), 404
+    patient_id = patient_data[0]['patient_id']
     trend_data = db.get_patient_trend_data(patient_id)
     db.disconnect()
     return jsonify(trend_data)

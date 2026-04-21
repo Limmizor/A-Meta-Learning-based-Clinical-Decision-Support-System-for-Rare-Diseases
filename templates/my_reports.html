@@ -4,21 +4,38 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>我的诊断报告</h2>
-    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>我的诊断报告</h2>
+        <button class="btn btn-outline-primary" id="compareBtn" disabled onclick="compareReports()">
+            <i class="bi bi-files"></i> 对比选中报告
+        </button>
+    </div>
+
     {% if reports %}
         <div class="row">
             {% for report in reports %}
             <div class="col-md-6 mb-4">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">报告 #{{ report.report_id }}</h5>
+                        <div class="form-check">
+                            <input class="form-check-input report-checkbox" type="checkbox" value="{{ report.report_id }}" data-report-id="{{ report.report_id }}" onchange="toggleCompareButton()">
+                            <label class="form-check-label small">对比</label>
+                        </div>
                     </div>
                     <div class="card-body">
                         <p><strong>医生:</strong> {{ report.doctor_name }}</p>
                         <p><strong>临床记录:</strong> {{ report.clinical_notes or '无' }}</p>
                         <p><strong>诊断结果:</strong> {{ report.findings or '待诊断' }}</p>
                         <p><strong>创建时间:</strong> {{ report.created_at }}</p>
+                        <p><strong>病灶面积占比:</strong> 
+                            {% if report.lesion_area_ratio %}
+                                {{ (report.lesion_area_ratio * 100)|round(1) }}%
+                            {% else %}
+                                未记录
+                            {% endif %}
+                        </p>
+                        <p><strong>分布范围:</strong> {{ report.distribution_range or '未记录' }}</p>
                         
                         {% if report.predictions %}
                         <hr>
@@ -44,4 +61,90 @@
         </div>
     {% endif %}
 </div>
+
+<!-- 对比模态框 -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">诊断报告对比</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="compareContent">
+                <div class="row">
+                    <div class="col-md-6" id="reportA"></div>
+                    <div class="col-md-6" id="reportB"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">打印对比报告</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedReports = [];
+
+    function toggleCompareButton() {
+        const checkboxes = document.querySelectorAll('.report-checkbox:checked');
+        selectedReports = Array.from(checkboxes).map(cb => cb.value);
+        const btn = document.getElementById('compareBtn');
+        if (selectedReports.length === 2) {
+            btn.disabled = false;
+        } else {
+            btn.disabled = true;
+        }
+        // 限制最多选两个
+        if (selectedReports.length > 2) {
+            checkboxes[2].checked = false;
+            selectedReports = selectedReports.slice(0,2);
+            toggleCompareButton();
+        }
+    }
+
+    async function compareReports() {
+        if (selectedReports.length !== 2) return;
+        const [idA, idB] = selectedReports;
+        try {
+            const [resA, resB] = await Promise.all([
+                fetch(`/api/report/${idA}`),
+                fetch(`/api/report/${idB}`)
+            ]);
+            const reportA = await resA.json();
+            const reportB = await resB.json();
+            renderCompare(reportA, reportB);
+            new bootstrap.Modal(document.getElementById('compareModal')).show();
+        } catch (error) {
+            alert('获取报告详情失败');
+        }
+    }
+
+    function renderCompare(reportA, reportB) {
+        const containerA = document.getElementById('reportA');
+        const containerB = document.getElementById('reportB');
+        const renderCard = (report) => `
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h6>报告 #${report.report_id} - ${new Date(report.created_at).toLocaleDateString()}</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>医生：</strong>${report.doctor_name}</p>
+                    <p><strong>临床记录：</strong>${report.clinical_notes || '无'}</p>
+                    <p><strong>诊断结论：</strong>${report.findings || '无'}</p>
+                    <p><strong>病灶面积占比：</strong>${report.lesion_area_ratio ? (report.lesion_area_ratio*100).toFixed(1)+'%' : '未记录'}</p>
+                    <p><strong>分布范围：</strong>${report.distribution_range || '未记录'}</p>
+                    <hr>
+                    <h6>预测结果</h6>
+                    <ul class="list-group">
+                        ${report.predictions ? report.predictions.map(p => `<li class="list-group-item d-flex justify-content-between">${p.disease_name}<span class="badge bg-primary">${(p.confidence*100).toFixed(1)}%</span></li>`).join('') : '<li class="list-group-item">无预测数据</li>'}
+                    </ul>
+                </div>
+            </div>
+        `;
+        containerA.innerHTML = renderCard(reportA);
+        containerB.innerHTML = renderCard(reportB);
+    }
+</script>
 {% endblock %}

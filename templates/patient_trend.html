@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}病灶量化趋势 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-graph-up"></i> 病灶量化趋势分析</h1>
+        <button class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer"></i> 打印报告
+        </button>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">病灶面积占比变化趋势</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="trendChart" height="300"></canvas>
+            <div class="mt-3 text-muted small">
+                <i class="bi bi-info-circle"></i> 数据基于历次诊断报告中的量化指标自动生成。
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">历史量化数据明细</h5>
+        </div>
+        <div class="card-body">
+            <div id="trendDataTable" class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>诊断日期</th>
+                            <th>病灶面积占比 (%)</th>
+                            <th>分布范围</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trendTableBody">
+                        <tr><td colspan="3" class="text-center">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script>
+    async function loadTrendData() {
+        try {
+            const response = await fetch('/api/patient/trend');
+            if (!response.ok) throw new Error('获取数据失败');
+            const data = await response.json();
+            if (data.length === 0) {
+                document.getElementById('trendTableBody').innerHTML = '<tr><td colspan="3" class="text-center">暂无量化数据</td></tr>';
+                return;
+            }
+            const dates = data.map(item => new Date(item.created_at).toLocaleDateString());
+            const ratios = data.map(item => (item.lesion_area_ratio * 100).toFixed(1));
+            const distributions = data.map(item => item.distribution_range || '未记录');
+
+            // 渲染表格
+            const tbody = document.getElementById('trendTableBody');
+            tbody.innerHTML = data.map((item, idx) => `
+                <tr>
+                    <td>${new Date(item.created_at).toLocaleString()}</td>
+                    <td>${(item.lesion_area_ratio * 100).toFixed(1)}%</td>
+                    <td>${item.distribution_range || '--'}</td>
+                </tr>
+            `).join('');
+
+            // 绘制图表
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '病灶面积占比 (%)',
+                        data: ratios,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13,110,253,0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#0d6efd',
+                        pointBorderColor: '#fff',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '病灶面积占比 (%)' }
+                        },
+                        x: {
+                            title: { display: true, text: '诊断日期' }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error(error);
+            document.getElementById('trendTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-danger">加载失败，请稍后重试</td></tr>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadTrendData);
+</script>
+{% endblock %}

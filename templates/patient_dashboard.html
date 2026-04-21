@@ -515,18 +515,21 @@
     </header>
     <div class="main-container">
         <aside class="sidebar">
-            <ul class="sidebar-menu">
-                <li class="sidebar-menu-title">个人中心</li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('patient_dashboard') }}" class="sidebar-menu-link active"><i class="bi bi-house"></i><span>首页</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link"><i class="bi bi-heart"></i><span>健康档案</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('patient_appointment') }}" class="sidebar-menu-link"><i class="bi bi-calendar-plus"></i><span>预约挂号</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link"><i class="bi bi-file-medical"></i><span>我的报告</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('patient_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
-                <li class="sidebar-menu-title">系统设置</li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-cog"></i><span>账户设置</span></a></li>
-                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
-            </ul>
+          <ul class="sidebar-menu">
+            <li class="sidebar-menu-title">个人中心</li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('patient_dashboard') }}" class="sidebar-menu-link active"><i class="bi bi-house"></i><span>首页</span></a></li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link"><i class="bi bi-file-medical"></i><span>我的报告</span></a></li>
+            <!-- 新增：病灶趋势 -->
+            <li class="sidebar-menu-item"><a href="{{ url_for('patient_trend') }}" class="sidebar-menu-link"><i class="bi bi-graph-up"></i><span>病灶趋势</span></a></li>
+            <!-- 新增：随访计划 -->
+            <li class="sidebar-menu-item"><a href="{{ url_for('patient_followup') }}" class="sidebar-menu-link"><i class="bi bi-calendar-heart"></i><span>随访计划</span></a></li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('patient_appointment') }}" class="sidebar-menu-link"><i class="bi bi-calendar-plus"></i><span>预约挂号</span></a></li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('patient_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
+            <li class="sidebar-menu-title">系统设置</li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-cog"></i><span>账户设置</span></a></li>
+            <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+          </ul>
         </aside>
         <main class="content">
             <h1 class="page-title"><i class="bi bi-house"></i> 个人健康中心</h1>
