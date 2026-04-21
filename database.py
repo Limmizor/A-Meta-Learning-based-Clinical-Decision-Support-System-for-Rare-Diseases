@@ -103,17 +103,18 @@ class Database:
         )
 
     # ---------- 医学影像 ----------
+    def add_medical_image(self, patient_id, image_path, image_type, description):
+        """插入医学影像记录（image_path 存储文件名）"""
+        return self.execute_insert(
+            """INSERT INTO medical_images (patient_id, image_path, image_type, description, uploaded_at)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (patient_id, image_path, image_type, description, datetime.datetime.now())
+        )
+
     def get_medical_images(self, patient_id):
         return self.execute_query(
             "SELECT * FROM medical_images WHERE patient_id = %s ORDER BY uploaded_at DESC",
             (patient_id,)
-        )
-
-    def add_medical_image(self, patient_id, filename, image_type, description):
-        return self.execute_insert(
-            """INSERT INTO medical_images (patient_id, filename, image_type, description, uploaded_at)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (patient_id, filename, image_type, description, datetime.datetime.now())
         )
 
     # ---------- 诊断报告（扩展量化指标）----------
