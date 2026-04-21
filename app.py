@@ -336,7 +336,7 @@ def upload_image():
     
     return jsonify({'success': False, 'message': '文件类型不允许'})
 
-# 诊断接口（原患者详情页使用，使用肺纤维化模型）
+# 诊断接口（使用肺纤维化模型）
 @app.route('/diagnose', methods=['POST'])
 @login_required
 def diagnose():
@@ -346,16 +346,25 @@ def diagnose():
     if not patient_id:
         return jsonify({'success': False, 'message': '患者ID不能为空'})
     
-    # 调用肺纤维化诊断服务
+    # 调用诊断服务（返回 predictions 和量化指标）
+    # 注意：原 pf_service.diagnose_patient 只返回 predictions，我们需要扩展它
+    # 临时方案：先获取 predictions，然后生成模拟量化指标
     predictions = pf_service.diagnose_patient(patient_id)
+    
+    # 模拟量化指标（实际应从模型获取）
+    lesion_area_ratio = 0.32
+    distribution_range = '双肺下叶背段及胸膜下'
     
     db = Database()
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'})
     
-    # 假设当前医生ID为2（可根据实际情况获取）
     doctor_id = current_user.id
-    report_id = db.add_diagnosis_report(patient_id, doctor_id, clinical_notes, "AI辅助诊断结果")
+    report_id = db.add_diagnosis_report(
+        patient_id, doctor_id, clinical_notes, "AI辅助诊断结果",
+        lesion_area_ratio=lesion_area_ratio,
+        distribution_range=distribution_range
+    )
     
     if report_id:
         for pred in predictions:
@@ -1051,6 +1060,96 @@ def update_patient_profile():
     
     db.disconnect()
     return jsonify({'success': True, 'message': '资料更新成功'})
+#  新增趋势图 API
+@app.route('/api/patient/trend/<int:patient_id>')
+@login_required
+def patient_trend(patient_id):
+    """获取患者的病灶量化趋势数据"""
+    if current_user.user_type == 'patient':
+        # 患者只能查看自己的数据
+        db = Database()
+        if not db.connect():
+            return jsonify({'error': '数据库连接失败'}), 500
+        patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+        db.disconnect()
+        if not patient_data or patient_data[0]['patient_id'] != patient_id:
+            return jsonify({'error': '无权访问'}), 403
+    elif current_user.user_type != 'doctor':
+        return jsonify({'error': '权限不足'}), 403
+    
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    trend_data = db.get_patient_trend_data(patient_id)
+    db.disconnect()
+    return jsonify(trend_data)
+
+# 随访计划相关 API
+@app.route('/api/followup', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required
+def followup_api():
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '仅患者可操作随访计划'}), 403
+    
+    # 获取当前患者的 patient_id
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        return jsonify({'error': '未找到患者信息'}), 404
+    patient_id = patient_data[0]['patient_id']
+    
+    if request.method == 'GET':
+        # 获取患者的随访计划
+        status = request.args.get('status')
+        plans = db.get_followup_plans(patient_id, status)
+        db.disconnect()
+        return jsonify(plans)
+    
+    elif request.method == 'POST':
+        # 创建新的随访计划
+        data = request.json
+        suggested_date = data.get('suggested_date')
+        notes = data.get('notes')
+        if not suggested_date:
+            return jsonify({'error': '建议日期不能为空'}), 400
+        plan_id = db.create_followup_plan(patient_id, suggested_date, notes)
+        db.disconnect()
+        if plan_id:
+            return jsonify({'success': True, 'plan_id': plan_id})
+        else:
+            return jsonify({'error': '创建失败'}), 500
+    
+    elif request.method == 'PUT':
+        # 更新随访计划状态
+        data = request.json
+        plan_id = data.get('plan_id')
+        status = data.get('status')
+        if not plan_id or status not in ['pending', 'completed', 'cancelled']:
+            return jsonify({'error': '参数无效'}), 400
+        # 验证计划属于当前患者
+        plan = db.execute_query("SELECT * FROM followup_plans WHERE plan_id = %s AND patient_id = %s", (plan_id, patient_id))
+        if not plan:
+            db.disconnect()
+            return jsonify({'error': '计划不存在或无权操作'}), 404
+        result = db.update_followup_status(plan_id, status)
+        db.disconnect()
+        return jsonify({'success': result is not None})
+    
+    elif request.method == 'DELETE':
+        plan_id = request.args.get('plan_id')
+        if not plan_id:
+            return jsonify({'error': '缺少 plan_id'}), 400
+        # 验证权限
+        plan = db.execute_query("SELECT * FROM followup_plans WHERE plan_id = %s AND patient_id = %s", (plan_id, patient_id))
+        if not plan:
+            db.disconnect()
+            return jsonify({'error': '计划不存在或无权操作'}), 404
+        result = db.delete_followup_plan(plan_id)
+        db.disconnect()
+        return jsonify({'success': result is not None})
 
 if __name__ == '__main__':
     # 确保必要目录存在

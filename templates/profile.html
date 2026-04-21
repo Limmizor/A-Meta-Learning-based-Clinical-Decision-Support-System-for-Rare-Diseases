@@ -6,14 +6,6 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1><i class="bi bi-person-circle me-2"></i>个人资料</h1>
-        <div class="btn-group">
-            <button class="btn btn-outline-primary" onclick="editProfile()">
-                <i class="bi bi-pencil-square"></i> 编辑资料
-            </button>
-            <button class="btn btn-outline-secondary" onclick="changePassword()">
-                <i class="bi bi-key"></i> 修改密码
-            </button>
-        </div>
     </div>
 
     <div class="row">
@@ -189,17 +181,8 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-primary btn-sm text-start">
-                            <i class="bi bi-speedometer2 me-2"></i> 医生工作台
-                        </a>
                         <a href="{{ url_for('patient_list') }}" class="btn btn-outline-success btn-sm text-start">
                             <i class="bi bi-people me-2"></i> 患者管理
-                        </a>
-                        <a href="{{ url_for('disease_management') }}" class="btn btn-outline-warning btn-sm text-start">
-                            <i class="bi bi-capsule me-2"></i> 疾病管理
-                        </a>
-                        <a href="{{ url_for('system_logs') }}" class="btn btn-outline-info btn-sm text-start">
-                            <i class="bi bi-clipboard-data me-2"></i> 系统日志
                         </a>
                         <button class="btn btn-outline-danger btn-sm text-start" onclick="showSupport()">
                             <i class="bi bi-headset me-2"></i> 技术支持

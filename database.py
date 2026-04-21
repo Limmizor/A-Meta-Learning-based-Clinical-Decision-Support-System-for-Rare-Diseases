@@ -5,7 +5,6 @@ from config import Config
 
 class Database:
     def __init__(self):
-        # 使用Config中的配置，而不是硬编码的默认值
         self.config = {
             'host': Config.MYSQL_HOST,
             'database': Config.MYSQL_DB,
@@ -51,13 +50,11 @@ class Database:
         finally:
             cursor.close()
 
-    # 疾病管理相关方法（字段名已统一为 treatment_options）
+    # ---------- 疾病管理 ----------
     def get_diseases(self):
-        """获取所有疾病信息"""
         return self.execute_query("SELECT * FROM diseases ORDER BY disease_id DESC")
 
     def add_disease(self, name, description, symptoms, treatment_options):
-        """添加新疾病"""
         return self.execute_insert(
             """INSERT INTO diseases (name, description, symptoms, treatment_options) 
                VALUES (%s, %s, %s, %s)""",
@@ -65,7 +62,6 @@ class Database:
         )
 
     def update_disease(self, disease_id, name, description, symptoms, treatment_options):
-        """更新疾病信息"""
         query = """UPDATE diseases SET name=%s, description=%s, symptoms=%s, 
                    treatment_options=%s, updated_at=%s WHERE disease_id=%s"""
         return self.execute_insert(
@@ -74,12 +70,10 @@ class Database:
         )
 
     def delete_disease(self, disease_id):
-        """删除疾病"""
         return self.execute_insert("DELETE FROM diseases WHERE disease_id=%s", (disease_id,))
 
-    # 系统日志相关方法
+    # ---------- 系统日志 ----------
     def get_system_logs(self, limit=100):
-        """获取系统日志"""
         return self.execute_query(
             """SELECT l.*, u.username FROM system_logs l
                JOIN users u ON l.user_id = u.user_id
@@ -88,14 +82,13 @@ class Database:
         )
 
     def add_system_log(self, user_id, action, details):
-        """添加系统日志"""
         return self.execute_insert(
             """INSERT INTO system_logs (user_id, action, details, log_time)
                VALUES (%s, %s, %s, %s)""",
             (user_id, action, details, datetime.datetime.now())
         )
 
-    # 患者管理相关方法
+    # ---------- 患者管理 ----------
     def get_patients(self):
         return self.execute_query("SELECT * FROM patients ORDER BY patient_id DESC")
 
@@ -109,7 +102,7 @@ class Database:
             (name, age, gender, contact_number, medical_history, datetime.datetime.now())
         )
 
-    # 医学影像相关方法
+    # ---------- 医学影像 ----------
     def get_medical_images(self, patient_id):
         return self.execute_query(
             "SELECT * FROM medical_images WHERE patient_id = %s ORDER BY uploaded_at DESC",
@@ -123,7 +116,7 @@ class Database:
             (patient_id, filename, image_type, description, datetime.datetime.now())
         )
 
-    # 诊断报告相关方法
+    # ---------- 诊断报告（扩展量化指标）----------
     def get_diagnosis_reports(self, patient_id):
         return self.execute_query(
             """SELECT r.*, u.full_name as doctor_name FROM diagnosis_reports r
@@ -132,14 +125,28 @@ class Database:
             (patient_id,)
         )
 
-    def add_diagnosis_report(self, patient_id, doctor_id, clinical_notes, conclusion):
+    def add_diagnosis_report(self, patient_id, doctor_id, clinical_notes, conclusion,
+                             lesion_area_ratio=None, distribution_range=None):
+        """添加诊断报告，同时保存量化指标"""
         return self.execute_insert(
-            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, conclusion, created_at)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (patient_id, doctor_id, clinical_notes, conclusion, datetime.datetime.now())
+            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, conclusion, 
+               lesion_area_ratio, distribution_range, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (patient_id, doctor_id, clinical_notes, conclusion,
+             lesion_area_ratio, distribution_range, datetime.datetime.now())
         )
 
-    # 疾病预测相关方法
+    def get_patient_trend_data(self, patient_id):
+        """获取患者所有诊断报告的趋势数据（日期、病灶面积占比、分布范围）"""
+        return self.execute_query(
+            """SELECT created_at, lesion_area_ratio, distribution_range 
+               FROM diagnosis_reports 
+               WHERE patient_id = %s AND lesion_area_ratio IS NOT NULL
+               ORDER BY created_at ASC""",
+            (patient_id,)
+        )
+
+    # ---------- 疾病预测 ----------
     def get_disease_predictions(self, report_id):
         return self.execute_query(
             """SELECT p.*, d.name as disease_name FROM disease_predictions p
@@ -154,3 +161,36 @@ class Database:
                VALUES (%s, %s, %s, %s)""",
             (report_id, disease_id, confidence, rank)
         )
+
+    # ---------- 随访计划 ----------
+    def create_followup_plan(self, patient_id, suggested_date, notes=None):
+        """创建随访计划"""
+        return self.execute_insert(
+            """INSERT INTO followup_plans (patient_id, suggested_date, status, notes)
+               VALUES (%s, %s, 'pending', %s)""",
+            (patient_id, suggested_date, notes)
+        )
+
+    def get_followup_plans(self, patient_id, status=None):
+        """获取患者的随访计划，可按状态筛选"""
+        if status:
+            return self.execute_query(
+                "SELECT * FROM followup_plans WHERE patient_id = %s AND status = %s ORDER BY suggested_date ASC",
+                (patient_id, status)
+            )
+        else:
+            return self.execute_query(
+                "SELECT * FROM followup_plans WHERE patient_id = %s ORDER BY suggested_date ASC",
+                (patient_id,)
+            )
+
+    def update_followup_status(self, plan_id, status):
+        """更新随访计划状态"""
+        return self.execute_insert(
+            "UPDATE followup_plans SET status = %s, updated_at = %s WHERE plan_id = %s",
+            (status, datetime.datetime.now(), plan_id)
+        )
+
+    def delete_followup_plan(self, plan_id):
+        """删除随访计划"""
+        return self.execute_insert("DELETE FROM followup_plans WHERE plan_id = %s", (plan_id,))
