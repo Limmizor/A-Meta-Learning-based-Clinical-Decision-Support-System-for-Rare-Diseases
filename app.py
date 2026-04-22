@@ -457,6 +457,40 @@ def doctor_profile():
                          patients_count=patients_count,
                          reports_count=reports_count)
 
+#更新患者信息
+@app.route('/update_patient', methods=['POST'])
+@login_required
+def update_patient():
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'})
+    patient_id = request.form.get('patient_id')
+    name = request.form.get('name')
+    age = request.form.get('age')
+    gender = request.form.get('gender')
+    contact_number = request.form.get('contact_number')
+    medical_history = request.form.get('medical_history')
+    if not patient_id or not name:
+        return jsonify({'success': False, 'message': '患者ID和姓名不能为空'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    # 更新患者信息（注意：原 add_patient 方法没有提供更新函数，这里直接执行 SQL）
+    try:
+        update_query = """
+            UPDATE patients 
+            SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s, updated_at=%s
+            WHERE patient_id=%s
+        """
+        params = (name, age, gender, contact_number, medical_history, datetime.datetime.now(), patient_id)
+        db.execute_insert(update_query, params)
+        db.disconnect()
+        return jsonify({'success': True, 'message': '患者信息更新成功'})
+    except Exception as e:
+        db.disconnect()
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+
+
+
 # 患者个人档案
 @app.route('/patient_profile')
 @login_required
@@ -579,7 +613,7 @@ def api_delete_disease(disease_id):
     else:
         return jsonify({'success': False, 'message': '删除失败'}), 500
 
-# 疾病管理页面（旧版，保留但可能不再使用）
+# 疾病管理页面
 @app.route('/disease_management', methods=['GET', 'POST'])
 @login_required
 def disease_management():
