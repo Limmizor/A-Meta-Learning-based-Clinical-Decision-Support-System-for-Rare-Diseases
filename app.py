@@ -8,6 +8,10 @@ from config import Config
 from database import Database
 from pf_diagnosis_service import PFDianosisService
 import datetime
+import pydicom
+from PIL import Image
+import numpy as np
+
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -625,7 +629,11 @@ def system_logs():
         return render_template('system_logs.html', logs=[])
     logs = db.get_system_logs()
     db.disconnect()
+    # 如果查询返回 None，则设为空列表
+    if logs is None:
+        logs = []
     return render_template('system_logs.html', logs=logs)
+
 
 # API: 添加系统日志
 @app.route('/api/logs', methods=['POST'])
@@ -961,19 +969,51 @@ def api_ai_diagnose():
         db = Database()
         if not db.connect():
             return jsonify({'success': False, 'message': '数据库连接失败'})
+        
         saved_paths = []
+        thumbnails = []  # 存储缩略图 URL
+        
+        # 确保缩略图目录存在
+        thumb_dir = os.path.join('static', 'thumbnails')
+        os.makedirs(thumb_dir, exist_ok=True)
+        
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 unique_filename = f"{uuid.uuid4().hex}_{filename}"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 file.save(filepath)
+                
+                # 生成缩略图
+                thumb_filename = f"thumb_{unique_filename}.png"
+                thumb_path = os.path.join(thumb_dir, thumb_filename)
+                
+                ext = os.path.splitext(unique_filename)[1].lower()
+                if ext == '.dcm':
+                    # DICOM 转 PNG
+                    dcm = pydicom.dcmread(filepath)
+                    img = dcm.pixel_array.astype(np.float32)
+                    img = (img - img.min()) / (img.max() - img.min() + 1e-8)
+                    img = (img * 255).astype(np.uint8)
+                    img_pil = Image.fromarray(img).convert('RGB')
+                else:
+                    img_pil = Image.open(filepath).convert('RGB')
+                # 生成缩略图（150x150 以内）
+                img_pil.thumbnail((150, 150))
+                img_pil.save(thumb_path)
+                
+                thumbnail_url = f'/static/thumbnails/{thumb_filename}'
+                thumbnails.append(thumbnail_url)
+                
+                # 保存到数据库（存储原始文件名）
                 db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
                 saved_paths.append(filepath)
+        
         db.disconnect()
         if not saved_paths:
             return jsonify({'success': False, 'message': '文件上传失败'})
         
+        # 调用诊断服务
         predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
             pf_service.predict_from_paths(saved_paths, patient_id)
         
@@ -985,7 +1025,8 @@ def api_ai_diagnose():
             'distribution_range': distribution,
             'imaging_findings': findings,
             'suggestions': suggestions,
-            'time_cost': 32
+            'time_cost': 32,
+            'thumbnails': thumbnails   # 返回缩略图 URL 列表
         })
     except Exception as e:
         print(f"AI诊断错误: {e}")

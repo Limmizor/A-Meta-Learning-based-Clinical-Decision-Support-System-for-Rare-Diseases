@@ -203,14 +203,6 @@
         }
         if(!files.length) return;
 
-        // 验证文件类型
-        if (!validateFiles(files)) {
-            return;
-        }
-
-        // 立即显示缩略图（预览）
-        buildThumbnails(files);
-
         const progressBar = document.querySelector('#uploadProgress .progress-bar');
         const progressDiv = document.getElementById('uploadProgress');
         progressDiv.classList.remove('d-none');
@@ -232,6 +224,10 @@
             setTimeout(() => progressDiv.classList.add('d-none'), 800);
 
             if(result.success) {
+                // 使用后端返回的缩略图 URL 构建缩略图
+                if (result.thumbnails && result.thumbnails.length) {
+                    buildThumbnailsFromUrls(result.thumbnails);
+                }
                 updateReportPanel(result);
                 document.getElementById('caseInfo').innerText = `患者ID: ${patientSelect.value}`;
                 document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-success">已完成</span>';
@@ -248,76 +244,35 @@
     }
 
     // 构建缩略图（预览核心）
-    function buildThumbnails(files) {
+    function buildThumbnailsFromUrls(urls) {
         thumbnailContainer.innerHTML = '';
-        uploadedFiles = Array.from(files);
-
-        uploadedFiles.forEach((file, idx) => {
-            const url = URL.createObjectURL(file);
+        uploadedFiles = urls;  // 存储 URL 列表
+        urls.forEach((url, idx) => {
             const thumb = document.createElement('img');
-
-            // 检查文件类型
-            const isImage = file.type.startsWith('image/');
-            const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
-
-            if (isImage) {
-                thumb.src = url;
-                thumb.classList.add('thumbnail');
-            } else if (isDicom) {
-                // DICOM文件显示占位符
-                thumb.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODUiIGhlaWdodD0iODUiIHZpZXdCb3g9IjAgMCA4NSA4NSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9Ijg1IiBoZWlnaHQ9Ijg1IiByeD0iMTIiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTI2NiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQyLjUiIHk9IjI1IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSI1MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM2YzZjNmMiPkRJQ09NPC90ZXh0Pgo8dGV4dCB4PSI0Mi41IiB5PSI0NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOWNhM2FmIj5GaWxlPC90ZXh0Pgo8L3N2Zz4=';
-                thumb.classList.add('thumbnail', 'dicom-thumb');
-                thumb.title = 'DICOM文件 - 将在服务器端处理';
-            } else {
-                // 其他文件类型
-                thumb.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODUiIGhlaWdodD0iODUiIHZpZXdCb3g9IjAgMCA4NSA4NSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9Ijg1IiBoZWlnaHQ9Ijg1IiByeD0iMTIiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTI2NiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQyLjUiIHk9IjM1IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiBmb250LXNpemU9IjEwIiBmb250LXdlaWdodD0iNTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZGMzNTQ1Ij5Ob3QgU3VwcG9ydGVkPC90ZXh0Pgo8L3N2Zz4=';
-                thumb.classList.add('thumbnail', 'unsupported-thumb');
-                thumb.title = '不支持的文件类型';
-            }
-
+            thumb.src = url;
+            thumb.classList.add('thumbnail');
             thumb.dataset.index = idx;
-
-            // 添加加载错误处理
-            thumb.onerror = function() {
-                console.warn('缩略图加载失败:', file.name);
-                this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODUiIGhlaWdodD0iODUiIHZpZXdCb3g9IjAgMCA4NSA4NSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9Ijg1IiBoZWlnaHQ9Ijg1IiByeD0iMTIiIGZpbGw9IiNmZmVlZWUiIHN0cm9rZT0iI2ZjOWI5YSIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQyLjUiIHk9IjM1IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiBmb250LXNpemU9IjEwIiBmb250LXdlaWdodD0iNTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZGMzNTQ1Ij5Mb2FkIEVycm9yPC90ZXh0Pgo8L3N2Zz4=';
-                this.title = '图片加载失败';
-            };
-
             thumb.addEventListener('click', () => {
                 currentImageIndex = idx;
-
-                if (isImage) {
-                    // 普通图片可以直接预览
-                    mainImage.src = url;
-                    mainImage.style.display = 'block';
-                    document.getElementById('imageInfo').innerHTML = `<i class="fas fa-info-circle"></i> ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-                } else if (isDicom) {
-                    // DICOM文件显示提示信息
-                    mainImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiByeD0iMTYiIGZpbGw9IiNmOGY5ZmEiIHN0cm9rZT0iI2RlZTI2NiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTIwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZvbnQtd2VpZ2h0PSI2MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM2YzZjNmMiPkRJQ09NIOeUqOaItzwvdGV4dD4KPHRleHQgeD0iMjAwIiB5PSIxNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5YTNmZiI+5L2g5Y+R5LiA5Lqk5piT5Yqf5Lqk5piT5YqfPC90ZXh0Pgo8dGV4dCB4PSIyMDAiIHk9IjIwMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOWNhM2FmIj7kv6HnlKjmiLHkuIDnmoTmoIforq3nmoTmoIforq88L3RleHQ+Cjwvc3ZnPg==';
-                    mainImage.style.display = 'block';
-                    document.getElementById('imageInfo').innerHTML = `<i class="fas fa-file-medical"></i> DICOM文件: ${file.name} (${(file.size / 1024).toFixed(1)} KB) - 将在AI诊断时处理`;
-                } else {
-                    // 不支持的文件类型
-                    mainImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiByeD0iMTYiIGZpbGw9IiNmZmVlZWUiIHN0cm9rZT0iI2ZjOWI5YSIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiBmb250LXNpemU9IjE4IiBmb250LXdlaWdodD0iNjAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZGMzNTQ1Ij7nmoTmoIforq3nmoTmoIforq/nmoTmoIforq/nmoTmoIforq88L3RleHQ+Cjwvc3ZnPg==';
-                    mainImage.style.display = 'block';
-                    document.getElementById('imageInfo').innerHTML = `<i class="fas fa-exclamation-triangle"></i> 不支持的文件类型: ${file.name}`;
-                }
-
+                // 注意：缩略图 URL 不能直接作为大图，需要获取原始图片 URL
+                // 这里假设后端提供了原始图片访问接口，如 /uploads/xxx
+                // 可以从 URL 中提取文件名构建原始图 URL
+                const filename = url.split('/').pop().replace('thumb_', '');
+                const originalUrl = `/uploads/${filename}`;
+                mainImage.src = originalUrl;
                 document.querySelectorAll('.thumbnail').forEach(el => el.classList.remove('active'));
                 thumb.classList.add('active');
-                document.getElementById('imageIndex').innerText = `${idx+1}/${uploadedFiles.length}`;
-
-                // 重置缩放
+                document.getElementById('imageIndex').innerText = `${idx+1}/${urls.length}`;
                 currentScale = 1;
                 mainImage.style.transform = `scale(1)`;
             });
-
             thumbnailContainer.appendChild(thumb);
-
-            // 默认显示第一个文件
             if(idx === 0) {
-                thumb.click();
+                // 第一个缩略图对应的原始图
+                const filename = url.split('/').pop().replace('thumb_', '');
+                mainImage.src = `/uploads/${filename}`;
+                thumb.classList.add('active');
+                document.getElementById('imageIndex').innerText = `1/${urls.length}`;
             }
         });
     }

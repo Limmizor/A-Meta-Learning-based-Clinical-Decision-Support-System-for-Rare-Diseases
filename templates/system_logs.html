@@ -1,37 +1,98 @@
 {% extends "base.html" %}
 
-{% block title %}系统日志 - 罕病智诊系统{% endblock %}
+{% block title %}系统日志 - 肺影智诊系统{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid px-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>系统日志</h1>
+        <h1 class="h3 mb-0"><i class="bi bi-journal-text me-2"></i>系统日志</h1>
         <div class="btn-group">
-            <button class="btn btn-outline-primary" onclick="exportLogs()">
+            <button class="btn btn-sm btn-outline-primary" onclick="exportLogs()">
                 <i class="bi bi-download"></i> 导出日志
             </button>
-            <button class="btn btn-outline-danger" onclick="clearLogs()">
+            <button class="btn btn-sm btn-outline-danger" onclick="clearLogs()">
                 <i class="bi bi-trash"></i> 清空日志
             </button>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0">系统操作记录</h5>
+    <!-- 统计卡片（与医生工作台风格一致） -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <i class="bi bi-file-text fs-1 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold">{{ logs|length }}</div>
+                        <div class="text-muted small">总日志数</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <i class="bi bi-calendar-week fs-1 text-success"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold" id="todayCount">0</div>
+                        <div class="text-muted small">今日新增</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold" id="warningCount">0</div>
+                        <div class="text-muted small">警告日志</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <i class="bi bi-bug fs-1 text-danger"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold" id="errorCount">0</div>
+                        <div class="text-muted small">错误日志</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志表格卡片 -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">操作记录明细</h5>
+            <div class="input-group w-auto">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索用户、操作或详情...">
+            </div>
+        </div>
+        <div class="card-body p-0">
             {% if logs %}
             <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
+                <table class="table table-hover align-middle mb-0" id="logTable">
+                    <thead class="table-light">
                         <tr>
-                            <th>日志ID</th>
+                            <th style="width: 80px">日志ID</th>
                             <th>用户</th>
                             <th>操作类型</th>
                             <th>操作详情</th>
                             <th>IP地址</th>
-                            <th>时间戳</th>
+                            <th style="width: 160px">时间戳</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -41,9 +102,9 @@
                             <td>{{ log.username }}</td>
                             <td>
                                 <span class="badge 
-                                    {% if log.action_level == 'error' %}bg-danger
-                                    {% elif log.action_level == 'warning' %}bg-warning
-                                    {% elif log.action_level == 'info' %}bg-info
+                                    {% if 'error' in log.action|lower %}bg-danger
+                                    {% elif 'warning' in log.action|lower %}bg-warning text-dark
+                                    {% elif 'info' in log.action|lower %}bg-info
                                     {% else %}bg-secondary{% endif %}">
                                     {{ log.action }}
                                 </span>
@@ -56,107 +117,67 @@
                     </tbody>
                 </table>
             </div>
-            
-            <!-- 分页控件 -->
-            <nav aria-label="日志分页">
-                <ul class="pagination justify-content-center">
-                    <li class="page-item disabled">
-                        <a class="page-link" href="#">上一页</a>
-                    </li>
-                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                    <li class="page-item"><a class="page-link" href="#">2</a></li>
-                    <li class="page-item"><a class="page-link" href="#">3</a></li>
-                    <li class="page-item">
-                        <a class="page-link" href="#">下一页</a>
-                    </li>
-                </ul>
-            </nav>
+            <!-- 简易分页（占位） -->
+            <div class="card-footer bg-white border-top-0 py-3">
+                <nav aria-label="日志分页">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item disabled"><a class="page-link" href="#">上一页</a></li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item disabled"><a class="page-link" href="#">下一页</a></li>
+                    </ul>
+                </nav>
+            </div>
             {% else %}
-            <div class="text-center py-4">
+            <div class="text-center py-5">
                 <i class="bi bi-file-text display-1 text-muted"></i>
-                <h5 class="mt-3">暂无系统日志</h5>
+                <h5 class="mt-3 text-muted">暂无系统日志</h5>
                 <p class="text-muted">系统操作记录将显示在这里</p>
             </div>
             {% endif %}
         </div>
     </div>
-
-    <!-- 统计信息卡片 -->
-    <div class="row mt-4">
-        <div class="col-md-3">
-            <div class="card text-bg-primary">
-                <div class="card-body">
-                    <h5 class="card-title">{{ logs|length }}</h5>
-                    <p class="card-text">总日志数</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-success">
-                <div class="card-body">
-                    <h5 class="card-title">0</h5>
-                    <p class="card-text">今日新增</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-warning">
-                <div class="card-body">
-                    <h5 class="card-title">0</h5>
-                    <p class="card-text">警告日志</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-danger">
-                <div class="card-body">
-                    <h5 class="card-title">0</h5>
-                    <p class="card-text">错误日志</p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
+// 统计今日、警告、错误数量（简单从表格中计算）
+function updateStats() {
+    const rows = document.querySelectorAll('#logTable tbody tr');
+    let today = new Date().toISOString().slice(0,10);
+    let todayCount = 0, warningCount = 0, errorCount = 0;
+    rows.forEach(row => {
+        const timeCell = row.cells[5]?.innerText || '';
+        if (timeCell.startsWith(today)) todayCount++;
+        const actionBadge = row.cells[2]?.innerText || '';
+        if (actionBadge.toLowerCase().includes('warning')) warningCount++;
+        if (actionBadge.toLowerCase().includes('error')) errorCount++;
+    });
+    document.getElementById('todayCount').innerText = todayCount;
+    document.getElementById('warningCount').innerText = warningCount;
+    document.getElementById('errorCount').innerText = errorCount;
+}
+
+// 搜索筛选
+document.getElementById('searchInput').addEventListener('input', function() {
+    const keyword = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#logTable tbody tr');
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(keyword) ? '' : 'none';
+    });
+});
+
+// 导出日志（模拟）
 function exportLogs() {
-    if (confirm('确定要导出系统日志吗？')) {
-        fetch('/export_logs', {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('日志导出成功');
-                // 这里可以添加下载逻辑
-            } else {
-                alert('导出失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('网络错误: ' + error);
-        });
+    alert('导出日志功能开发中...');
+}
+
+// 清空日志（模拟）
+function clearLogs() {
+    if (confirm('确定要清空所有系统日志吗？此操作不可恢复！')) {
+        alert('清空日志功能需要后端支持。');
     }
 }
 
-function clearLogs() {
-    if (confirm('确定要清空所有系统日志吗？此操作不可恢复！')) {
-        fetch('/clear_logs', {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('日志清空成功');
-                location.reload();
-            } else {
-                alert('清空失败: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('网络错误: ' + error);
-        });
-    }
-}
+document.addEventListener('DOMContentLoaded', updateStats);
 </script>
 {% endblock %}
