@@ -397,7 +397,7 @@ def diagnose():
         db.disconnect()
         return jsonify({'success': False, 'message': '创建诊断报告失败'})
 
-# 模型训练接口（已禁用，返回提示）
+# 模型训练接口
 @app.route('/train_model', methods=['POST'])
 @login_required
 def train_model_route():
@@ -458,37 +458,28 @@ def doctor_profile():
                          reports_count=reports_count)
 
 #更新患者信息
-@app.route('/update_patient', methods=['POST'])
+@app.route('/update_patient/<int:patient_id>', methods=['POST'])
 @login_required
-def update_patient():
+def update_patient(patient_id):
     if current_user.user_type != 'doctor':
         return jsonify({'success': False, 'message': '无权操作'})
-    patient_id = request.form.get('patient_id')
     name = request.form.get('name')
     age = request.form.get('age')
     gender = request.form.get('gender')
     contact_number = request.form.get('contact_number')
     medical_history = request.form.get('medical_history')
-    if not patient_id or not name:
-        return jsonify({'success': False, 'message': '患者ID和姓名不能为空'})
     db = Database()
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'})
-    # 更新患者信息（注意：原 add_patient 方法没有提供更新函数，这里直接执行 SQL）
-    try:
-        update_query = """
-            UPDATE patients 
-            SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s, updated_at=%s
-            WHERE patient_id=%s
-        """
-        params = (name, age, gender, contact_number, medical_history, datetime.datetime.now(), patient_id)
-        db.execute_insert(update_query, params)
-        db.disconnect()
-        return jsonify({'success': True, 'message': '患者信息更新成功'})
-    except Exception as e:
-        db.disconnect()
-        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
-
+    result = db.execute_insert(
+        """UPDATE patients SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s WHERE patient_id=%s""",
+        (name, age, gender, contact_number, medical_history, patient_id)
+    )
+    db.disconnect()
+    if result is not None:
+        return jsonify({'success': True, 'message': '更新成功'})
+    else:
+        return jsonify({'success': False, 'message': '更新失败'})
 
 
 # 患者个人档案
@@ -519,6 +510,40 @@ def patient_profile():
                          appointments_count=0,
                          prescriptions_count=0,
                          follow_up_count=0)
+
+# 删除患者（同时删除相关诊断报告和影像）
+@app.route('/delete_patient/<int:patient_id>', methods=['DELETE'])
+@login_required
+def delete_patient(patient_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    try:
+        # 获取患者名称用于日志
+        patient_data = db.execute_query("SELECT name FROM patients WHERE patient_id = %s", (patient_id,))
+        patient_name = patient_data[0]['name'] if patient_data else '未知患者'
+        
+        # 1. 删除关联的疾病预测记录
+        db.execute_insert("DELETE FROM disease_predictions WHERE report_id IN (SELECT report_id FROM diagnosis_reports WHERE patient_id=%s)", (patient_id,))
+        # 2. 删除诊断报告
+        db.execute_insert("DELETE FROM diagnosis_reports WHERE patient_id=%s", (patient_id,))
+        # 3. 删除医学影像
+        db.execute_insert("DELETE FROM medical_images WHERE patient_id=%s", (patient_id,))
+        # 4. 最后删除患者
+        result = db.execute_insert("DELETE FROM patients WHERE patient_id=%s", (patient_id,))
+        
+        if result:
+            db.add_system_log(current_user.id, 'DELETE_PATIENT', f'删除患者: {patient_name}')
+            db.disconnect()
+            return jsonify({'success': True, 'message': '患者删除成功'})
+        else:
+            db.disconnect()
+            return jsonify({'success': False, 'message': '删除患者失败'})
+    except Exception as e:
+        db.disconnect()
+        return jsonify({'success': False, 'message': f'删除异常: {str(e)}'})
 
 # API: 获取所有疾病（用于疾病查询页面）
 @app.route('/api/diseases')
@@ -768,28 +793,28 @@ def patient_list():
     return render_template('patient_list.html', patients=patients)
 
 # 删除患者
-@app.route('/delete_patient/<int:patient_id>', methods=['DELETE'])
-@login_required
-def delete_patient(patient_id):
-    if current_user.user_type != 'doctor':
-        return jsonify({'success': False, 'message': '无权操作'})
-    db = Database()
-    if not db.connect():
-        return jsonify({'success': False, 'message': '数据库连接失败'})
-    try:
-        patient_data = db.execute_query("SELECT name FROM patients WHERE patient_id = %s", (patient_id,))
-        patient_name = patient_data[0]['name'] if patient_data else '未知患者'
-        result = db.execute_insert("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
-        if result:
-            db.add_system_log(current_user.id, 'DELETE_PATIENT', f'删除患者: {patient_name}')
-            db.disconnect()
-            return jsonify({'success': True, 'message': '患者删除成功'})
-        else:
-            db.disconnect()
-            return jsonify({'success': False, 'message': '删除患者失败'})
-    except Exception as e:
-        db.disconnect()
-        return jsonify({'success': False, 'message': f'删除异常: {str(e)}'})
+# @app.route('/delete_patient/<int:patient_id>', methods=['DELETE'])
+# @login_required
+# def delete_patient(patient_id):
+#     if current_user.user_type != 'doctor':
+#         return jsonify({'success': False, 'message': '无权操作'})
+#     db = Database()
+#     if not db.connect():
+#         return jsonify({'success': False, 'message': '数据库连接失败'})
+#     try:
+#         patient_data = db.execute_query("SELECT name FROM patients WHERE patient_id = %s", (patient_id,))
+#         patient_name = patient_data[0]['name'] if patient_data else '未知患者'
+#         result = db.execute_insert("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
+#         if result:
+#             db.add_system_log(current_user.id, 'DELETE_PATIENT', f'删除患者: {patient_name}')
+#             db.disconnect()
+#             return jsonify({'success': True, 'message': '患者删除成功'})
+#         else:
+#             db.disconnect()
+#             return jsonify({'success': False, 'message': '删除患者失败'})
+#     except Exception as e:
+#         db.disconnect()
+#         return jsonify({'success': False, 'message': f'删除异常: {str(e)}'})
 
 # 医生今日日程
 @app.route('/doctor/schedule')

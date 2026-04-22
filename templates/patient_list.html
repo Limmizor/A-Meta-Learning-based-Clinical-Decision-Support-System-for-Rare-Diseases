@@ -4,17 +4,16 @@
 
 {% block content %}
 <div class="container-fluid px-4 py-3">
-    <!-- 页面标题 -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">
             <i class="bi bi-people-fill me-2"></i>患者列表
         </h1>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+        <button class="btn btn-primary" onclick="showAddPatientModal()">
             <i class="bi bi-person-plus"></i> 添加患者
         </button>
     </div>
 
-    <!-- 统计卡片（与医生工作台一致） -->
+    <!-- 统计卡片（与医生工作台风格一致） -->
     <div class="row g-4 mb-4">
         <div class="col-md-3">
             <div class="card h-100 border-0 shadow-sm">
@@ -25,7 +24,7 @@
                     <div>
                         <div class="stat-value">{{ patients|length }}</div>
                         <div class="stat-label">总患者数</div>
-                        <div class="stat-trend">已登记</div>
+                        <div class="stat-trend">系统运行中</div>
                     </div>
                 </div>
             </div>
@@ -38,8 +37,8 @@
                     </div>
                     <div>
                         <div class="stat-value" id="maleCount">0</div>
-                        <div class="stat-label">男性患者</div>
-                        <div class="stat-trend">占比 <span id="malePercent">0</span>%</div>
+                        <div class="stat-label">男性</div>
+                        <div class="stat-trend">患者</div>
                     </div>
                 </div>
             </div>
@@ -52,8 +51,8 @@
                     </div>
                     <div>
                         <div class="stat-value" id="femaleCount">0</div>
-                        <div class="stat-label">女性患者</div>
-                        <div class="stat-trend">占比 <span id="femalePercent">0</span>%</div>
+                        <div class="stat-label">女性</div>
+                        <div class="stat-trend">患者</div>
                     </div>
                 </div>
             </div>
@@ -67,17 +66,17 @@
                     <div>
                         <div class="stat-value" id="recentCount">0</div>
                         <div class="stat-label">近30天新增</div>
-                        <div class="stat-trend">活跃患者</div>
+                        <div class="stat-trend">近期活跃</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 搜索筛选栏 -->
+    <!-- 搜索和筛选栏 -->
     <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <div class="row g-3">
+        <div class="card-body py-3">
+            <div class="row g-3 align-items-center">
                 <div class="col-md-5">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
@@ -91,24 +90,19 @@
                         <option value="female">女</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
-                        <i class="bi bi-arrow-clockwise"></i> 重置
-                    </button>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-primary w-100" onclick="refreshData()">
-                        <i class="bi bi-arrow-repeat"></i> 刷新
+                <div class="col-md-4 text-md-end">
+                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                        <i class="bi bi-arrow-clockwise"></i> 重置筛选
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 患者列表表格 -->
+    <!-- 患者表格卡片 -->
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0"><i class="bi bi-table me-2"></i>患者信息列表</h5>
+            <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2"></i>患者信息列表</h5>
         </div>
         <div class="card-body p-0">
             {% if patients %}
@@ -128,16 +122,14 @@
                     </thead>
                     <tbody>
                         {% for patient in patients %}
-                        <tr data-patient-id="{{ patient.patient_id }}" data-gender="{{ patient.gender }}" data-created="{{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '' }}">
-                            <td>
-                                <span class="badge bg-secondary">PT{{ patient.patient_id }}</span>
-                            </td>
+                        <tr class="patient-row" data-gender="{{ patient.gender }}" data-created="{{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '' }}">
+                            <td><span class="badge bg-secondary">PT{{ patient.patient_id }}</span></td>
                             <td><strong>{{ patient.name }}</strong></td>
                             <td>
                                 {% if patient.age %}
                                     {{ patient.age }}岁
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">未填写</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -149,26 +141,20 @@
                                     <span class="badge bg-secondary">其他</span>
                                 {% endif %}
                             </td>
-                            <td>{{ patient.contact_number or '—' }}</td>
-                            <td>
-                                {% if patient.medical_history %}
-                                    {{ patient.medical_history[:50] }}{% if patient.medical_history|length > 50 %}...{% endif %}
-                                {% else %}
-                                    <span class="text-muted">无</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '—' }}</td>
+                            <td>{{ patient.contact_number or '未填写' }}</td>
+                            <td class="text-muted small">{{ patient.medical_history[:40] if patient.medical_history else '无' }}{% if patient.medical_history and patient.medical_history|length > 40 %}...{% endif %}</td>
+                            <td><small>{{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '未知' }}</small></td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary" onclick="editPatient({{ patient.patient_id }})" title="编辑">
+                                    <a href="{{ url_for('patient_detail', patient_id=patient.patient_id) }}" class="btn btn-outline-primary" title="查看详情">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-outline-secondary" onclick="editPatient({{ patient.patient_id }})" title="编辑">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <button class="btn btn-outline-danger" onclick="deletePatient({{ patient.patient_id }})" title="删除">
                                         <i class="bi bi-trash"></i>
                                     </button>
-                                    <a href="{{ url_for('patient_detail', patient_id=patient.patient_id) }}" class="btn btn-outline-info" title="详情">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -180,7 +166,7 @@
             <div class="text-center py-5">
                 <i class="bi bi-people display-1 text-muted"></i>
                 <h5 class="mt-3 text-muted">暂无患者数据</h5>
-                <p class="text-muted">点击“添加患者”开始登记</p>
+                <p class="text-muted">请点击“添加患者”按钮开始管理</p>
             </div>
             {% endif %}
         </div>
@@ -215,6 +201,7 @@
                                     <option value="">请选择</option>
                                     <option value="male">男</option>
                                     <option value="female">女</option>
+                                    <option value="other">其他</option>
                                 </select>
                             </div>
                         </div>
@@ -224,14 +211,14 @@
                         <input type="tel" class="form-control" name="contact_number">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">病史</label>
-                        <textarea class="form-control" name="medical_history" rows="3"></textarea>
+                        <label class="form-label">病史记录</label>
+                        <textarea class="form-control" name="medical_history" rows="3" placeholder="请输入患者的病史信息..."></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="submitAddPatient()">保存患者</button>
+                <button type="button" class="btn btn-primary" onclick="addPatient()">保存患者</button>
             </div>
         </div>
     </div>
@@ -247,42 +234,43 @@
             </div>
             <div class="modal-body">
                 <form id="editPatientForm">
-                    <input type="hidden" name="patient_id" id="edit_patient_id">
+                    <input type="hidden" id="editPatientId">
                     <div class="mb-3">
                         <label class="form-label">患者姓名 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name" id="edit_name" required>
+                        <input type="text" class="form-control" id="editName" name="name" required>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">年龄</label>
-                                <input type="number" class="form-control" name="age" id="edit_age">
+                                <input type="number" class="form-control" id="editAge" name="age">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">性别</label>
-                                <select class="form-select" name="gender" id="edit_gender">
+                                <select class="form-select" id="editGender" name="gender">
                                     <option value="">请选择</option>
                                     <option value="male">男</option>
                                     <option value="female">女</option>
+                                    <option value="other">其他</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">联系电话</label>
-                        <input type="tel" class="form-control" name="contact_number" id="edit_contact">
+                        <input type="tel" class="form-control" id="editContact" name="contact_number">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">病史</label>
-                        <textarea class="form-control" name="medical_history" id="edit_history" rows="3"></textarea>
+                        <label class="form-label">病史记录</label>
+                        <textarea class="form-control" id="editHistory" name="medical_history" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="submitEditPatient()">保存修改</button>
+                <button type="button" class="btn btn-primary" onclick="updatePatient()">保存修改</button>
             </div>
         </div>
     </div>
@@ -329,59 +317,47 @@
         font-size: 12px;
         color: #86909C;
     }
-    .table th {
-        background-color: #F7F8FA;
-        font-weight: 600;
-        color: #4E5969;
-    }
 </style>
 
 <script>
-    // 统计性别占比和近30天新增
+    // 更新统计卡片中的性别和近期新增数量
     function updateStats() {
         const rows = document.querySelectorAll('#patientsTable tbody tr');
-        let total = rows.length;
         let male = 0, female = 0, recent = 0;
-        const today = new Date();
         const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(today.getDate() - 30);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         rows.forEach(row => {
             const gender = row.getAttribute('data-gender');
             if (gender === 'male') male++;
-            else if (gender === 'female') female++;
-            const createdStr = row.getAttribute('data-created');
-            if (createdStr) {
-                const createdDate = new Date(createdStr);
-                if (createdDate >= thirtyDaysAgo) recent++;
+            if (gender === 'female') female++;
+            const created = row.getAttribute('data-created');
+            if (created) {
+                const createDate = new Date(created);
+                if (createDate >= thirtyDaysAgo) recent++;
             }
         });
         document.getElementById('maleCount').innerText = male;
         document.getElementById('femaleCount').innerText = female;
         document.getElementById('recentCount').innerText = recent;
-        const malePercent = total ? ((male / total) * 100).toFixed(1) : 0;
-        const femalePercent = total ? ((female / total) * 100).toFixed(1) : 0;
-        document.getElementById('malePercent').innerText = malePercent;
-        document.getElementById('femalePercent').innerText = femalePercent;
     }
 
     // 搜索和筛选
+    document.getElementById('searchInput').addEventListener('input', filterTable);
+    document.getElementById('genderFilter').addEventListener('change', filterTable);
     function filterTable() {
-        const search = document.getElementById('searchInput').value.toLowerCase();
+        const keyword = document.getElementById('searchInput').value.toLowerCase();
         const gender = document.getElementById('genderFilter').value;
         const rows = document.querySelectorAll('#patientsTable tbody tr');
         rows.forEach(row => {
             const name = row.cells[1]?.innerText.toLowerCase() || '';
-            const idText = row.cells[0]?.innerText.toLowerCase() || '';
+            const id = row.cells[0]?.innerText.toLowerCase() || '';
             const rowGender = row.getAttribute('data-gender');
-            let visible = true;
-            if (search && !name.includes(search) && !idText.includes(search)) visible = false;
-            if (gender && rowGender !== gender) visible = false;
-            row.style.display = visible ? '' : 'none';
+            let show = true;
+            if (keyword && !name.includes(keyword) && !id.includes(keyword)) show = false;
+            if (gender && rowGender !== gender) show = false;
+            row.style.display = show ? '' : 'none';
         });
     }
-
-    document.getElementById('searchInput').addEventListener('input', filterTable);
-    document.getElementById('genderFilter').addEventListener('change', filterTable);
 
     function clearFilters() {
         document.getElementById('searchInput').value = '';
@@ -389,119 +365,81 @@
         filterTable();
     }
 
-    function refreshData() {
-        location.reload();
-    }
-
     // 添加患者
-    function submitAddPatient() {
+    function showAddPatientModal() {
+        document.getElementById('addPatientForm').reset();
+        new bootstrap.Modal(document.getElementById('addPatientModal')).show();
+    }
+    function addPatient() {
         const form = document.getElementById('addPatientForm');
         const formData = new FormData(form);
-        const name = formData.get('name');
-        if (!name.trim()) {
-            alert('患者姓名不能为空');
-            return;
-        }
-        const btn = document.querySelector('#addPatientModal .btn-primary');
-        const original = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 添加中...';
-        btn.disabled = true;
-        fetch('/add_patient', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('患者添加成功');
-                location.reload();
-            } else {
-                alert('添加失败: ' + data.message);
-            }
-        })
-        .catch(err => alert('网络错误: ' + err))
-        .finally(() => {
-            btn.innerHTML = original;
-            btn.disabled = false;
-        });
-    }
-
-    // 编辑患者：获取数据并填充模态框
-    function editPatient(patientId) {
-        // 从表格中获取当前行的数据（更可靠的方式是通过API，但为了简单，可以从DOM获取）
-        const row = document.querySelector(`tr[data-patient-id="${patientId}"]`);
-        if (!row) return;
-        const name = row.cells[1].innerText.trim();
-        const ageCell = row.cells[2].innerText.trim();
-        const age = ageCell !== '—' ? parseInt(ageCell) : '';
-        const genderBadge = row.cells[3].innerText.trim();
-        let gender = '';
-        if (genderBadge.includes('男')) gender = 'male';
-        else if (genderBadge.includes('女')) gender = 'female';
-        const contact = row.cells[4].innerText.trim() === '—' ? '' : row.cells[4].innerText.trim();
-        const history = row.cells[5].innerText.trim() === '无' ? '' : row.cells[5].innerText.trim();
-        document.getElementById('edit_patient_id').value = patientId;
-        document.getElementById('edit_name').value = name;
-        document.getElementById('edit_age').value = age;
-        document.getElementById('edit_gender').value = gender;
-        document.getElementById('edit_contact').value = contact;
-        document.getElementById('edit_history').value = history;
-        new bootstrap.Modal(document.getElementById('editPatientModal')).show();
-    }
-
-    function submitEditPatient() {
-        const form = document.getElementById('editPatientForm');
-        const formData = new FormData(form);
-        const patientId = formData.get('patient_id');
-        const name = formData.get('name');
-        if (!name.trim()) {
-            alert('患者姓名不能为空');
-            return;
-        }
-        const btn = document.querySelector('#editPatientModal .btn-primary');
-        const original = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
-        btn.disabled = true;
-        fetch('/update_patient', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('患者信息已更新');
-                location.reload();
-            } else {
-                alert('更新失败: ' + data.message);
-            }
-        })
-        .catch(err => alert('网络错误: ' + err))
-        .finally(() => {
-            btn.innerHTML = original;
-            btn.disabled = false;
-        });
-    }
-
-    // 删除患者
-    function deletePatient(patientId) {
-        if (confirm('确定要删除该患者吗？此操作无法撤销，相关的诊断记录也会被删除。')) {
-            fetch(`/delete_patient/${patientId}`, { method: 'DELETE' })
-            .then(response => response.json())
+        fetch('/add_patient', { method: 'POST', body: formData })
+            .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    alert('患者已删除');
+                    alert('患者添加成功');
                     location.reload();
                 } else {
-                    alert('删除失败: ' + data.message);
+                    alert('添加失败: ' + data.message);
                 }
             })
             .catch(err => alert('网络错误: ' + err));
+    }
+
+    // 编辑患者
+    let currentEditId = null;
+    function editPatient(patientId) {
+        const row = document.querySelector(`tr:has(button[onclick="editPatient(${patientId})"])`);
+        if (!row) return;
+        const name = row.cells[1].innerText;
+        const age = row.cells[2].innerText.replace('岁', '').trim();
+        let gender = '';
+        const genderText = row.cells[3].innerText;
+        if (genderText.includes('男')) gender = 'male';
+        else if (genderText.includes('女')) gender = 'female';
+        const contact = row.cells[4].innerText;
+        const history = row.cells[5].innerText;
+        document.getElementById('editPatientId').value = patientId;
+        document.getElementById('editName').value = name;
+        document.getElementById('editAge').value = age === '未填写' ? '' : age;
+        document.getElementById('editGender').value = gender;
+        document.getElementById('editContact').value = contact === '未填写' ? '' : contact;
+        document.getElementById('editHistory').value = history === '无' ? '' : history;
+        new bootstrap.Modal(document.getElementById('editPatientModal')).show();
+    }
+    function updatePatient() {
+        const patientId = document.getElementById('editPatientId').value;
+        const formData = new FormData(document.getElementById('editPatientForm'));
+        fetch(`/update_patient/${patientId}`, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('患者信息已更新');
+                    location.reload();
+                } else {
+                    alert('更新失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('网络错误: ' + err));
+    }
+
+    // 删除患者（修复外键约束）
+    function deletePatient(patientId) {
+        if (confirm('确定要删除该患者吗？删除后相关诊断记录也会被清除，不可恢复！')) {
+            fetch(`/delete_patient/${patientId}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('患者删除成功');
+                        location.reload();
+                    } else {
+                        alert('删除失败: ' + data.message);
+                    }
+                })
+                .catch(err => alert('网络错误: ' + err));
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        updateStats();
-        // 确保所有患者行都有 data-gender 和 data-created 属性（后端模板已添加）
-    });
+    document.addEventListener('DOMContentLoaded', updateStats);
 </script>
 {% endblock %}
