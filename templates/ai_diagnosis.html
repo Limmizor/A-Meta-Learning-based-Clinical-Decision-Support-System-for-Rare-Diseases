@@ -224,9 +224,9 @@
             setTimeout(() => progressDiv.classList.add('d-none'), 800);
 
             if(result.success) {
-                // 使用后端返回的缩略图 URL 构建缩略图
+                // 使用后端返回的缩略图和预览图构建界面
                 if (result.thumbnails && result.thumbnails.length) {
-                    buildThumbnailsFromUrls(result.thumbnails);
+                    buildThumbnailsFromUrls(result.thumbnails, result.previews);
                 }
                 updateReportPanel(result);
                 document.getElementById('caseInfo').innerText = `患者ID: ${patientSelect.value}`;
@@ -244,35 +244,29 @@
     }
 
     // 构建缩略图（预览核心）
-    function buildThumbnailsFromUrls(urls) {
+    function buildThumbnailsFromUrls(thumbUrls, previewUrls) {
         thumbnailContainer.innerHTML = '';
-        uploadedFiles = urls;  // 存储 URL 列表
-        urls.forEach((url, idx) => {
+        uploadResults = { thumbUrls, previewUrls }; // 存储供点击时使用
+        thumbUrls.forEach((thumbUrl, idx) => {
             const thumb = document.createElement('img');
-            thumb.src = url;
+            thumb.src = thumbUrl;
             thumb.classList.add('thumbnail');
             thumb.dataset.index = idx;
             thumb.addEventListener('click', () => {
                 currentImageIndex = idx;
-                // 注意：缩略图 URL 不能直接作为大图，需要获取原始图片 URL
-                // 这里假设后端提供了原始图片访问接口，如 /uploads/xxx
-                // 可以从 URL 中提取文件名构建原始图 URL
-                const filename = url.split('/').pop().replace('thumb_', '');
-                const originalUrl = `/uploads/${filename}`;
-                mainImage.src = originalUrl;
+                // 显示对应的预览图（大图）
+                mainImage.src = previewUrls[idx];
                 document.querySelectorAll('.thumbnail').forEach(el => el.classList.remove('active'));
                 thumb.classList.add('active');
-                document.getElementById('imageIndex').innerText = `${idx+1}/${urls.length}`;
+                document.getElementById('imageIndex').innerText = `${idx+1}/${thumbUrls.length}`;
                 currentScale = 1;
                 mainImage.style.transform = `scale(1)`;
             });
             thumbnailContainer.appendChild(thumb);
             if(idx === 0) {
-                // 第一个缩略图对应的原始图
-                const filename = url.split('/').pop().replace('thumb_', '');
-                mainImage.src = `/uploads/${filename}`;
+                mainImage.src = previewUrls[0];
                 thumb.classList.add('active');
-                document.getElementById('imageIndex').innerText = `1/${urls.length}`;
+                document.getElementById('imageIndex').innerText = `1/${thumbUrls.length}`;
             }
         });
     }
