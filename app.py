@@ -1024,32 +1024,32 @@ def api_ai_diagnose():
         files = request.files.getlist('images')
         if not files:
             return jsonify({'success': False, 'message': '请至少上传一张CT切片'})
-        
+
         db = Database()
         if not db.connect():
             return jsonify({'success': False, 'message': '数据库连接失败'})
-        
+
         saved_paths = []
-        thumbnails = []  # 存储缩略图 URL
+        thumbnails = []      # 缩略图 URL 列表（150x150）
+        previews = []        # 预览图 URL 列表（800宽）
         
-        # 确保缩略图目录存在
+        # 确保目录存在
+        upload_dir = app.config['UPLOAD_FOLDER']
         thumb_dir = os.path.join('static', 'thumbnails')
+        preview_dir = os.path.join('static', 'previews')
         os.makedirs(thumb_dir, exist_ok=True)
-        
+        os.makedirs(preview_dir, exist_ok=True)
+
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                filepath = os.path.join(upload_dir, unique_filename)
                 file.save(filepath)
-                
-                # 生成缩略图
-                thumb_filename = f"thumb_{unique_filename}.png"
-                thumb_path = os.path.join(thumb_dir, thumb_filename)
-                
+
+                # 读取图像（DICOM 或普通图片）
                 ext = os.path.splitext(unique_filename)[1].lower()
                 if ext == '.dcm':
-                    # DICOM 转 PNG
                     dcm = pydicom.dcmread(filepath)
                     img = dcm.pixel_array.astype(np.float32)
                     img = (img - img.min()) / (img.max() - img.min() + 1e-8)
@@ -1057,25 +1057,37 @@ def api_ai_diagnose():
                     img_pil = Image.fromarray(img).convert('RGB')
                 else:
                     img_pil = Image.open(filepath).convert('RGB')
-                # 生成缩略图（150x150 以内）
-                img_pil.thumbnail((150, 150))
-                img_pil.save(thumb_path)
-                
+
+                # 生成预览图（宽度 800，高度等比）
+                preview_img = img_pil.copy()
+                preview_img.thumbnail((800, 800))
+                preview_filename = f"preview_{unique_filename}.png"
+                preview_path = os.path.join(preview_dir, preview_filename)
+                preview_img.save(preview_path)
+                preview_url = f'/static/previews/{preview_filename}'
+                previews.append(preview_url)
+
+                # 生成缩略图（150x150）
+                thumb_img = img_pil.copy()
+                thumb_img.thumbnail((150, 150))
+                thumb_filename = f"thumb_{unique_filename}.png"
+                thumb_path = os.path.join(thumb_dir, thumb_filename)
+                thumb_img.save(thumb_path)
                 thumbnail_url = f'/static/thumbnails/{thumb_filename}'
                 thumbnails.append(thumbnail_url)
-                
-                # 保存到数据库（存储原始文件名）
+
+                # 保存记录到数据库（存储原始文件名）
                 db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
                 saved_paths.append(filepath)
-        
+
         db.disconnect()
         if not saved_paths:
             return jsonify({'success': False, 'message': '文件上传失败'})
-        
-        # 调用诊断服务
+
+        # 调用诊断服务（返回预测、热力图、量化指标等）
         predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
             pf_service.predict_from_paths(saved_paths, patient_id)
-        
+
         return jsonify({
             'success': True,
             'predictions': predictions,
@@ -1085,10 +1097,13 @@ def api_ai_diagnose():
             'imaging_findings': findings,
             'suggestions': suggestions,
             'time_cost': 32,
-            'thumbnails': thumbnails   # 返回缩略图 URL 列表
+            'thumbnails': thumbnails,     # 缩略图列表（用于缩略图栏）
+            'previews': previews          # 预览图列表（用于主图显示）
         })
     except Exception as e:
         print(f"AI诊断错误: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': 'AI诊断服务暂时不可用，请稍后重试'})
 
 @app.route('/update_profile', methods=['POST'])
