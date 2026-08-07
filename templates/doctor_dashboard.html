@@ -134,18 +134,33 @@
             align-items: center;
             gap: 10px;
             cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        .user-info:hover {
+            opacity: 0.85;
         }
 
         .user-avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background-color: var(--primary-light);
+            background: linear-gradient(135deg, #165DFF, #6E79D6);
             color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
+            font-size: 18px;
+            box-shadow: 0 2px 8px rgba(22, 93, 255, 0.35);
+            border: 2px solid #fff;
+            flex-shrink: 0;
+        }
+        .user-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            white-space: nowrap;
         }
 
         /* 主内容区 */

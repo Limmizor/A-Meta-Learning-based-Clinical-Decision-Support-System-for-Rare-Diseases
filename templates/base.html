@@ -13,7 +13,7 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background-color: #0d6efd;
+            background: linear-gradient(135deg, #0d6efd, #6E79D6);
             color: white;
             display: inline-flex;
             align-items: center;
@@ -22,12 +22,15 @@
             font-size: 16px;
             text-transform: uppercase;
             margin-right: 8px;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.35);
+            border: 2px solid rgba(255,255,255,0.5);
+            flex-shrink: 0;
         }
         .user-info {
             display: flex;
             align-items: center;
             text-decoration: none;
-            color: rgba(255,255,255,0.85);
+            color: rgba(255,255,255,0.92);
             transition: color 0.2s;
         }
         .user-info:hover {
@@ -35,7 +38,8 @@
         }
         .user-name {
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
+            letter-spacing: 0.3px;
         }
         .navbar-nav .nav-link {
             color: rgba(255,255,255,0.85);
