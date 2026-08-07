@@ -391,12 +391,34 @@ def patient_detail(patient_id):
         predictions = db.get_disease_predictions(report['report_id'])
         report['predictions'] = predictions
     
+    # 患者统计与扩展信息
+    followups = db.get_followup_plans(patient_id) or []
+    trend_data = db.get_patient_trend_data(patient_id) or []
+    appointments = db.execute_query(
+        """SELECT a.*, u.full_name as doctor_name FROM appointments a
+           JOIN users u ON a.doctor_id = u.user_id
+           WHERE a.patient_id = %s ORDER BY a.appointment_date DESC, a.appointment_time DESC""",
+        (patient_id,)
+    ) or []
+    
+    # 该患者关联的 user_id（用于在线咨询）
+    patient_user_id = patient[0].get('user_id')
+    
     db.disconnect()
     model_trained = os.path.exists('./models/pf_maml_model.pth')
     return render_template('patient.html', 
                           patient=patient[0], 
                           images=images, 
                           reports=reports,
+                          followups=followups,
+                          trend_data=trend_data,
+                          appointments=appointments,
+                          patient_user_id=patient_user_id,
+                          total_images=len(images),
+                          total_reports=len(reports),
+                          total_followups=len(followups),
+                          completed_reports=sum(1 for r in reports if r.get('status') == 'completed'),
+                          pending_reports=sum(1 for r in reports if r.get('status') == 'pending'),
                           model_trained=model_trained)
 
 # 添加患者

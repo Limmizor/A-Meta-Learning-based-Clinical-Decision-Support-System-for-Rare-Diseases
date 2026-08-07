@@ -1,106 +1,455 @@
 {% extends "base.html" %}
 
+{% block title %}患者详情 - {{ patient.name }} - 肺影智诊系统{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>患者详情 - {{ patient.name }}</h1>
-    <div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadImageModal">上传CT影像</button>
-        <button class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#diagnoseModal">AI辅助诊断</button>
+<style>
+    /* 患者详情 - 现代医疗风格 */
+    .pd-header-card {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #0E42D2 0%, #165DFF 55%, #00B4D8 100%);
+        border-radius: 18px;
+        padding: 26px 30px;
+        color: #fff;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 28px rgba(22, 93, 255, 0.28);
+    }
+    .pd-header-card::after {
+        content: '';
+        position: absolute;
+        right: -60px;
+        top: -60px;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        border: 36px solid rgba(255,255,255,0.08);
+    }
+    .pd-header-inner { position: relative; z-index: 2; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .pd-avatar {
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ffffff, #dbe8ff);
+        color: var(--primary-dark, #0E42D2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        font-weight: 700;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        border: 3px solid rgba(255,255,255,0.7);
+        flex-shrink: 0;
+    }
+    .pd-main { flex: 1; min-width: 220px; }
+    .pd-name { font-size: 24px; font-weight: 700; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .pd-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pd-tag {
+        font-size: 12px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.25);
+        color: #fff;
+        backdrop-filter: blur(4px);
+    }
+    .pd-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pd-actions .btn {
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: #fff;
+        border-radius: 10px;
+        padding: 9px 16px;
+        font-weight: 500;
+        backdrop-filter: blur(4px);
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .pd-actions .btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); color: #fff; }
+    .pd-actions .btn-solid { background: #fff; color: var(--primary-dark, #0E42D2); border: none; font-weight: 600; }
+    .pd-actions .btn-solid:hover { background: #E8F0FF; color: var(--primary-dark, #0E42D2); }
+
+    /* KPI */
+    .pd-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
+    .pd-kpi {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid var(--border-color, #E5E6EB);
+        box-shadow: var(--shadow, 0 2px 14px rgba(0,0,0,0.06));
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pd-kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
+    .pd-kpi-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+    }
+    .pd-kpi-icon.blue { background: rgba(22,93,255,0.12); color: #165DFF; }
+    .pd-kpi-icon.green { background: rgba(0,180,42,0.12); color: #00B42A; }
+    .pd-kpi-icon.orange { background: rgba(255,125,0,0.12); color: #FF7D00; }
+    .pd-kpi-icon.purple { background: rgba(114,46,209,0.12); color: #722ED1; }
+    .pd-kpi-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
+    .pd-kpi-label { font-size: 13px; color: #4E5969; margin-top: 2px; }
+
+    /* 双栏面板 */
+    .pd-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+    .pd-panel {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid var(--border-color, #E5E6EB);
+        box-shadow: var(--shadow, 0 2px 14px rgba(0,0,0,0.06));
+        overflow: hidden;
+    }
+    .pd-panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #E5E6EB;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+    }
+    .pd-panel-header h5 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .pd-panel-body { padding: 20px; }
+
+    /* 信息列表 */
+    .pd-info-list { list-style: none; padding: 0; margin: 0; }
+    .pd-info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #F2F3F5;
+    }
+    .pd-info-item:last-child { border-bottom: none; }
+    .pd-info-label { font-size: 13px; color: #86909C; display: flex; align-items: center; gap: 8px; }
+    .pd-info-label i { color: #165DFF; }
+    .pd-info-value { font-size: 14px; font-weight: 500; color: #1D2129; }
+
+    /* 影像缩略图 */
+    .pd-images { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .pd-image-card { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #E5E6EB; }
+    .pd-image-card img { width: 100%; height: 150px; object-fit: cover; transition: transform 0.3s; cursor: zoom-in; }
+    .pd-image-card:hover img { transform: scale(1.05); }
+    .pd-image-type {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(22,93,255,0.9);
+        color: #fff;
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .pd-image-info { padding: 10px 12px; background: #fff; }
+    .pd-image-desc { font-size: 13px; font-weight: 500; color: #1D2129; }
+    .pd-image-time { font-size: 11px; color: #86909C; margin-top: 2px; }
+
+    /* 报告 */
+    .pd-report-card { border: 1px solid #E5E6EB; border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+    .pd-report-head {
+        padding: 14px 18px;
+        background: #F7F8FA;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .pd-report-head:hover { background: #F0F5FF; }
+    .pd-report-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .pd-report-title i { color: #00B42A; }
+    .pd-report-body { padding: 16px 18px; display: none; border-top: 1px solid #F2F3F5; }
+    .pd-report-body.open { display: block; }
+
+    /* 预测置信度条 */
+    .pd-prediction { margin-bottom: 14px; }
+    .pd-prediction:last-child { margin-bottom: 0; }
+    .pd-pred-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+    .pd-pred-name { font-weight: 600; }
+    .pd-pred-conf { color: #165DFF; font-weight: 600; }
+    .pd-pred-bar { background: #F0F1F3; border-radius: 20px; height: 8px; overflow: hidden; }
+    .pd-pred-fill {
+        background: linear-gradient(90deg, #165DFF, #00B4D8);
+        height: 100%;
+        border-radius: 20px;
+        transition: width 0.6s ease;
+    }
+
+    /* 空状态 */
+    .pd-empty { text-align: center; padding: 40px 20px; color: #86909C; }
+    .pd-empty i { font-size: 44px; color: #C9CDD4; display: block; margin-bottom: 10px; }
+
+    /* 随访 */
+    .pd-followup {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #F2F3F5;
+    }
+    .pd-followup:last-child { border-bottom: none; }
+    .pd-followup-icon {
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; flex-shrink: 0;
+        background: rgba(255,125,0,0.1); color: #FF7D00;
+    }
+    .pd-followup-info { flex: 1; min-width: 0; }
+    .pd-followup-date { font-size: 14px; font-weight: 500; }
+    .pd-followup-meta { font-size: 12px; color: #86909C; margin-top: 2px; }
+
+    @media (max-width: 1200px) {
+        .pd-kpi-row { grid-template-columns: repeat(2, 1fr); }
+        .pd-row { grid-template-columns: 1fr; }
+    }
+</style>
+
+<!-- 患者概览横幅 -->
+<div class="pd-header-card">
+    <div class="pd-header-inner">
+        <div class="pd-avatar">{{ patient.name[0] if patient.name else 'P' }}</div>
+        <div class="pd-main">
+            <div class="pd-name">
+                {{ patient.name }}
+                {% if patient.gender == 'male' %}<i class="bi bi-gender-male" style="font-size: 18px; color: #A5D8FF;"></i>
+                {% elif patient.gender == 'female' %}<i class="bi bi-gender-female" style="font-size: 18px; color: #FFB3D1;"></i>{% endif %}
+            </div>
+            <div class="pd-tags">
+                <span class="pd-tag"><i class="bi bi-person-badge"></i> 患者ID: PT{{ patient.patient_id }}</span>
+                <span class="pd-tag"><i class="bi bi-calendar3"></i> {{ patient.age or '未知' }}岁</span>
+                <span class="pd-tag"><i class="bi bi-telephone"></i> {{ patient.contact_number or '未填写' }}</span>
+                {% if patient.created_at %}<span class="pd-tag"><i class="bi bi-clock-history"></i> 建档 {{ patient.created_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="pd-actions">
+            <button class="btn btn-solid" data-bs-toggle="modal" data-bs-target="#uploadImageModal"><i class="bi bi-image"></i> 上传影像</button>
+            <button class="btn" data-bs-toggle="modal" data-bs-target="#diagnoseModal"><i class="bi bi-cpu"></i> AI诊断</button>
+            {% if patient_user_id %}
+            <a href="{{ url_for('doctor_chat') }}" class="btn"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            {% endif %}
+            <a href="{{ url_for('patient_list') }}" class="btn"><i class="bi bi-arrow-left"></i> 返回</a>
+        </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">基本信息</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>年龄:</strong> {{ patient.age or '未知' }}</p>
-                <p><strong>性别:</strong> {{ patient.gender or '未知' }}</p>
-                <p><strong>联系方式:</strong> {{ patient.contact_number or '未知' }}</p>
-                <p><strong>病史:</strong> {{ patient.medical_history or '无' }}</p>
-            </div>
+<!-- KPI 指标 -->
+<div class="pd-kpi-row">
+    <div class="pd-kpi">
+        <div class="pd-kpi-icon blue"><i class="bi bi-images"></i></div>
+        <div><div class="pd-kpi-value">{{ total_images }}</div><div class="pd-kpi-label">医学影像</div></div>
+    </div>
+    <div class="pd-kpi">
+        <div class="pd-kpi-icon green"><i class="bi bi-file-medical"></i></div>
+        <div><div class="pd-kpi-value">{{ total_reports }}</div><div class="pd-kpi-label">诊断报告</div></div>
+    </div>
+    <div class="pd-kpi">
+        <div class="pd-kpi-icon orange"><i class="bi bi-calendar-heart"></i></div>
+        <div><div class="pd-kpi-value">{{ total_followups }}</div><div class="pd-kpi-label">随访计划</div></div>
+    </div>
+    <div class="pd-kpi">
+        <div class="pd-kpi-icon purple"><i class="bi bi-hourglass-split"></i></div>
+        <div><div class="pd-kpi-value">{{ pending_reports }}</div><div class="pd-kpi-label">待处理报告</div></div>
+    </div>
+</div>
+
+<!-- 档案 + 影像 -->
+<div class="pd-row">
+    <div class="pd-panel">
+        <div class="pd-panel-header">
+            <h5><i class="bi bi-person-vcard" style="color: #165DFF;"></i> 患者档案</h5>
+        </div>
+        <div class="pd-panel-body">
+            <ul class="pd-info-list">
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-person"></i> 姓名</span>
+                    <span class="pd-info-value">{{ patient.name }}</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-calendar3"></i> 年龄</span>
+                    <span class="pd-info-value">{{ patient.age or '未知' }} 岁</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-gender-ambiguous"></i> 性别</span>
+                    <span class="pd-info-value">{% if patient.gender == 'male' %}男{% elif patient.gender == 'female' %}女{% else %}其他{% endif %}</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-telephone"></i> 联系方式</span>
+                    <span class="pd-info-value">{{ patient.contact_number or '未填写' }}</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-shield-plus"></i> 紧急联系人</span>
+                    <span class="pd-info-value">{{ patient.emergency_contact or '未填写' }}</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-dna"></i> 遗传背景</span>
+                    <span class="pd-info-value">{{ patient.genetic_background or '未填写' }}</span>
+                </li>
+                <li class="pd-info-item">
+                    <span class="pd-info-label"><i class="bi bi-people"></i> 家族史</span>
+                    <span class="pd-info-value">{{ patient.family_history or '未填写' }}</span>
+                </li>
+            </ul>
         </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">医学影像</h5>
-            </div>
-            <div class="card-body">
-                {% if images %}
-                <div class="row">
-                    {% for image in images %}
-                    <div class="col-md-6 mb-3">
-                        <img src="{{ url_for('uploaded_file', filename=image.image_path) }}" 
-                             class="img-thumbnail" alt="{{ image.description }}"
-                             style="width: 100%; height: 150px; object-fit: cover;">
-                        <p class="small mt-1 mb-0">{{ image.description }}</p>
+
+    <div class="pd-panel">
+        <div class="pd-panel-header">
+            <h5><i class="bi bi-images" style="color: #165DFF;"></i> 医学影像</h5>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadImageModal"><i class="bi bi-plus-circle"></i> 上传</button>
+        </div>
+        <div class="pd-panel-body">
+            {% if images %}
+            <div class="pd-images">
+                {% for image in images[:6] %}
+                <div class="pd-image-card">
+                    <img src="{{ url_for('uploaded_file', filename=image.image_path) }}"
+                         alt="{{ image.description }}" onclick="window.open(this.src)">
+                    <span class="pd-image-type">{{ image.image_type or 'CT' }}</span>
+                    <div class="pd-image-info">
+                        <div class="pd-image-desc">{{ image.description or '未命名影像' }}</div>
+                        <div class="pd-image-time">{{ image.upload_date.strftime('%Y-%m-%d') if image.upload_date else '' }}</div>
                     </div>
-                    {% endfor %}
                 </div>
-                {% else %}
-                <p class="text-muted">暂无医学影像</p>
-                {% endif %}
+                {% endfor %}
             </div>
+            {% else %}
+            <div class="pd-empty">
+                <i class="bi bi-images"></i>
+                <p>暂无医学影像</p>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadImageModal"><i class="bi bi-plus-circle"></i> 上传第一张影像</button>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="card-title mb-0">诊断报告</h5>
+<!-- 病史 + 随访 -->
+<div class="pd-row">
+    <div class="pd-panel">
+        <div class="pd-panel-header">
+            <h5><i class="bi bi-journal-medical" style="color: #00B42A;"></i> 病史记录</h5>
+        </div>
+        <div class="pd-panel-body">
+            {% if patient.medical_history %}
+            <p style="font-size: 14px; line-height: 1.8; color: #4E5969; margin: 0; white-space: pre-wrap;">{{ patient.medical_history }}</p>
+            {% else %}
+            <div class="pd-empty"><i class="bi bi-journal-medical"></i><p>暂无病史记录</p></div>
+            {% endif %}
+        </div>
     </div>
-    <div class="card-body">
+
+    <div class="pd-panel">
+        <div class="pd-panel-header">
+            <h5><i class="bi bi-calendar-heart" style="color: #FF7D00;"></i> 随访计划</h5>
+            <a href="{{ url_for('patient_followup') }}" class="btn btn-sm btn-outline-primary">管理</a>
+        </div>
+        <div class="pd-panel-body">
+            {% if followups %}
+                {% for fp in followups[:4] %}
+                <div class="pd-followup">
+                    <div class="pd-followup-icon"><i class="bi bi-calendar-heart"></i></div>
+                    <div class="pd-followup-info">
+                        <div class="pd-followup-date">{{ fp.suggested_date.strftime('%Y-%m-%d') if fp.suggested_date else '未定日期' }}</div>
+                        <div class="pd-followup-meta">{{ fp.reason or '定期随访' }} · {{ fp.status }}</div>
+                    </div>
+                    <span class="badge {% if fp.status == 'completed' %}bg-success{% elif fp.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">{{ fp.status }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="pd-empty"><i class="bi bi-calendar-heart"></i><p>暂无随访计划</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 诊断报告 -->
+<div class="pd-panel" style="margin-bottom: 24px;">
+    <div class="pd-panel-header">
+        <h5><i class="bi bi-file-earmark-medical" style="color: #00B42A;"></i> 诊断报告</h5>
+        <span class="badge bg-success">{{ completed_reports }} 完成</span>
+    </div>
+    <div class="pd-panel-body">
         {% if reports %}
-        <div class="accordion" id="reportsAccordion">
             {% for report in reports %}
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="heading{{ report.report_id }}">
-                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" 
-                            data-bs-toggle="collapse" data-bs-target="#collapse{{ report.report_id }}">
-                        报告 #{{ report.report_id }} - {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}
-                    </button>
-                </h2>
-                <div id="collapse{{ report.report_id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
-                     data-bs-parent="#reportsAccordion">
-                    <div class="accordion-body">
-                        <p><strong>医生:</strong> {{ report.doctor_name }}</p>
-                        <p><strong>临床笔记:</strong> {{ report.clinical_notes or '无' }}</p>
-                        <p><strong>诊断结果:</strong> {{ report.findings or '无' }}</p>
-                        
-                        {% if report.predictions %}
-                        <h6>疾病预测:</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>排名</th>
-                                        <th>疾病名称</th>
-                                        <th>置信度</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for prediction in report.predictions %}
-                                    <tr>
-                                        <td>{{ prediction.rank }}</td>
-                                        <td>{{ prediction.disease_name }}</td>
-                                        <td>{{ "%.2f"|format(prediction.confidence * 100) }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+            <div class="pd-report-card">
+                <div class="pd-report-head" onclick="toggleReport(this)">
+                    <div class="pd-report-title">
+                        <i class="bi bi-file-medical"></i>
+                        报告 #{{ report.report_id }}
+                        <span class="badge {% if report.status == 'completed' %}bg-success{% elif report.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ report.status or 'pending' }}
+                        </span>
+                    </div>
+                    <span style="font-size: 12px; color: #86909C;">{{ report.created_at.strftime('%Y-%m-%d %H:%M') if report.created_at else '' }}</span>
+                </div>
+                <div class="pd-report-body">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <ul class="pd-info-list">
+                                <li class="pd-info-item">
+                                    <span class="pd-info-label"><i class="bi bi-person-badge"></i> 诊断医生</span>
+                                    <span class="pd-info-value">{{ report.doctor_name or '未知' }}</span>
+                                </li>
+                                <li class="pd-info-item">
+                                    <span class="pd-info-label"><i class="bi bi-journal-text"></i> 临床笔记</span>
+                                    <span class="pd-info-value">{{ report.clinical_notes or '无' }}</span>
+                                </li>
+                                <li class="pd-info-item">
+                                    <span class="pd-info-label"><i class="bi bi-clipboard2-pulse"></i> 诊断结果</span>
+                                    <span class="pd-info-value">{{ report.findings or '无' }}</span>
+                                </li>
+                                {% if report.lesion_area_ratio %}
+                                <li class="pd-info-item">
+                                    <span class="pd-info-label"><i class="bi bi-percent"></i> 病灶面积占比</span>
+                                    <span class="pd-info-value">{{ (report.lesion_area_ratio * 100)|round(1) }}%</span>
+                                </li>
+                                {% endif %}
+                                {% if report.distribution_range %}
+                                <li class="pd-info-item">
+                                    <span class="pd-info-label"><i class="bi bi-arrows-angle-expand"></i> 分布范围</span>
+                                    <span class="pd-info-value">{{ report.distribution_range }}</span>
+                                </li>
+                                {% endif %}
+                            </ul>
                         </div>
-                        {% endif %}
+                        <div class="col-md-5">
+                            {% if report.predictions %}
+                            <h6 style="font-size: 13px; color: #4E5969; margin-bottom: 12px;"><i class="bi bi-graph-up-arrow"></i> AI疾病预测</h6>
+                                {% for pred in report.predictions %}
+                                <div class="pd-prediction">
+                                    <div class="pd-pred-head">
+                                        <span class="pd-pred-name">{{ pred.disease_name }}</span>
+                                        <span class="pd-pred-conf">{{ "%.1f"|format((pred.confidence or 0) * 100) }}%</span>
+                                    </div>
+                                    <div class="pd-pred-bar">
+                                        <div class="pd-pred-fill" style="width: {{ (pred.confidence or 0) * 100 }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                            <div class="pd-empty"><i class="bi bi-graph-up-arrow"></i><p>暂无预测结果</p></div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
             {% endfor %}
-        </div>
         {% else %}
-        <p class="text-muted">暂无诊断报告</p>
+        <div class="pd-empty">
+            <i class="bi bi-file-earmark-medical"></i>
+            <p>暂无诊断报告</p>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#diagnoseModal"><i class="bi bi-cpu"></i> 发起AI诊断</button>
+        </div>
         {% endif %}
     </div>
 </div>
@@ -110,7 +459,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">上传医学影像</h5>
+                <h5 class="modal-title"><i class="bi bi-image me-1"></i>上传医学影像</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -118,7 +467,7 @@
                     <input type="hidden" name="patient_id" value="{{ patient.patient_id }}">
                     <div class="mb-3">
                         <label for="imageFile" class="form-label">选择影像文件</label>
-                        <input class="form-control" type="file" id="imageFile" name="file" accept="image/*" required>
+                        <input class="form-control" type="file" id="imageFile" name="file" accept="image/*,.dcm" required>
                     </div>
                     <div class="mb-3">
                         <label for="imageType" class="form-label">影像类型</label>
@@ -150,7 +499,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">AI辅助诊断</h5>
+                <h5 class="modal-title"><i class="bi bi-cpu me-1"></i>AI辅助诊断</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -158,8 +507,11 @@
                     <input type="hidden" name="patient_id" value="{{ patient.patient_id }}">
                     <div class="mb-3">
                         <label for="clinicalNotes" class="form-label">临床笔记</label>
-                        <textarea class="form-control" id="clinicalNotes" name="clinical_notes" rows="4" 
+                        <textarea class="form-control" id="clinicalNotes" name="clinical_notes" rows="4"
                                   placeholder="输入患者的症状、体征等信息..."></textarea>
+                    </div>
+                    <div class="alert alert-info" style="font-size: 13px;">
+                        <i class="bi bi-info-circle"></i> AI将结合患者影像进行肺纤维化辅助诊断，生成疾病预测与量化指标。
                     </div>
                 </form>
             </div>
@@ -172,63 +524,54 @@
 </div>
 
 <script>
+// 展开/收起报告
+function toggleReport(head) {
+    const body = head.nextElementSibling;
+    body.classList.toggle('open');
+}
+
 // 上传医学影像
 function uploadImage() {
     const formData = new FormData(document.getElementById('uploadImageForm'));
-    
-    fetch('/upload_image', {
-        method: 'POST',
-        body: formData
-    })
+    const btn = document.querySelector('#uploadImageModal .btn-primary');
+    const original = btn.textContent;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 上传中...';
+    btn.disabled = true;
+    fetch('/upload_image', { method: 'POST', body: formData })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             alert('影像上传成功');
-            $('#uploadImageModal').modal('hide');
+            bootstrap.Modal.getInstance(document.getElementById('uploadImageModal')).hide();
             location.reload();
         } else {
             alert('上传失败: ' + data.message);
         }
     })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('发生错误，请重试');
-    });
+    .catch(error => { console.error('Error:', error); alert('发生错误，请重试'); })
+    .finally(() => { btn.textContent = original; btn.disabled = false; });
 }
 
 // 开始诊断
 function startDiagnosis() {
     const formData = new FormData(document.getElementById('diagnoseForm'));
-    
-    // 显示加载中
-    const diagnoseBtn = document.querySelector('#diagnoseModal .btn-primary');
-    const originalText = diagnoseBtn.textContent;
-    diagnoseBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 诊断中...';
-    diagnoseBtn.disabled = true;
-    
-    fetch('/diagnose', {
-        method: 'POST',
-        body: formData
-    })
+    const btn = document.querySelector('#diagnoseModal .btn-primary');
+    const original = btn.textContent;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 诊断中...';
+    btn.disabled = true;
+    fetch('/diagnose', { method: 'POST', body: formData })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('诊断完成');
-            $('#diagnoseModal').modal('hide');
+            alert('诊断完成，报告ID: ' + data.report_id);
+            bootstrap.Modal.getInstance(document.getElementById('diagnoseModal')).hide();
             location.reload();
         } else {
             alert('诊断失败: ' + data.message);
         }
     })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('发生错误，请重试');
-    })
-    .finally(() => {
-        // 恢复按钮状态
-        diagnoseBtn.textContent = originalText;
-        diagnoseBtn.disabled = false;
-    });
+    .catch(error => { console.error('Error:', error); alert('发生错误，请重试'); })
+    .finally(() => { btn.textContent = original; btn.disabled = false; });
 }
 </script>
 {% endblock %}
