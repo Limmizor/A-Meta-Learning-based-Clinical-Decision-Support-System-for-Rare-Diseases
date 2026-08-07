@@ -63,10 +63,10 @@ class Database:
 
     def update_disease(self, disease_id, name, description, symptoms, treatment_options):
         query = """UPDATE diseases SET name=%s, description=%s, symptoms=%s, 
-                   treatment_options=%s, updated_at=%s WHERE disease_id=%s"""
+                   treatment_options=%s WHERE disease_id=%s"""
         return self.execute_insert(
             query,
-            (name, description, symptoms, treatment_options, datetime.datetime.now(), disease_id)
+            (name, description, symptoms, treatment_options, disease_id)
         )
 
     def delete_disease(self, disease_id):
@@ -77,13 +77,13 @@ class Database:
         return self.execute_query(
             """SELECT l.*, u.username FROM system_logs l
                JOIN users u ON l.user_id = u.user_id
-               ORDER BY log_time DESC LIMIT %s""",
+               ORDER BY l.created_at DESC LIMIT %s""",
             (limit,)
         )
 
     def add_system_log(self, user_id, action, details):
         return self.execute_insert(
-            """INSERT INTO system_logs (user_id, action, details, log_time)
+            """INSERT INTO system_logs (user_id, action, details, created_at)
                VALUES (%s, %s, %s, %s)""",
             (user_id, action, details, datetime.datetime.now())
         )
@@ -106,14 +106,14 @@ class Database:
     def add_medical_image(self, patient_id, image_path, image_type, description):
         """插入医学影像记录（image_path 存储文件名）"""
         return self.execute_insert(
-            """INSERT INTO medical_images (patient_id, image_path, image_type, description, uploaded_at)
+            """INSERT INTO medical_images (patient_id, image_path, image_type, description, upload_date)
                VALUES (%s, %s, %s, %s, %s)""",
             (patient_id, image_path, image_type, description, datetime.datetime.now())
         )
 
     def get_medical_images(self, patient_id):
         return self.execute_query(
-            "SELECT * FROM medical_images WHERE patient_id = %s ORDER BY uploaded_at DESC",
+            "SELECT * FROM medical_images WHERE patient_id = %s ORDER BY upload_date DESC",
             (patient_id,)
         )
 
@@ -128,9 +128,9 @@ class Database:
 
     def add_diagnosis_report(self, patient_id, doctor_id, clinical_notes, conclusion,
                              lesion_area_ratio=None, distribution_range=None):
-        """添加诊断报告，同时保存量化指标"""
+        """添加诊断报告，同时保存量化指标（conclusion 写入 findings 列）"""
         return self.execute_insert(
-            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, conclusion, 
+            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, findings, 
                lesion_area_ratio, distribution_range, created_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (patient_id, doctor_id, clinical_notes, conclusion,
@@ -152,7 +152,7 @@ class Database:
         return self.execute_query(
             """SELECT p.*, d.name as disease_name FROM disease_predictions p
                JOIN diseases d ON p.disease_id = d.disease_id
-               WHERE p.report_id = %s ORDER BY rank""",
+               WHERE p.report_id = %s ORDER BY `rank`""",
             (report_id,)
         )
 
@@ -165,9 +165,9 @@ class Database:
 
     # ---------- 随访计划 ----------
     def create_followup_plan(self, patient_id, suggested_date, notes=None):
-        """创建随访计划"""
+        """创建随访计划（notes 写入 reason 列）"""
         return self.execute_insert(
-            """INSERT INTO followup_plans (patient_id, suggested_date, status, notes)
+            """INSERT INTO followup_plans (patient_id, suggested_date, status, reason)
                VALUES (%s, %s, 'pending', %s)""",
             (patient_id, suggested_date, notes)
         )
@@ -188,8 +188,8 @@ class Database:
     def update_followup_status(self, plan_id, status):
         """更新随访计划状态"""
         return self.execute_insert(
-            "UPDATE followup_plans SET status = %s, updated_at = %s WHERE plan_id = %s",
-            (status, datetime.datetime.now(), plan_id)
+            "UPDATE followup_plans SET status = %s WHERE plan_id = %s",
+            (status, plan_id)
         )
 
     def delete_followup_plan(self, plan_id):

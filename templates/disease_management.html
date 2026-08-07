@@ -26,7 +26,7 @@
                             <th>描述</th>
                             <th>常见症状</th>
                             <th>治疗方案</th>
-                            <th>创建时间</th>
+                            <th>OMIM/ICD编码</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -38,7 +38,7 @@
                             <td>{{ disease.description[:100] }}{% if disease.description|length > 100 %}...{% endif %}</td>
                             <td>{{ disease.symptoms[:100] }}{% if disease.symptoms|length > 100 %}...{% endif %}</td>
                             <td>{{ disease.treatment_options[:100] if disease.treatment_options else '暂无' }}{% if disease.treatment_options and disease.treatment_options|length > 100 %}...{% endif %}</td>
-                            <td>{{ disease.created_at.strftime('%Y-%m-%d') if disease.created_at else '未知' }}</td>
+                            <td>{{ disease.omim_id or '未知' }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" onclick="editDisease('{{ disease.disease_id }}')">

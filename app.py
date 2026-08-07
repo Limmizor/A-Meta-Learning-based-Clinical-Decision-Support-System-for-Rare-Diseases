@@ -271,6 +271,21 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'dcm'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def _disease_to_frontend(d):
+    """将数据库 diseases 字段映射为前端模板/JS 期望的字段名"""
+    if not d:
+        return d
+    d = dict(d)
+    d.setdefault('icd_code', d.get('omim_id'))
+    d.setdefault('diagnostic_criteria', d.get('diagnosis_methods'))
+    d.setdefault('incidence', d.get('prevalence'))
+    d.setdefault('prevention', d.get('references'))
+    d.setdefault('inheritance', d.get('inheritance_pattern'))
+    d.setdefault('is_featured', False)
+    d.setdefault('category', '')
+    return d
+
 # 患者详情页
 @app.route('/patient/<int:patient_id>')
 @login_required
@@ -554,7 +569,7 @@ def api_diseases():
         return jsonify({'error': '数据库连接失败'}), 500
     diseases = db.get_diseases()
     db.disconnect()
-    return jsonify(diseases)
+    return jsonify([_disease_to_frontend(d) for d in (diseases or [])])
 
 # API: 获取单个疾病详情
 @app.route('/api/diseases/<int:disease_id>', methods=['GET'])
@@ -567,7 +582,7 @@ def api_disease_detail(disease_id):
     db.disconnect()
     if not disease:
         return jsonify({'error': '疾病不存在'}), 404
-    return jsonify(disease[0])
+    return jsonify(_disease_to_frontend(disease[0]))
 
 # API: 创建新疾病（仅医生）
 @app.route('/api/diseases', methods=['POST'])
@@ -583,12 +598,13 @@ def api_create_disease():
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'}), 500
     disease_id = db.execute_insert(
-        """INSERT INTO diseases (name, icd_code, description, symptoms, diagnostic_criteria, 
-           treatment_options, prevention, is_featured) 
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+        """INSERT INTO diseases (name, omim_id, description, symptoms, diagnosis_methods, 
+           treatment_options, prevalence, inheritance_pattern, references) 
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
         (name, data.get('icd_code'), data.get('description'), data.get('symptoms'),
          data.get('diagnostic_criteria'), data.get('treatment_options'),
-         data.get('prevention'), data.get('is_featured', False))
+         data.get('incidence'), data.get('inheritance_pattern'),
+         data.get('prevention'))
     )
     db.disconnect()
     if disease_id:
@@ -607,12 +623,14 @@ def api_update_disease(disease_id):
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'}), 500
     result = db.execute_insert(
-        """UPDATE diseases SET name=%s, icd_code=%s, description=%s, symptoms=%s, 
-           diagnostic_criteria=%s, treatment_options=%s, prevention=%s, is_featured=%s 
+        """UPDATE diseases SET name=%s, omim_id=%s, description=%s, symptoms=%s, 
+           diagnosis_methods=%s, treatment_options=%s, prevalence=%s, inheritance_pattern=%s, 
+           references=%s 
            WHERE disease_id=%s""",
         (data.get('name'), data.get('icd_code'), data.get('description'), data.get('symptoms'),
          data.get('diagnostic_criteria'), data.get('treatment_options'),
-         data.get('prevention'), data.get('is_featured', False), disease_id)
+         data.get('incidence'), data.get('inheritance_pattern'),
+         data.get('prevention'), disease_id)
     )
     db.disconnect()
     if result is not None:
@@ -836,10 +854,10 @@ def disease_query():
     if not db.connect():
         flash('数据库连接失败', 'danger')
         return render_template('disease_query.html', diseases=[], featured_diseases=[])
-    diseases = db.get_diseases()
-    featured_diseases = db.execute_query(
-        "SELECT * FROM diseases WHERE is_featured = 1 ORDER BY created_at DESC LIMIT 6"
-    ) or []
+    diseases = [_disease_to_frontend(d) for d in (db.get_diseases() or [])]
+    featured_diseases = [_disease_to_frontend(d) for d in (db.execute_query(
+        "SELECT * FROM diseases ORDER BY disease_id DESC LIMIT 6"
+    ) or [])]
     db.disconnect()
     return render_template('disease_query.html', 
                          diseases=diseases, 
@@ -857,14 +875,21 @@ def patient_appointment():
         flash('数据库连接失败', 'danger')
         return render_template('patient_appointment.html', doctors=[], appointments=[])
     doctors = db.execute_query(
-        "SELECT user_id, full_name, specialty, title, department FROM users WHERE role = 'doctor'"
+        """SELECT user_id, full_name, specialization, hospital_affiliation 
+           FROM users WHERE role = 'doctor'"""
     ) or []
+    # 兼容旧模板字段名：specialty -> specialization, department -> hospital_affiliation, title -> 默认职称
+    for d in doctors:
+        d['specialty'] = d.get('specialization') or '罕见病诊断与治疗'
+        d['department'] = d.get('hospital_affiliation') or '罕见病科'
+        d['title'] = '医师'
     patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
     appointments = []
     if patient_data:
         patient_id = patient_data[0]['patient_id']
         appointments = db.execute_query(
-            """SELECT a.*, u.full_name as doctor_name, u.specialty, u.department 
+            """SELECT a.*, u.full_name as doctor_name, u.specialization as specialty, 
+                      u.hospital_affiliation as department 
                FROM appointments a 
                JOIN users u ON a.doctor_id = u.user_id 
                WHERE a.patient_id = %s 
@@ -991,7 +1016,8 @@ def patient_chat():
         }
     ]
     online_doctors = db.execute_query(
-        "SELECT user_id, full_name, specialty, department FROM users WHERE role = 'doctor' LIMIT 5"
+        """SELECT user_id, full_name, specialization as specialty, hospital_affiliation as department 
+           FROM users WHERE role = 'doctor' LIMIT 5"""
     ) or []
     db.disconnect()
     return render_template('patient_chat.html', 
@@ -1126,10 +1152,9 @@ def update_profile():
     params = [full_name, email, user_id]
     db.execute_insert(update_query, params)
     
-    # 如果是医生，可能还有 specialty 等字段，如果表中有则更新
+    # 如果是医生，可能还有 specialization 等字段，如果表中有则更新
     if current_user.user_type == 'doctor' and specialty:
-        # 假设 users 表有 specialty 字段，如果没有请先 ALTER TABLE users ADD COLUMN specialty VARCHAR(100)
-        db.execute_insert("UPDATE users SET specialty=%s WHERE user_id=%s", (specialty, user_id))
+        db.execute_insert("UPDATE users SET specialization=%s WHERE user_id=%s", (specialty, user_id))
     
     db.disconnect()
     return jsonify({'success': True, 'message': '资料更新成功'})

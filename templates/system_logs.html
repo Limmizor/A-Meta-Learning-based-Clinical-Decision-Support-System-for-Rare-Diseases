@@ -118,7 +118,7 @@
                             </td>
                             <td>{{ log.details[:80] }}{% if log.details|length > 80 %}...{% endif %}</td>
                             <td>{{ log.ip_address or '未记录' }}</td>
-                            <td><small class="text-muted">{{ log.log_time.strftime('%Y-%m-%d %H:%M:%S') if log.log_time else '未知' }}</small></td>
+                            <td><small class="text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '未知' }}</small></td>
                         </tr>
                         {% endfor %}
                     </tbody>
