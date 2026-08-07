@@ -1,54 +1,129 @@
-body {
-    background-color: #f8f9fa;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* ===== 肺影智诊系统 - 全局现代样式 ===== */
+
+:root {
+    --brand-primary: #165DFF;
+    --brand-primary-light: #4080FF;
+    --brand-primary-dark: #0E42D2;
+    --brand-cyan: #00B4D8;
+    --brand-secondary: #4E5969;
+    --brand-bg: #F5F7FB;
+    --brand-card-border: #E5E6EB;
+    --brand-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
 }
 
+body {
+    background-color: var(--brand-bg);
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', Tahoma, sans-serif;
+    color: #1D2129;
+}
+
+/* ===== 卡片 ===== */
 .card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-    border-radius: 0.5rem;
+    box-shadow: var(--brand-shadow);
+    border: 1px solid var(--brand-card-border);
+    border-radius: 14px;
 }
 
 .card-header {
-    background-color: rgba(0, 0, 0, 0.03);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    background-color: #fff;
+    border-bottom: 1px solid #F2F3F5;
+    border-radius: 14px 14px 0 0 !important;
+    font-weight: 600;
 }
 
+.card-body { color: #4E5969; }
+
+/* ===== 导航 ===== */
 .navbar-brand {
     font-weight: bold;
-    font-size: 1.5rem;
+    font-size: 1.35rem;
 }
 
-.accordion-button:not(.collapsed) {
-    background-color: #e7f1ff;
-    color: #0c63e4;
-}
-
-.table th {
+/* ===== 表格 ===== */
+.table thead th {
+    background: #F7F8FA;
+    color: #4E5969;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--brand-card-border);
     border-top: none;
+    white-space: nowrap;
 }
+.table tbody td {
+    vertical-align: middle;
+    font-size: 14px;
+}
+.table-striped tbody tr:nth-of-type(odd) { background: #FAFBFC; }
+.table-hover tbody tr:hover { background: #F0F5FF; }
 
+/* ===== 按钮 ===== */
+.btn { border-radius: 8px; }
+.btn-primary {
+    background: linear-gradient(135deg, #165DFF, #00B4D8);
+    border: none;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(22, 93, 255, 0.22);
+    transition: all 0.2s;
+}
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(22, 93, 255, 0.32);
+    background: linear-gradient(135deg, #0E42D2, #165DFF);
+    color: #fff;
+}
+.btn-outline-primary { color: var(--brand-primary); border: 1.5px solid var(--brand-primary); }
+.btn-outline-primary:hover { background: var(--brand-primary); color: #fff; }
+.btn-outline-success:hover, .btn-outline-danger:hover,
+.btn-outline-info:hover, .btn-outline-secondary:hover { color: #fff; }
+
+/* ===== 表单 ===== */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1.5px solid var(--brand-card-border);
+    font-size: 14px;
+    min-height: 40px;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 4px rgba(22, 93, 255, 0.10);
+}
+.form-label { font-weight: 600; font-size: 13.5px; color: #4E5969; }
+
+/* ===== 模态框 ===== */
+.modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.modal-header { border-bottom: 1px solid #F2F3F5; border-radius: 16px 16px 0 0; }
+.modal-header .modal-title { font-weight: 700; }
+.modal-footer { border-top: 1px solid #F2F3F5; }
+
+/* ===== 手风琴 ===== */
+.accordion-button:not(.collapsed) {
+    background-color: #F0F5FF;
+    color: var(--brand-primary-dark);
+    box-shadow: none;
+}
+.accordion-item { border: 1px solid var(--brand-card-border); border-radius: 12px !important; margin-bottom: 10px; overflow: hidden; }
+.accordion-button:focus { box-shadow: none; border-color: var(--brand-card-border); }
+
+/* ===== 图片 ===== */
 .img-thumbnail {
     cursor: pointer;
     transition: transform 0.2s;
+    border-radius: 10px;
 }
+.img-thumbnail:hover { transform: scale(1.05); }
 
-.img-thumbnail:hover {
-    transform: scale(1.05);
-}
+/* ===== 徽章/标签 ===== */
+.badge { border-radius: 6px; font-size: 0.75em; }
 
-.loading {
-    display: none;
-    text-align: center;
-    padding: 20px;
-}
+/* ===== 加载 ===== */
+.loading { display: none; text-align: center; padding: 20px; }
+.loading-spinner { width: 3rem; height: 3rem; }
 
-.loading-spinner {
-    width: 3rem;
-    height: 3rem;
-}
-
-/* 登录页面样式 */
+/* ===== 登录容器（兼容旧布局） ===== */
 .login-container {
     min-height: 80vh;
     display: flex;
@@ -56,24 +131,17 @@ body {
     justify-content: center;
 }
 
-/* 患者端样式 */
-.patient-dashboard-card {
-    transition: transform 0.2s;
-}
+/* ===== 卡片悬浮 ===== */
+.patient-dashboard-card, .doctor-stats-card { transition: transform 0.2s; border: none; border-radius: 14px; }
+.patient-dashboard-card:hover, .doctor-stats-card:hover { transform: translateY(-4px); }
 
-.patient-dashboard-card:hover {
-    transform: translateY(-5px);
-}
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C9CDD4; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #A9AEB8; }
 
-/* 医生端样式 */
-.doctor-stats-card {
-    border: none;
-    border-radius: 0.5rem;
-}
-
-/* 响应式调整 */
+/* ===== 响应式调整 ===== */
 @media (max-width: 768px) {
-    .display-4 {
-        font-size: 2.5rem;
-    }
+    .display-4 { font-size: 2.5rem; }
 }

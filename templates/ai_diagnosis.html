@@ -9,7 +9,7 @@
     <style>
         /* 原有样式保持不变（省略，实际使用时保留完整样式） */
         * { box-sizing: border-box; }
-        body { background-color: #eef2f7; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
+        body { background-color: #eef2f7; font-family: 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif; overflow: hidden; }
         .diagnosis-container { display: flex; height: calc(100vh - 56px); margin-top: 56px; padding: 20px; gap: 20px; overflow: hidden; }
         .left-panel { flex: 2; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-right: 5px; }
         .right-panel { flex: 1.2; background: white; border-radius: 24px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow-y: auto; }
@@ -48,9 +48,9 @@
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-primary fixed-top shadow-sm">
+<nav class="navbar navbar-dark fixed-top shadow-sm" style="background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%);">
     <div class="container-fluid px-4">
-        <a class="navbar-brand" href="#"><i class="fas fa-lungs me-2"></i>肺影智诊 · AI辅助诊断</a>
+        <a class="navbar-brand" href="{{ url_for('doctor_dashboard') }}"><i class="fas fa-lungs me-2"></i>肺影智诊 · AI辅助诊断</a>
         <div class="d-flex align-items-center gap-3">
             <span class="text-light small"><i class="fas fa-user-md"></i> {{ current_user.full_name }}</span>
             <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-tachometer-alt"></i> 返回仪表板</a>

@@ -3,131 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>肺影智诊系统 - 基于MTL-MAML的肺纤维化CT影像辅助诊断</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>{% block title %}肺影智诊系统 - 基于MTL-MAML的肺纤维化CT影像辅助诊断{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* 用户头像样式 */
+        :root {
+            --brand-primary: #165DFF;
+            --brand-primary-light: #4080FF;
+            --brand-primary-dark: #0E42D2;
+            --brand-cyan: #00B4D8;
+            --brand-secondary: #4E5969;
+            --brand-bg: #F5F7FB;
+            --brand-card-border: #E5E6EB;
+            --brand-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+            background-color: var(--brand-bg);
+            color: #1D2129;
+        }
+
+        /* ===== 顶部导航 ===== */
+        .navbar-auth {
+            background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%);
+            box-shadow: 0 4px 18px rgba(22, 93, 255, 0.25);
+            padding: 0.6rem 0;
+        }
+        .navbar-auth .navbar-brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+        }
+        .navbar-auth .navbar-brand i {
+            font-size: 1.5rem;
+        }
+        .navbar-auth .nav-link {
+            color: rgba(255,255,255,0.92) !important;
+            font-weight: 500;
+            border-radius: 8px;
+            padding: 8px 14px !important;
+            transition: all 0.2s;
+        }
+        .navbar-auth .nav-link:hover {
+            color: #fff !important;
+            background: rgba(255,255,255,0.15);
+        }
+        .navbar-auth .nav-link.active {
+            background: rgba(255,255,255,0.22);
+            color: #fff !important;
+        }
+
+        /* 用户头像 */
         .user-avatar {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #0d6efd, #6E79D6);
-            color: white;
+            background: linear-gradient(135deg, #ffffff, #dbe8ff);
+            color: var(--brand-primary);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 16px;
-            text-transform: uppercase;
             margin-right: 8px;
-            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.35);
-            border: 2px solid rgba(255,255,255,0.5);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 2px solid rgba(255,255,255,0.6);
             flex-shrink: 0;
         }
         .user-info {
             display: flex;
             align-items: center;
             text-decoration: none;
+            color: #fff;
+            transition: opacity 0.2s;
+        }
+        .user-info:hover { opacity: 0.85; color: #fff; }
+        .user-name { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
+
+        .btn-logout {
             color: rgba(255,255,255,0.92);
-            transition: color 0.2s;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
         }
-        .user-info:hover {
-            color: white;
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
         }
-        .user-name {
-            font-size: 14px;
+
+        /* ===== 内容区 ===== */
+        .page-container {
+            min-height: calc(100vh - 190px);
+            padding: 28px 0 40px;
+        }
+
+        .page-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1D2129;
+        }
+        .page-subtitle {
+            color: #86909C;
+            font-size: 0.95rem;
+        }
+
+        /* 现代卡片 */
+        .card {
+            border: 1px solid var(--brand-card-border);
+            border-radius: 14px;
+            box-shadow: var(--brand-shadow);
+            background: #fff;
+        }
+        .card-header {
+            background: #fff;
+            border-bottom: 1px solid #F2F3F5;
+            border-radius: 14px 14px 0 0 !important;
             font-weight: 600;
-            letter-spacing: 0.3px;
         }
-        .navbar-nav .nav-link {
-            color: rgba(255,255,255,0.85);
+
+        /* 现代表格 */
+        .table thead th {
+            background: #F7F8FA;
+            color: #4E5969;
+            font-size: 13px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--brand-card-border);
+            white-space: nowrap;
         }
-        .navbar-nav .nav-link:hover {
-            color: white;
+        .table tbody td {
+            vertical-align: middle;
+            font-size: 14px;
         }
+        .table-hover tbody tr:hover { background: #F7F8FA; }
+
+        /* 现代按钮 */
+        .btn-primary {
+            background: linear-gradient(135deg, #165DFF, #00B4D8);
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(22,93,255,0.25);
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(22,93,255,0.35);
+            background: linear-gradient(135deg, #0E42D2, #165DFF);
+        }
+        .btn-outline-primary {
+            color: var(--brand-primary);
+            border: 1.5px solid var(--brand-primary);
+            border-radius: 8px;
+        }
+        .btn-outline-primary:hover {
+            background: var(--brand-primary);
+            color: #fff;
+        }
+        .btn-outline-success, .btn-outline-danger, .btn-outline-info, .btn-outline-secondary {
+            border-radius: 8px;
+        }
+
+        /* 现代表单 */
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1.5px solid var(--brand-card-border);
+            font-size: 14px;
+            min-height: 40px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 4px rgba(22,93,255,0.10);
+        }
+
+        /* 现代 flash 提示 */
+        .alert {
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+        }
+        .alert-danger { background: #FFECE8; color: #F53F3F; border: 1px solid #FFD7D0; }
+        .alert-success { background: #E8FFEA; color: #00B42A; border: 1px solid #AFF0B5; }
+        .alert-warning { background: #FFF7E8; color: #FF7D00; border: 1px solid #FFE4BA; }
+        .alert-info { background: #E8F3FF; color: #165DFF; border: 1px solid #BEDCFF; }
+
+        /* 徽章 */
+        .badge { font-size: 0.75em; border-radius: 6px; }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #86909C;
+        }
+        .empty-state i {
+            font-size: 48px;
+            color: #C9CDD4;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        /* 页脚 */
+        .footer {
+            background: #fff;
+            border-top: 1px solid var(--brand-card-border);
+            color: #86909C;
+            padding: 22px 0;
+            font-size: 13px;
+        }
+        .footer .brand { color: var(--brand-primary); font-weight: 700; }
     </style>
 </head>
 <body>
-    <!-- 导航栏部分 -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-        <a class="navbar-brand" href="{{ url_for('index') }}">肺影智诊系统</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto">
-                {% if current_user.is_authenticated %}
-                    {% if current_user.user_type == 'doctor' %}
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-auth">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-clipboard2-pulse-fill"></i>
+                肺影智诊系统
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.user_type == 'doctor' %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'doctor_dashboard' %}active{% endif %}" href="{{ url_for('doctor_dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>医生面板</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint in ['disease_management','disease_query'] %}active{% endif %}" href="{{ url_for('disease_management') }}"><i class="bi bi-capsule me-1"></i>疾病管理</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'doctor_chat' %}active{% endif %}" href="{{ url_for('doctor_chat') }}"><i class="bi bi-chat-dots me-1"></i>在线咨询</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'system_logs' %}active{% endif %}" href="{{ url_for('system_logs') }}"><i class="bi bi-file-text me-1"></i>系统日志</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'patient_dashboard' %}active{% endif %}" href="{{ url_for('patient_dashboard') }}"><i class="bi bi-house me-1"></i>患者面板</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'my_reports' %}active{% endif %}" href="{{ url_for('my_reports') }}"><i class="bi bi-file-medical me-1"></i>我的报告</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'patient_chat' %}active{% endif %}" href="{{ url_for('patient_chat') }}"><i class="bi bi-chat-dots me-1"></i>在线咨询</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+
+                <ul class="navbar-nav align-items-center">
+                    {% if current_user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('doctor_dashboard') }}">医生面板</a>
+                            <a class="nav-link user-info" href="{{ url_for('profile') }}">
+                                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else 'U' }}</div>
+                                <span class="user-name">{{ current_user.full_name or '用户' }}</span>
+                            </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('disease_management') }}">肺纤维化疾病管理</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('system_logs') }}">系统日志</a>
+                        <li class="nav-item ms-2">
+                            <a class="btn-logout" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-1"></i>退出</a>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('patient_dashboard') }}">患者面板</a>
+                            <a class="nav-link" href="{{ url_for('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i>登录</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('my_reports') }}">我的报告</a>
+                            <a class="nav-link" href="{{ url_for('register') }}"><i class="bi bi-person-plus me-1"></i>注册</a>
                         </li>
                     {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-container">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
                 {% endif %}
-            </ul>
-            
-            <ul class="navbar-nav">
-                {% if current_user.is_authenticated %}
-                    <!-- 用户头像和名称（可点击跳转个人资料） -->
-                    <li class="nav-item">
-                        <a class="nav-link user-info" href="{{ url_for('profile') }}">
-                            <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else 'U' }}</div>
-                            <span class="user-name">{{ current_user.full_name or '用户' }}</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}">退出登录</a>
-                    </li>
-                {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}">登录</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}">注册</a>
-                    </li>
-                {% endif %}
-            </ul>
+            {% endwith %}
+
+            {% block content %}{% endblock %}
         </div>
     </div>
-</nav>
 
-    <div class="container mt-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
-    </div>
-
-    <footer class="bg-light text-center text-muted py-3 mt-5">
-        <div class="container">
-            <p>肺影智诊系统 — 基于MTL-MAML的肺纤维化CT影像小样本辅助诊断系统 &copy; 2025</p>
+    <footer class="footer">
+        <div class="container text-center">
+            <span class="brand">肺影智诊系统</span> — 基于MTL-MAML的肺纤维化CT影像小样本辅助诊断系统 &copy; 2026
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

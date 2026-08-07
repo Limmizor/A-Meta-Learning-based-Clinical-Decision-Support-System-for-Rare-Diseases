@@ -32,9 +32,8 @@
         /* 顶部导航 */
         .main-header {
             height: 70px;
-            background-color: #fff;
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: var(--shadow);
+            background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%);
+            box-shadow: 0 4px 18px rgba(22, 93, 255, 0.25);
             position: fixed;
             top: 0;
             left: 0;
@@ -61,22 +60,22 @@
 
         .logo i {
             font-size: 24px;
-            color: var(--primary);
+            color: #fff;
         }
 
         .logo-text {
             font-size: 20px;
             font-weight: 700;
-            color: var(--primary);
+            color: #fff;
         }
 
         .main-nav {
             display: flex;
             align-items: center;
-            gap: 1px;
-            background-color: #F7F8FA;
-            border-radius: 4px;
-            padding: 2px;
+            gap: 2px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 10px;
+            padding: 3px;
         }
 
         .nav-link {
@@ -84,21 +83,22 @@
             align-items: center;
             gap: 8px;
             padding: 8px 18px;
-            color: var(--secondary);
+            color: rgba(255,255,255,0.92);
             text-decoration: none;
             font-weight: 500;
-            border-radius: 3px;
+            border-radius: 8px;
             transition: all 0.2s ease;
         }
 
         .nav-link:hover {
-            color: var(--primary);
-            background-color: rgba(22, 93, 255, 0.05);
+            color: #fff;
+            background-color: rgba(255,255,255,0.15);
         }
 
         .nav-link.active {
-            background-color: var(--primary);
-            color: #fff;
+            background-color: #fff;
+            color: var(--primary);
+            font-weight: 600;
         }
 
         .user-menu {
@@ -109,7 +109,7 @@
 
         .notification-icon {
             position: relative;
-            color: var(--secondary);
+            color: #fff;
             font-size: 20px;
             cursor: pointer;
         }
@@ -252,21 +252,21 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #165DFF, #6E79D6);
-            color: #fff;
+            background: linear-gradient(135deg, #ffffff, #dbe8ff);
+            color: var(--primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 18px;
-            box-shadow: 0 2px 8px rgba(22, 93, 255, 0.35);
-            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 2px solid rgba(255,255,255,0.6);
             flex-shrink: 0;
         }
         .user-name {
             font-size: 15px;
             font-weight: 600;
-            color: var(--primary-dark);
+            color: #fff;
             white-space: nowrap;
         }
 
