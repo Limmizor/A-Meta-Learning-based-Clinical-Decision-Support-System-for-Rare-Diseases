@@ -129,6 +129,113 @@
             justify-content: center;
         }
 
+        /* 消息通知下拉面板 */
+        .notification-wrap {
+            position: relative;
+        }
+        .notification-panel {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 360px;
+            max-width: 90vw;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            z-index: 1100;
+            display: none;
+            overflow: hidden;
+        }
+        .notification-panel.show {
+            display: block;
+        }
+        .notification-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: #F7F8FA;
+        }
+        .notification-panel-header h6 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        .notification-panel-header .btn-link {
+            font-size: 12px;
+            padding: 0;
+            text-decoration: none;
+            color: var(--primary);
+        }
+        .notification-list {
+            max-height: 380px;
+            overflow-y: auto;
+        }
+        .notification-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #F2F3F5;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .notification-item:hover {
+            background: #F7F8FA;
+        }
+        .notification-item.unread {
+            background: rgba(22, 93, 255, 0.04);
+        }
+        .notification-item.unread:hover {
+            background: rgba(22, 93, 255, 0.08);
+        }
+        .notification-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+            margin-top: 7px;
+            flex-shrink: 0;
+        }
+        .notification-item.read .notification-dot {
+            background: #C9CDD4;
+        }
+        .notification-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .notification-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1D2129;
+            margin-bottom: 2px;
+        }
+        .notification-content {
+            font-size: 13px;
+            color: #4E5969;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .notification-time {
+            font-size: 12px;
+            color: #86909C;
+            margin-top: 4px;
+        }
+        .notification-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #86909C;
+        }
+        .notification-empty i {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 10px;
+            color: #C9CDD4;
+        }
+
         .user-info {
             display: flex;
             align-items: center;
@@ -528,9 +635,24 @@
                 </a>
             </nav>
             <div class="user-menu">
-                <div class="notification-icon">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge">5</span>
+                <div class="notification-wrap">
+                    <div class="notification-icon" id="doctorNotificationBell">
+                        <i class="bi bi-bell"></i>
+                        <span class="notification-badge" id="doctorNotificationBadge" style="display:none;">0</span>
+                    </div>
+                    <!-- 消息通知下拉面板 -->
+                    <div class="notification-panel" id="doctorNotificationPanel">
+                        <div class="notification-panel-header">
+                            <h6><i class="bi bi-bell-fill"></i> 消息通知</h6>
+                            <a href="javascript:void(0)" class="btn-link" id="doctorMarkAllRead">全部已读</a>
+                        </div>
+                        <div class="notification-list" id="doctorNotificationList">
+                            <div class="notification-empty">
+                                <i class="bi bi-bell"></i>
+                                加载中...
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- 修改：将用户信息区域改为可点击链接，跳转到个人资料页面 -->
                 <a href="{{ url_for('profile') }}" class="user-info">
@@ -755,6 +877,83 @@
         .then(data => { if(data.success){ alert('模型训练成功'); location.reload(); } else alert('模型训练失败: '+data.message); })
         .catch(error => alert('网络错误: '+error));
     }
+
+    // ==================== 消息通知 ====================
+    function escapeHtmlNotify(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function formatTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function loadNotifications() {
+        fetch('/api/notifications')
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('doctorNotificationList');
+                const badge = document.getElementById('doctorNotificationBadge');
+                const unread = data.unread_count || 0;
+                badge.textContent = unread;
+                badge.style.display = unread > 0 ? 'flex' : 'none';
+                const items = data.notifications || [];
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="notification-empty"><i class="bi bi-bell"></i>暂无消息通知</div>';
+                    return;
+                }
+                list.innerHTML = items.map(n => `
+                    <div class="notification-item ${n.is_read ? 'read' : 'unread'}" data-id="${n.notification_id}" data-link="${escapeHtmlNotify(n.link || '')}">
+                        <span class="notification-dot"></span>
+                        <div class="notification-body">
+                            <div class="notification-title">${escapeHtmlNotify(n.title)}</div>
+                            <div class="notification-content">${escapeHtmlNotify(n.content || '')}</div>
+                            <div class="notification-time">${formatTime(n.created_at)}</div>
+                        </div>
+                    </div>`).join('');
+                list.querySelectorAll('.notification-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        const link = this.getAttribute('data-link');
+                        fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+                            .then(() => { this.classList.remove('unread'); this.classList.add('read'); loadNotifications(); })
+                            .catch(() => {});
+                        if (link) { window.location.href = link; }
+                    });
+                });
+            })
+            .catch(() => {
+                document.getElementById('doctorNotificationList').innerHTML =
+                    '<div class="notification-empty"><i class="bi bi-bell"></i>加载失败</div>';
+            });
+    }
+    document.getElementById('doctorNotificationBell').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const panel = document.getElementById('doctorNotificationPanel');
+        const isShow = panel.classList.toggle('show');
+        if (isShow) loadNotifications();
+    });
+    document.getElementById('doctorMarkAllRead').addEventListener('click', function(e) {
+        e.stopPropagation();
+        fetch('/api/notifications/read_all', { method: 'POST' }).then(() => loadNotifications());
+    });
+    document.addEventListener('click', function(e) {
+        const panel = document.getElementById('doctorNotificationPanel');
+        const wrap = document.querySelector('.notification-wrap');
+        if (panel.classList.contains('show') && !wrap.contains(e.target)) {
+            panel.classList.remove('show');
+        }
+    });
+    // 首次加载未读数
+    (function initUnread() {
+        fetch('/api/notifications/unread').then(r => r.json()).then(data => {
+            const badge = document.getElementById('doctorNotificationBadge');
+            const unread = data.unread_count || 0;
+            badge.textContent = unread;
+            badge.style.display = unread > 0 ? 'flex' : 'none';
+        }).catch(() => {});
+    })();
     </script>
 </body>
 </html>

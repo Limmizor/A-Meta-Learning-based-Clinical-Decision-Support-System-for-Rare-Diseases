@@ -937,6 +937,24 @@ def make_appointment():
     )
     if appointment_id:
         db.add_system_log(current_user.id, 'CREATE_APPOINTMENT', f'患者创建预约，预约ID: {appointment_id}')
+        # 发送消息通知：通知患者 + 通知医生
+        db.add_notification(
+            current_user.id,
+            '预约提交成功',
+            f'您已成功预约 {appointment_date} {appointment_time} 的门诊，医院工作人员将在24小时内与您确认。',
+            'appointment',
+            '/patient/appointment'
+        )
+        doctor_user = db.execute_query("SELECT user_id FROM users WHERE user_id = %s", (doctor_id,))
+        if doctor_user:
+            patient_name = patient_data[0].get('name') or current_user.full_name or '患者'
+            db.add_notification(
+                doctor_user[0]['user_id'],
+                '新预约待确认',
+                f'患者 {patient_name} 预约了 {appointment_date} {appointment_time} 的门诊，请及时确认。',
+                'appointment',
+                '/doctor/schedule'
+            )
         db.disconnect()
         return jsonify({'success': True, 'message': '预约成功', 'appointment_id': appointment_id})
     else:
@@ -1113,6 +1131,23 @@ def api_ai_diagnose():
         # 调用诊断服务（返回预测、热力图、量化指标等）
         predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
             pf_service.predict_from_paths(saved_paths, patient_id)
+
+        # 通知患者：AI 诊断已完成
+        try:
+            ndb = Database()
+            if ndb.connect():
+                patient_row = ndb.execute_query("SELECT user_id FROM patients WHERE patient_id = %s", (patient_id,))
+                if patient_row:
+                    ndb.add_notification(
+                        patient_row[0]['user_id'],
+                        'AI诊断报告已生成',
+                        f'您的AI辅助诊断已完成，可前往「我的报告」查看详细结果。',
+                        'diagnosis',
+                        '/my_reports'
+                    )
+                ndb.disconnect()
+        except Exception:
+            pass
 
         return jsonify({
             'success': True,
@@ -1301,6 +1336,62 @@ def followup_api():
         result = db.delete_followup_plan(plan_id)
         db.disconnect()
         return jsonify({'success': result is not None})
+
+
+# ==================== 消息通知 ====================
+@app.route('/api/notifications')
+@login_required
+def api_notifications():
+    """获取当前用户的通知列表"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    notifications = db.get_notifications(current_user.id, limit=20)
+    unread = db.get_unread_notification_count(current_user.id)
+    db.disconnect()
+    return jsonify({
+        'notifications': notifications or [],
+        'unread_count': unread
+    })
+
+
+@app.route('/api/notifications/unread')
+@login_required
+def api_notifications_unread():
+    """获取当前用户的未读通知数量"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    unread = db.get_unread_notification_count(current_user.id)
+    db.disconnect()
+    return jsonify({'unread_count': unread})
+
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def api_notification_read(notification_id):
+    """标记单条通知为已读"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    result = db.mark_notification_read(notification_id, current_user.id)
+    db.disconnect()
+    if result is not None:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'message': '通知不存在或无权操作'}), 404
+
+
+@app.route('/api/notifications/read_all', methods=['POST'])
+@login_required
+def api_notifications_read_all():
+    """标记当前用户全部通知为已读"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    result = db.mark_all_notifications_read(current_user.id)
+    db.disconnect()
+    return jsonify({'success': result is not None})
+
 
 if __name__ == '__main__':
     # 确保必要目录存在

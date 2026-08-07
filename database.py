@@ -195,3 +195,42 @@ class Database:
     def delete_followup_plan(self, plan_id):
         """删除随访计划"""
         return self.execute_insert("DELETE FROM followup_plans WHERE plan_id = %s", (plan_id,))
+
+    # ---------- 消息通知 ----------
+    def add_notification(self, user_id, title, content=None, notification_type='system', link=None):
+        """创建一条消息通知"""
+        return self.execute_insert(
+            """INSERT INTO notifications (user_id, title, content, notification_type, link)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (user_id, title, content, notification_type, link)
+        )
+
+    def get_notifications(self, user_id, limit=20):
+        """获取用户的最近通知列表"""
+        return self.execute_query(
+            """SELECT * FROM notifications WHERE user_id = %s 
+               ORDER BY created_at DESC, notification_id DESC LIMIT %s""",
+            (user_id, limit)
+        )
+
+    def get_unread_notification_count(self, user_id):
+        """获取用户未读通知数量"""
+        result = self.execute_query(
+            "SELECT COUNT(*) as count FROM notifications WHERE user_id = %s AND is_read = 0",
+            (user_id,)
+        )
+        return result[0]['count'] if result else 0
+
+    def mark_notification_read(self, notification_id, user_id):
+        """标记单条通知为已读"""
+        return self.execute_insert(
+            "UPDATE notifications SET is_read = 1 WHERE notification_id = %s AND user_id = %s",
+            (notification_id, user_id)
+        )
+
+    def mark_all_notifications_read(self, user_id):
+        """标记用户全部通知为已读"""
+        return self.execute_insert(
+            "UPDATE notifications SET is_read = 1 WHERE user_id = %s AND is_read = 0",
+            (user_id,)
+        )
