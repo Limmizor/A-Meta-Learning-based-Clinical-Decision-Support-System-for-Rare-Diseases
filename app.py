@@ -1004,44 +1004,23 @@ def patient_chat():
     db = Database()
     if not db.connect():
         flash('数据库连接失败', 'danger')
-        return render_template('patient_chat.html', patient=None, messages=[])
+        return render_template('patient_chat.html', patient=None, messages=[], online_doctors=[])
     patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
     patient = patient_data[0] if patient_data else None
-    messages = [
-        {
-            'id': 1,
-            'sender': 'doctor',
-            'sender_name': '张医生',
-            'content': '您好，请问有什么可以帮助您的？',
-            'timestamp': '2024-01-15 10:30:00',
-            'avatar': 'D'
-        },
-        {
-            'id': 2,
-            'sender': 'patient',
-            'sender_name': '我',
-            'content': '我最近感觉关节有些疼痛，特别是早上起床时。',
-            'timestamp': '2024-01-15 10:32:15',
-            'avatar': 'P'
-        },
-        {
-            'id': 3,
-            'sender': 'doctor',
-            'sender_name': '张医生',
-            'content': '这种情况持续多久了？有没有其他症状？',
-            'timestamp': '2024-01-15 10:33:45',
-            'avatar': 'D'
-        }
-    ]
     online_doctors = db.execute_query(
         """SELECT user_id, full_name, specialization as specialty, hospital_affiliation as department 
-           FROM users WHERE role = 'doctor' LIMIT 5"""
+           FROM users WHERE role = 'doctor' ORDER BY user_id DESC"""
     ) or []
+    # 获取患者历史会话
+    conversations = db.get_user_conversations(current_user.id, 'patient') or []
+    for conv in conversations:
+        conv['unread_count'] = db.get_conversation_unread_count(conv['conversation_id'], current_user.id)
     db.disconnect()
     return render_template('patient_chat.html', 
                          patient=patient,
-                         messages=messages,
-                         online_doctors=online_doctors)
+                         messages=[],
+                         online_doctors=online_doctors,
+                         conversations=conversations)
 
 # ==================== 新增 AI 诊断独立页面 ====================
 @app.route('/doctor/ai_diagnosis')
@@ -1389,6 +1368,150 @@ def api_notifications_read_all():
     if not db.connect():
         return jsonify({'error': '数据库连接失败'}), 500
     result = db.mark_all_notifications_read(current_user.id)
+    db.disconnect()
+    return jsonify({'success': result is not None})
+
+
+# ==================== 在线咨询 / 聊天 ====================
+@app.route('/doctor/chat')
+@login_required
+def doctor_chat():
+    """医生端在线咨询页面"""
+    if current_user.user_type != 'doctor':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('patient_dashboard'))
+    return render_template('doctor_chat.html')
+
+
+@app.route('/api/chat/conversations', methods=['GET'])
+@login_required
+def api_chat_conversations():
+    """获取当前用户的会话列表（含未读数和对方信息）"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    conversations = db.get_user_conversations(current_user.id, current_user.user_type) or []
+    # 附加每个会话的未读数
+    for conv in conversations:
+        conv['unread_count'] = db.get_conversation_unread_count(
+            conv['conversation_id'], current_user.id)
+    db.disconnect()
+    return jsonify({'conversations': conversations})
+
+
+@app.route('/api/chat/conversations', methods=['POST'])
+@login_required
+def api_chat_start():
+    """患者发起与某位医生的会话（若已有进行中会话则复用）"""
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '仅患者可发起咨询'}), 403
+    data = request.json or {}
+    doctor_id = data.get('doctor_id')
+    if not doctor_id:
+        return jsonify({'error': '缺少 doctor_id'}), 400
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    conv = db.find_conversation(current_user.id, doctor_id)
+    if not conv:
+        conv_id = db.create_conversation(current_user.id, doctor_id)
+        if not conv_id:
+            db.disconnect()
+            return jsonify({'error': '创建会话失败'}), 500
+    else:
+        conv_id = conv[0]['conversation_id']
+    db.disconnect()
+    return jsonify({'success': True, 'conversation_id': conv_id})
+
+
+@app.route('/api/chat/conversations/<int:conversation_id>/messages', methods=['GET'])
+@login_required
+def api_chat_messages(conversation_id):
+    """获取会话消息，同时把发给当前用户的消息标记为已读"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    conv = db.get_conversation(conversation_id)
+    if not conv:
+        db.disconnect()
+        return jsonify({'error': '会话不存在'}), 404
+    conv = conv[0]
+    # 权限检查：仅会话双方可查看
+    if current_user.id not in (conv['patient_id'], conv['doctor_id']):
+        db.disconnect()
+        return jsonify({'error': '无权访问'}), 403
+    messages = db.get_conversation_messages(conversation_id) or []
+    # 标记当前用户收到的消息为已读
+    db.mark_conversation_read(conversation_id, current_user.id)
+    # 附上对方信息
+    peer_id = conv['doctor_id'] if current_user.id == conv['patient_id'] else conv['patient_id']
+    peer = db.execute_query(
+        "SELECT user_id, full_name, role, specialization FROM users WHERE user_id = %s",
+        (peer_id,)
+    )
+    db.disconnect()
+    return jsonify({
+        'conversation': conv,
+        'peer': peer[0] if peer else None,
+        'messages': messages
+    })
+
+
+@app.route('/api/chat/conversations/<int:conversation_id>/messages', methods=['POST'])
+@login_required
+def api_chat_send(conversation_id):
+    """发送一条聊天消息"""
+    data = request.json or {}
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'error': '消息内容不能为空'}), 400
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    conv = db.get_conversation(conversation_id)
+    if not conv:
+        db.disconnect()
+        return jsonify({'error': '会话不存在'}), 404
+    conv = conv[0]
+    if current_user.id not in (conv['patient_id'], conv['doctor_id']):
+        db.disconnect()
+        return jsonify({'error': '无权操作'}), 403
+    receiver_id = conv['doctor_id'] if current_user.id == conv['patient_id'] else conv['patient_id']
+    message_id = db.add_chat_message(conversation_id, current_user.id, receiver_id, content)
+    db.disconnect()
+    if message_id:
+        return jsonify({'success': True, 'message_id': message_id})
+    return jsonify({'error': '发送失败'}), 500
+
+
+@app.route('/api/chat/unread')
+@login_required
+def api_chat_unread():
+    """获取当前用户的聊天未读消息总数（用于角标）"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    count = db.get_total_unread_chat_count(current_user.id)
+    db.disconnect()
+    return jsonify({'unread_count': count})
+
+
+@app.route('/api/chat/conversations/<int:conversation_id>/close', methods=['POST'])
+@login_required
+def api_chat_close(conversation_id):
+    """结束会话"""
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    conv = db.get_conversation(conversation_id)
+    if not conv:
+        db.disconnect()
+        return jsonify({'error': '会话不存在'}), 404
+    conv = conv[0]
+    if current_user.id not in (conv['patient_id'], conv['doctor_id']):
+        db.disconnect()
+        return jsonify({'error': '无权操作'}), 403
+    result = db.close_conversation(conversation_id)
     db.disconnect()
     return jsonify({'success': result is not None})
 

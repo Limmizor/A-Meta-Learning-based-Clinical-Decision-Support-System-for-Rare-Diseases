@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线咨询 - 肺影智诊系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #165DFF;
+            --primary-light: #4080FF;
+            --primary-dark: #0E42D2;
+            --secondary: #4E5969;
+            --success: #00B42A;
+            --warning: #FF7D00;
+            --danger: #F53F3F;
+            --light-bg: #F2F3F5;
+            --border-color: #E5E6EB;
+            --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            color: #1D2129;
+            background-color: #F7F8FA;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 顶部导航 */
+        .main-header {
+            height: 70px;
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .logo i {
+            font-size: 24px;
+            color: var(--primary);
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .main-nav {
+            display: flex;
+            align-items: center;
+            gap: 1px;
+            background-color: #F7F8FA;
+            border-radius: 4px;
+            padding: 2px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            color: var(--secondary);
+            text-decoration: none;
+            font-weight: 500;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background-color: rgba(22, 93, 255, 0.05);
+        }
+
+        .nav-link.active {
+            background-color: var(--primary);
+            color: #fff;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .notification-wrap {
+            position: relative;
+        }
+
+        .notification-icon {
+            position: relative;
+            color: var(--secondary);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 18px;
+            height: 18px;
+            background-color: var(--danger);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        .user-info:hover {
+            opacity: 0.85;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #165DFF, #6E79D6);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+            box-shadow: 0 2px 8px rgba(22, 93, 255, 0.35);
+            border: 2px solid #fff;
+            flex-shrink: 0;
+        }
+        .user-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            white-space: nowrap;
+        }
+
+        /* 主内容区 */
+        .main-container {
+            display: flex;
+            margin-top: 70px;
+            min-height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: #fff;
+            border-right: 1px solid var(--border-color);
+            padding: 20px 0;
+            height: calc(100vh - 70px);
+            position: fixed;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu-title {
+            padding: 0 20px 8px;
+            font-size: 12px;
+            color: #86909C;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu-item {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-menu-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: var(--secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-menu-link:hover {
+            color: var(--primary);
+            background-color: rgba(22, 93, 255, 0.05);
+        }
+
+        .sidebar-menu-link.active {
+            color: var(--primary);
+            background-color: rgba(22, 93, 255, 0.08);
+            border-right: 3px solid var(--primary);
+        }
+
+        /* 聊天布局 */
+        .chat-container {
+            margin-left: 220px;
+            padding: 20px;
+            width: 100%;
+            display: flex;
+            gap: 16px;
+            height: calc(100vh - 90px);
+        }
+
+        .conversation-panel {
+            width: 300px;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .conversation-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: #F7F8FA;
+            font-weight: 600;
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .conv-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #F2F3F5;
+            transition: background 0.15s;
+        }
+
+        .conv-item:hover {
+            background: #F7F8FA;
+        }
+
+        .conv-item.active {
+            background: rgba(22, 93, 255, 0.08);
+        }
+
+        .conv-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00B42A, #4CD263);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .conv-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .conv-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .conv-preview {
+            font-size: 12px;
+            color: #86909C;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conv-badge {
+            background: var(--danger);
+            color: #fff;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+
+        .chat-panel {
+            flex: 1;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #F7F8FA;
+        }
+
+        .chat-header-title {
+            font-weight: 600;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #F7F8FA;
+        }
+
+        .chat-input {
+            border-top: 1px solid var(--border-color);
+            padding: 16px;
+            background: #fff;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 16px;
+        }
+
+        .message.me {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 65%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .message.me .message-bubble {
+            background: var(--primary);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.other .message-bubble {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #86909C;
+            margin-top: 4px;
+        }
+
+        .message.me .message-time {
+            text-align: right;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #86909C;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            color: #C9CDD4;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('doctor_dashboard') }}" class="logo">
+                <i class="bi bi-clipboard2-pulse-fill"></i>
+                <span class="logo-text">肺影智诊系统</span>
+            </a>
+            <nav class="main-nav">
+                <a href="{{ url_for('doctor_dashboard') }}" class="nav-link">
+                    <i class="bi bi-house"></i> 工作台
+                </a>
+                <a href="{{ url_for('disease_management') }}" class="nav-link">
+                    <i class="bi bi-capsule"></i> 疾病管理
+                </a>
+                <a href="{{ url_for('doctor_chat') }}" class="nav-link active">
+                    <i class="bi bi-chat-dots"></i> 在线咨询
+                </a>
+                <a href="{{ url_for('system_logs') }}" class="nav-link">
+                    <i class="bi bi-file-text"></i> 系统日志
+                </a>
+            </nav>
+            <div class="user-menu">
+                <div class="notification-wrap">
+                    <div class="notification-icon" id="doctorNotificationBell">
+                        <i class="bi bi-bell"></i>
+                        <span class="notification-badge" id="doctorNotificationBadge" style="display:none;">0</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('profile') }}" class="user-info">
+                    <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '医' }}</div>
+                    <div class="user-name">{{ current_user.full_name or '医生' }}</div>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_dashboard') }}" class="sidebar-menu-link">
+                        <i class="bi bi-speedometer2"></i><span>首页</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_schedule') }}" class="sidebar-menu-link">
+                        <i class="bi bi-calendar-week"></i><span>今日日程</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-title">沟通</li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_chat') }}" class="sidebar-menu-link active">
+                        <i class="bi bi-chat-dots"></i><span>在线咨询</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-title">诊断管理</li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_ai_diagnosis') }}" class="sidebar-menu-link">
+                        <i class="bi bi-cpu"></i><span>AI辅助诊断</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('disease_query') }}" class="sidebar-menu-link">
+                        <i class="bi bi-search"></i><span>疾病查询</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('profile') }}" class="sidebar-menu-link">
+                        <i class="bi bi-person"></i><span>个人信息</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('logout') }}" class="sidebar-menu-link">
+                        <i class="bi bi-box-arrow-right"></i><span>退出登录</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <div class="chat-container">
+            <!-- 会话列表 -->
+            <div class="conversation-panel">
+                <div class="conversation-header">
+                    <i class="bi bi-chat-left-text"></i> 患者咨询
+                    <span class="badge bg-danger ms-2" id="totalUnreadBadge" style="display:none;">0</span>
+                </div>
+                <div class="conversation-list" id="conversationList">
+                    <div class="empty-state" style="height: 300px;">
+                        <i class="bi bi-chat-square-text"></i>
+                        <p>暂无咨询会话</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天窗口 -->
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <div class="chat-header-title" id="chatHeaderTitle">选择左侧会话开始回复</div>
+                    <span class="badge bg-success" id="chatPeerBadge" style="display:none;"><i class="bi bi-circle-fill"></i> 进行中</span>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state">
+                        <i class="bi bi-chat-dots"></i>
+                        <p>请选择一个患者的咨询会话</p>
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <form id="messageForm">
+                        <div class="input-group">
+                            <textarea class="form-control" id="messageInput" rows="2"
+                                      placeholder="输入回复内容..." style="resize: none;"></textarea>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i> 发送
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    let currentConversationId = null;
+    let currentPeerName = '';
+    let pollTimer = null;
+    const DOCTOR_NAME = '{{ current_user.full_name or "医生" }}';
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+        loadConversationList();
+        initUnread();
+        setInterval(loadConversationList, 5000);
+    });
+
+    // 防XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // 加载会话列表
+    function loadConversationList() {
+        fetch('/api/chat/conversations')
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('conversationList');
+                const convs = data.conversations || [];
+                let totalUnread = 0;
+                if (convs.length === 0) {
+                    list.innerHTML = '<div class="empty-state" style="height:300px;"><i class="bi bi-chat-square-text"></i><p>暂无咨询会话</p></div>';
+                    return;
+                }
+                list.innerHTML = convs.map(c => {
+                    if (c.unread_count) totalUnread += c.unread_count;
+                    return `
+                        <div class="conv-item ${c.conversation_id === currentConversationId ? 'active' : ''}" onclick="openConversation(${c.conversation_id})">
+                            <div class="conv-avatar">${escapeHtml((c.peer_name || '患')[0])}</div>
+                            <div class="conv-info">
+                                <div class="conv-name">${escapeHtml(c.peer_name || '患者')}</div>
+                                <div class="conv-preview">${escapeHtml((c.last_message || '暂无消息').slice(0, 20))}</div>
+                            </div>
+                            ${c.unread_count ? `<span class="conv-badge">${c.unread_count}</span>` : ''}
+                        </div>`;
+                }).join('');
+                const badge = document.getElementById('totalUnreadBadge');
+                badge.textContent = totalUnread;
+                badge.style.display = totalUnread > 0 ? 'inline-block' : 'none';
+            })
+            .catch(() => {});
+    }
+
+    // 打开会话
+    function openConversation(conversationId) {
+        currentConversationId = conversationId;
+        fetch(`/api/chat/conversations/${conversationId}/messages`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.error); return; }
+                currentPeerName = data.peer ? data.peer.full_name : '患者';
+                document.getElementById('chatHeaderTitle').textContent = `与 ${currentPeerName} 的咨询`;
+                document.getElementById('chatPeerBadge').style.display = 'inline-block';
+                renderMessages(data.messages || []);
+                startPolling();
+                loadConversationList();
+            })
+            .catch(err => alert('网络错误: ' + err));
+    }
+
+    // 渲染消息
+    function renderMessages(messages) {
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        if (!messages || messages.length === 0) {
+            chatMessages.innerHTML = '<div class="empty-state"><i class="bi bi-chat-dots"></i><p>暂无消息，等待患者发起提问</p></div>';
+            return;
+        }
+        messages.forEach(m => {
+            const isMe = m.sender_id === {{ current_user.id }};
+            addMessageNode(m.content, isMe, m.created_at);
+        });
+        scrollToBottom();
+    }
+
+    // 添加消息节点
+    function addMessageNode(content, isMe, timestamp) {
+        const chatMessages = document.getElementById('chatMessages');
+        const empty = chatMessages.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        const timeStr = timestamp ? new Date(timestamp).toLocaleString('zh-CN') : new Date().toLocaleString('zh-CN');
+        const div = document.createElement('div');
+        div.className = `message ${isMe ? 'me' : 'other'}`;
+        div.innerHTML = `
+            <div class="message-bubble">
+                <div style="white-space: pre-wrap;">${escapeHtml(content)}</div>
+                <div class="message-time">${isMe ? '我 · ' : ''}${timeStr}</div>
+            </div>`;
+        chatMessages.appendChild(div);
+        scrollToBottom();
+    }
+
+    // 发送消息
+    function sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+        if (!message) return;
+        if (!currentConversationId) {
+            alert('请先选择一个患者会话');
+            return;
+        }
+        fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: message })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                messageInput.value = '';
+                fetch(`/api/chat/conversations/${currentConversationId}/messages`)
+                    .then(r => r.json())
+                    .then(d => renderMessages(d.messages || []));
+                loadConversationList();
+            } else {
+                alert('发送失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(err => alert('网络错误: ' + err));
+    }
+
+    // 轮询接收新消息
+    function startPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(() => {
+            if (!currentConversationId) return;
+            fetch(`/api/chat/conversations/${currentConversationId}/messages`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) return;
+                    renderMessages(data.messages || []);
+                    loadConversationList();
+                })
+                .catch(() => {});
+        }, 3000);
+    }
+
+    // 滚动到底部
+    function scrollToBottom() {
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // 未读数
+    function initUnread() {
+        fetch('/api/chat/unread')
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('doctorNotificationBadge');
+                const unread = data.unread_count || 0;
+                badge.textContent = unread;
+                badge.style.display = unread > 0 ? 'flex' : 'none';
+            })
+            .catch(() => {});
+        setInterval(() => {
+            fetch('/api/chat/unread')
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('doctorNotificationBadge');
+                    const unread = data.unread_count || 0;
+                    badge.textContent = unread;
+                    badge.style.display = unread > 0 ? 'flex' : 'none';
+                })
+                .catch(() => {});
+        }, 10000);
+    }
+    </script>
+</body>
+</html>

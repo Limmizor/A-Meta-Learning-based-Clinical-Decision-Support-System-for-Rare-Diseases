@@ -234,3 +234,107 @@ class Database:
             "UPDATE notifications SET is_read = 1 WHERE user_id = %s AND is_read = 0",
             (user_id,)
         )
+
+    # ---------- 在线咨询 / 聊天 ----------
+    def find_conversation(self, patient_id, doctor_id):
+        """查找患者与医生之间进行中的会话"""
+        return self.execute_query(
+            """SELECT * FROM chat_conversations 
+               WHERE patient_id = %s AND doctor_id = %s AND status = 'open' LIMIT 1""",
+            (patient_id, doctor_id)
+        )
+
+    def create_conversation(self, patient_id, doctor_id):
+        """创建患者与医生的新会话"""
+        return self.execute_insert(
+            """INSERT INTO chat_conversations (patient_id, doctor_id, status) 
+               VALUES (%s, %s, 'open')""",
+            (patient_id, doctor_id)
+        )
+
+    def get_conversation(self, conversation_id):
+        """获取单个会话详情"""
+        return self.execute_query(
+            "SELECT * FROM chat_conversations WHERE conversation_id = %s",
+            (conversation_id,)
+        )
+
+    def get_user_conversations(self, user_id, role):
+        """获取某个用户（患者或医生）的全部会话，附带对方信息和最后消息"""
+        if role == 'doctor':
+            return self.execute_query(
+                """SELECT c.*, u.full_name as peer_name, u.user_id as peer_id, 
+                          u.role as peer_role
+                   FROM chat_conversations c
+                   JOIN users u ON c.patient_id = u.user_id
+                   WHERE c.doctor_id = %s
+                   ORDER BY c.updated_at DESC""",
+                (user_id,)
+            )
+        else:
+            return self.execute_query(
+                """SELECT c.*, u.full_name as peer_name, u.user_id as peer_id,
+                          u.role as peer_role
+                   FROM chat_conversations c
+                   JOIN users u ON c.doctor_id = u.user_id
+                   WHERE c.patient_id = %s
+                   ORDER BY c.updated_at DESC""",
+                (user_id,)
+            )
+
+    def get_conversation_messages(self, conversation_id, limit=100):
+        """获取会话的消息记录（从旧到新）"""
+        return self.execute_query(
+            """SELECT * FROM (
+                   SELECT * FROM chat_messages WHERE conversation_id = %s 
+                   ORDER BY message_id DESC LIMIT %s
+               ) sub ORDER BY message_id ASC""",
+            (conversation_id, limit)
+        )
+
+    def get_conversation_unread_count(self, conversation_id, receiver_id):
+        """获取会话中指定接收者的未读消息数"""
+        result = self.execute_query(
+            """SELECT COUNT(*) as count FROM chat_messages 
+               WHERE conversation_id = %s AND receiver_id = %s AND is_read = 0""",
+            (conversation_id, receiver_id)
+        )
+        return result[0]['count'] if result else 0
+
+    def get_total_unread_chat_count(self, user_id):
+        """获取用户在所有会话中的未读消息总数"""
+        result = self.execute_query(
+            """SELECT COUNT(*) as count FROM chat_messages 
+               WHERE receiver_id = %s AND is_read = 0""",
+            (user_id,)
+        )
+        return result[0]['count'] if result else 0
+
+    def add_chat_message(self, conversation_id, sender_id, receiver_id, content):
+        """发送一条聊天消息，并更新会话的最后消息"""
+        message_id = self.execute_insert(
+            """INSERT INTO chat_messages (conversation_id, sender_id, receiver_id, content)
+               VALUES (%s, %s, %s, %s)""",
+            (conversation_id, sender_id, receiver_id, content)
+        )
+        if message_id:
+            self.execute_insert(
+                "UPDATE chat_conversations SET last_message = %s WHERE conversation_id = %s",
+                (content[:200], conversation_id)
+            )
+        return message_id
+
+    def mark_conversation_read(self, conversation_id, user_id):
+        """将会话中发给指定用户的消息标记为已读"""
+        return self.execute_insert(
+            """UPDATE chat_messages SET is_read = 1 
+               WHERE conversation_id = %s AND receiver_id = %s AND is_read = 0""",
+            (conversation_id, user_id)
+        )
+
+    def close_conversation(self, conversation_id):
+        """结束会话"""
+        return self.execute_insert(
+            "UPDATE chat_conversations SET status = 'closed' WHERE conversation_id = %s",
+            (conversation_id,)
+        )

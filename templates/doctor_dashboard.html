@@ -629,6 +629,10 @@
                     <i class="bi bi-file-text"></i>
                     <span>系统日志</span>
                 </a>
+                <a href="{{ url_for('doctor_chat') }}" class="nav-link">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>在线咨询</span>
+                </a>
                 <a href="#" class="nav-link">
                     <i class="bi bi-bell"></i>
                     <span>系统通知</span>
@@ -678,6 +682,13 @@
                     <a href="{{ url_for('doctor_schedule') }}" class="sidebar-menu-link">
                         <i class="bi bi-calendar"></i>
                         <span>今日日程</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-title">沟通</li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_chat') }}" class="sidebar-menu-link">
+                        <i class="bi bi-chat-dots"></i>
+                        <span>在线咨询</span>
                     </a>
                 </li>
                 <li class="sidebar-menu-title">患者管理</li>
