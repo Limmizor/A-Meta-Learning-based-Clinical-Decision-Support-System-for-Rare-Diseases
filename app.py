@@ -205,9 +205,63 @@ def doctor_dashboard():
         flash('数据库连接失败', 'danger')
         return render_template('doctor_dashboard.html', patients=[], model_trained=model_trained)
     
-    patients = db.get_patients()
+    patients = db.get_patients() or []
+    
+    # 统计数据
+    total_patients = len(patients)
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    today_appointments = db.execute_query(
+        "SELECT COUNT(*) as count FROM appointments WHERE appointment_date = %s AND status != 'cancelled'",
+        (today,)
+    )
+    today_appointments = today_appointments[0]['count'] if today_appointments else 0
+    
+    pending_reports = db.execute_query(
+        "SELECT COUNT(*) as count FROM diagnosis_reports WHERE status = 'pending'"
+    )
+    pending_reports = pending_reports[0]['count'] if pending_reports else 0
+    
+    unread_chat = db.get_total_unread_chat_count(current_user.id)
+    unread_notifications = db.get_unread_notification_count(current_user.id)
+    
+    # 患者年龄/性别分布（用于图表）
+    age_groups = {'0-18': 0, '19-40': 0, '41-60': 0, '60+': 0}
+    gender_counts = {'male': 0, 'female': 0, 'other': 0}
+    for p in patients:
+        gender = p.get('gender') or 'other'
+        if gender in gender_counts:
+            gender_counts[gender] += 1
+        else:
+            gender_counts['other'] += 1
+        age = p.get('age')
+        if age is not None:
+            try:
+                age = int(age)
+            except (ValueError, TypeError):
+                age = None
+        if age is None:
+            age_groups['60+'] += 1
+        elif age <= 18:
+            age_groups['0-18'] += 1
+        elif age <= 40:
+            age_groups['19-40'] += 1
+        elif age <= 60:
+            age_groups['41-60'] += 1
+        else:
+            age_groups['60+'] += 1
+    
     db.disconnect()
-    return render_template('doctor_dashboard.html', patients=patients, model_trained=model_trained)
+    return render_template('doctor_dashboard.html',
+                         patients=patients,
+                         model_trained=model_trained,
+                         total_patients=total_patients,
+                         today_appointments=today_appointments,
+                         pending_reports=pending_reports,
+                         unread_chat=unread_chat,
+                         unread_notifications=unread_notifications,
+                         age_groups=age_groups,
+                         gender_counts=gender_counts,
+                         today=today)
 
 # 患者仪表板
 @app.route('/patient/dashboard')
