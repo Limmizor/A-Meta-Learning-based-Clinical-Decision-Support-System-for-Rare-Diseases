@@ -112,17 +112,29 @@ class PFDianosisService:
         return Image.fromarray(heatmap)
 
     def predict_from_paths(self, image_paths, patient_id):
+        """
+        直接对图像路径列表进行预测，返回详细诊断信息
+        返回值：
+            predictions: list of dict [{'disease_name': str, 'confidence': float}]
+            heatmap_url: str (URL路径)
+            lesion_area_ratio: float (0~1)
+            distribution_range: str
+            imaging_findings: str
+            suggestions: str
+        """
         if not image_paths:
             return self._fallback_predictions()
         img_path = image_paths[0]
         input_tensor = self._preprocess_image(img_path).to(self.device)
 
+        # 模型推理
         with torch.no_grad():
             outputs = self.model(input_tensor)
             probs = torch.softmax(outputs, dim=1).cpu().numpy()[0]
         predicted_class = int(np.argmax(probs))
         confidence = float(probs[predicted_class])
 
+        # 构建预测结果（二分类）
         if predicted_class == 1:
             predictions = [
                 {'disease_name': '肺纤维化', 'confidence': confidence},
@@ -134,6 +146,7 @@ class PFDianosisService:
                 {'disease_name': '肺纤维化', 'confidence': 1 - confidence}
             ]
 
+        # 生成 Grad-CAM 热力图
         heatmap_img = self._generate_gradcam(input_tensor, predicted_class)
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         static_gradcam = os.path.join(base_dir, 'static', 'gradcam')
@@ -143,13 +156,43 @@ class PFDianosisService:
         heatmap_img.save(heatmap_path)
         heatmap_url = f'/static/gradcam/{heatmap_filename}'
 
-        lesion_ratio = 0.32 if predicted_class == 1 else 0.05
-        distribution = '双肺下叶背段及胸膜下' if predicted_class == 1 else '无明显病灶'
-        findings = '双肺可见网格影、蜂窝影，以胸膜下为著，伴牵拉性支气管扩张。' if predicted_class == 1 else '未见明显肺纤维化征象。'
-        suggestions = '建议高分辨率CT随访，评估抗纤维化药物治疗。' if predicted_class == 1 else '定期体检，保持良好生活习惯。'
+        # ========== 量化指标（真实场景应来自模型或后处理） ==========
+        # 这里示例使用模拟数据，实际应替换为模型输出的量化指标
+        if predicted_class == 1:
+            lesion_ratio = 0.32        # 病灶面积占比 (0~1)
+            distribution = '双肺下叶背段及胸膜下'   # 分布范围
+        else:
+            lesion_ratio = 0.05
+            distribution = '无明显病灶'
 
-        return predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions
+        # ========== 轻量级报告生成模板 ==========
+        if predicted_class == 1:
+            lesion_percent = lesion_ratio * 100
+            # 根据病灶面积占比动态设定随访建议
+            if lesion_ratio > 0.5:
+                follow_up_months = 3
+                urgency = "病灶面积较大，请尽快"
+            elif lesion_ratio > 0.3:
+                follow_up_months = 6
+                urgency = ""
+            else:
+                follow_up_months = 12
+                urgency = ""
 
+            imaging_findings = (
+                f"双肺可见网格影、蜂窝影，以{distribution}为著，伴牵拉性支气管扩张。"
+                f"病灶面积占比约{lesion_percent:.1f}%。"
+            )
+            suggestions = (
+                f"{urgency}建议高分辨率CT随访，每{follow_up_months}个月复查一次，"
+                f"评估抗纤维化药物治疗效果。"
+            )
+        else:
+            imaging_findings = "未见明显肺纤维化征象，肺纹理清晰。"
+            suggestions = "定期体检，保持良好生活习惯，建议每年进行一次低剂量CT筛查。"
+
+        return predictions, heatmap_url, lesion_ratio, distribution, imaging_findings, suggestions
+    
     def diagnose_patient(self, patient_id):
         db = Database()
         if not db.connect():
