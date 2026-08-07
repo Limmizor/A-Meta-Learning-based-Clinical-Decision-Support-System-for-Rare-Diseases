@@ -285,11 +285,43 @@ def patient_dashboard():
     patient_id = patient_data[0]['patient_id']
     reports = db.get_diagnosis_reports(patient_id)
     patient = db.get_patient(patient_id)
+    
+    # 患者专属统计
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    pending_appointments = db.execute_query(
+        """SELECT COUNT(*) as count FROM appointments 
+           WHERE patient_id = %s AND status IN ('pending','confirmed')""",
+        (patient_id,)
+    )
+    pending_appointments = pending_appointments[0]['count'] if pending_appointments else 0
+    
+    followups = db.get_followup_plans(patient_id) or []
+    pending_followups = sum(1 for f in followups if f.get('status') == 'pending')
+    
+    unread_chat = db.get_total_unread_chat_count(current_user.id)
+    unread_notifications = db.get_unread_notification_count(current_user.id)
+    
+    # 病灶趋势数据（用于图表）
+    trend_data = db.get_patient_trend_data(patient_id) or []
+    
+    # 完成/待审核报告统计
+    completed_reports = sum(1 for r in (reports or []) if r.get('status') == 'completed')
+    pending_reports = sum(1 for r in (reports or []) if r.get('status') == 'pending')
+    
     db.disconnect()
     
     return render_template('patient_dashboard.html', 
-                         reports=reports, 
-                         patient=patient[0] if patient else None)
+                         reports=reports or [], 
+                         patient=patient[0] if patient else None,
+                         pending_appointments=pending_appointments,
+                         pending_followups=pending_followups,
+                         unread_chat=unread_chat,
+                         unread_notifications=unread_notifications,
+                         trend_data=trend_data,
+                         completed_reports=completed_reports,
+                         pending_reports=pending_reports,
+                         today=today,
+                         today_str=datetime.datetime.now().strftime('%m月%d日'))
 
 @app.route('/patient/trend')
 @login_required

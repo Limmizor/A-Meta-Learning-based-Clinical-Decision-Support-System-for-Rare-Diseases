@@ -598,6 +598,255 @@
         .table tbody tr:hover {
             background-color: rgba(22, 93, 255, 0.03);
         }
+
+        /* ===== 现代患者看板布局（与医生端统一） ===== */
+        .dashboard-main {
+            flex: 1;
+            margin-left: 220px;
+            padding: 26px 30px;
+            background: #F5F7FB;
+            min-height: calc(100vh - 70px);
+        }
+
+        /* 欢迎横幅 */
+        .welcome-banner {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0E42D2 0%, #165DFF 55%, #00B4D8 100%);
+            border-radius: 18px;
+            padding: 28px 32px;
+            color: #fff;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 28px rgba(22, 93, 255, 0.28);
+        }
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            right: -60px;
+            top: -60px;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            border: 40px solid rgba(255,255,255,0.08);
+        }
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            right: 90px;
+            bottom: -70px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.12), transparent 70%);
+        }
+        .welcome-banner .wb-content { position: relative; z-index: 2; }
+        .wb-greeting { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+        .wb-greeting .wave { display: inline-block; animation: wave 2s infinite; }
+        @keyframes wave {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(15deg); }
+            75% { transform: rotate(-10deg); }
+        }
+        .wb-sub { font-size: 14px; opacity: 0.9; }
+        .wb-date { font-size: 13px; opacity: 0.85; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+        .wb-actions { position: relative; z-index: 2; display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+        .wb-actions .btn {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            border-radius: 10px;
+            padding: 9px 18px;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .wb-actions .btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); color: #fff; }
+        .wb-actions .btn-solid { background: #fff; color: var(--primary-dark); border: none; font-weight: 600; }
+        .wb-actions .btn-solid:hover { background: #E8F0FF; color: var(--primary-dark); }
+
+        /* KPI 卡片 */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
+        .kpi-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .kpi-icon.blue { background: rgba(22,93,255,0.12); color: var(--primary); }
+        .kpi-icon.green { background: rgba(0,180,42,0.12); color: var(--success); }
+        .kpi-icon.orange { background: rgba(255,125,0,0.12); color: var(--warning); }
+        .kpi-icon.purple { background: rgba(114,46,209,0.12); color: #722ED1; }
+        .kpi-icon.cyan { background: rgba(0,131,143,0.12); color: #00838F; }
+        .kpi-value { font-size: 28px; font-weight: 700; line-height: 1.1; }
+        .kpi-label { font-size: 13px; color: var(--secondary); margin-top: 2px; }
+        .kpi-trend { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+
+        /* 双栏面板 */
+        .dashboard-row {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+        .panel {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header h5 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .panel-header .view-all { font-size: 13px; color: var(--primary); text-decoration: none; }
+        .panel-body { padding: 16px 20px; }
+
+        /* 健康概览 */
+        .profile-overview {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .profile-avatar {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #165DFF, #00B4D8);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 6px 20px rgba(22, 93, 255, 0.3);
+            border: 3px solid #fff;
+            flex-shrink: 0;
+        }
+        .profile-info { flex: 1; min-width: 0; }
+        .profile-name { font-size: 20px; font-weight: 700; margin: 0 0 6px; }
+        .profile-meta { font-size: 13px; color: var(--secondary); margin-bottom: 10px; }
+        .profile-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .profile-tag {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: #F2F3F5;
+            color: var(--secondary);
+        }
+        .profile-tag.blue { background: rgba(22,93,255,0.1); color: var(--primary); }
+        .profile-tag.green { background: rgba(0,180,42,0.1); color: var(--success); }
+
+        .ov-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+        .ov-stat { background: #FAFBFC; border-radius: 10px; padding: 12px 14px; }
+        .ov-stat-label { font-size: 12px; color: #86909C; }
+        .ov-stat-value { font-size: 18px; font-weight: 600; margin-top: 2px; }
+
+        /* 待办/快捷操作 */
+        .todo-list { list-style: none; padding: 0; margin: 0; }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 20px;
+            border-bottom: 1px solid #F2F3F5;
+            transition: background 0.15s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .todo-item:hover { background: #F7F8FA; }
+        .todo-item:last-child { border-bottom: none; }
+        .todo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .todo-icon.blue { background: rgba(22,93,255,0.1); color: var(--primary); }
+        .todo-icon.green { background: rgba(0,180,42,0.1); color: var(--success); }
+        .todo-icon.orange { background: rgba(255,125,0,0.1); color: var(--warning); }
+        .todo-icon.purple { background: rgba(114,46,209,0.1); color: #722ED1; }
+        .todo-info { flex: 1; min-width: 0; }
+        .todo-title { font-size: 14px; font-weight: 500; }
+        .todo-meta { font-size: 12px; color: #86909C; }
+        .todo-badge { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+
+        /* 报告列表 */
+        .report-list { list-style: none; padding: 0; margin: 0; }
+        .report-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #F2F3F5;
+        }
+        .report-item:last-child { border-bottom: none; }
+        .report-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+            background: rgba(0,180,42,0.1);
+            color: var(--success);
+        }
+        .report-info { flex: 1; min-width: 0; }
+        .report-title { font-size: 14px; font-weight: 600; }
+        .report-meta { font-size: 12px; color: #86909C; margin-top: 3px; }
+
+        /* 系统状态 */
+        .health-status-card { padding: 20px; text-align: center; border-bottom: 1px solid #F2F3F5; }
+        .health-status-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(0,180,42,0.1);
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 10px;
+        }
+        .health-status-title { font-size: 15px; font-weight: 600; }
+        .health-status-sub { font-size: 12px; color: #86909C; margin-top: 4px; }
+
+        @media (max-width: 1200px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .dashboard-row { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -664,158 +913,228 @@
             </ul>
         </aside>
         
-        <main class="content">
-            <h1 class="page-title">
-                <i class="bi bi-house"></i> 个人健康中心
-            </h1>
-            
-            <div class="page-actions">
-                <button class="btn btn-outline-primary">
-                    <i class="bi bi-download"></i> 导出报告
-                </button>
-                <button class="btn btn-primary" onclick="window.location.href='{{ url_for('patient_appointment') }}'">
-                    <i class="bi bi-calendar-plus"></i> 预约挂号
-                </button>
-            </div>
-            
-            <!-- 统计卡片（与医生工作台风格一致） -->
-            <div class="stats-row">
-                <div class="stat-card">
-                    <div class="stat-icon primary"><i class="bi bi-calendar-check"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-value" id="pendingAppointments">0</div>
-                        <div class="stat-label">待就诊预约</div>
-                        <div class="stat-trend"><span>最近30天</span></div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon success"><i class="bi bi-file-medical"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-value">{{ reports|length }}</div>
-                        <div class="stat-label">诊断报告</div>
-                        <div class="stat-trend trend-up"><i class="bi bi-arrow-up"></i> 总报告数</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon warning"><i class="bi bi-chat-dots"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-value" id="unreadCount">0</div>
-                        <div class="stat-label">未读消息</div>
-                        <div class="stat-trend"><span>最近7天</span></div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon danger"><i class="bi bi-clock-history"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-value">{{ reports|length }}</div>
-                        <div class="stat-label">就诊记录</div>
-                        <div class="stat-trend"><span>总记录数</span></div>
+        <main class="dashboard-main">
+            <!-- 欢迎横幅 -->
+            <div class="welcome-banner">
+                <div class="wb-content">
+                    <div class="wb-greeting">您好，{{ current_user.full_name or '患者' }} <span class="wave">👋</span></div>
+                    <div class="wb-sub">欢迎回到您的个人健康中心，随时掌握自己的健康状况。</div>
+                    <div class="wb-date"><i class="bi bi-calendar3"></i> {{ today }} · 祝您身体健康</div>
+                    <div class="wb-actions">
+                        <a href="{{ url_for('patient_appointment') }}" class="btn btn-solid"><i class="bi bi-calendar-plus"></i> 预约挂号</a>
+                        <a href="{{ url_for('patient_chat') }}" class="btn"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+                        <a href="{{ url_for('my_reports') }}" class="btn"><i class="bi bi-file-medical"></i> 我的报告</a>
                     </div>
                 </div>
             </div>
-            
-            <!-- 个人健康概览卡片 -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">健康概览</h5>
+
+            <!-- KPI 指标卡 -->
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-icon blue"><i class="bi bi-calendar-check"></i></div>
+                    <div>
+                        <div class="kpi-value" id="pendingAppointments">{{ pending_appointments }}</div>
+                        <div class="kpi-label">待就诊预约</div>
+                        <div class="kpi-trend" style="color: var(--primary);"><i class="bi bi-calendar3"></i> 进行中</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="health-overview">
-                        <div class="user-profile">
-                            <div class="user-avatar-large">
+                <div class="kpi-card">
+                    <div class="kpi-icon green"><i class="bi bi-file-medical"></i></div>
+                    <div>
+                        <div class="kpi-value">{{ reports|length }}</div>
+                        <div class="kpi-label">诊断报告</div>
+                        <div class="kpi-trend" style="color: var(--success);">{{ completed_reports }} 份已完成</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon orange"><i class="bi bi-chat-dots"></i></div>
+                    <div>
+                        <div class="kpi-value" id="unreadCount">{{ unread_chat + unread_notifications }}</div>
+                        <div class="kpi-label">未读消息</div>
+                        <div class="kpi-trend" style="color: var(--warning);"><a href="{{ url_for('patient_chat') }}" style="color: var(--warning); text-decoration: none;">去查看 →</a></div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon cyan"><i class="bi bi-calendar-heart"></i></div>
+                    <div>
+                        <div class="kpi-value">{{ pending_followups }}</div>
+                        <div class="kpi-label">待完成随访</div>
+                        <div class="kpi-trend" style="color: #86909C;">共 {{ followups|length }} 项计划</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 健康概览 + 快捷操作 -->
+            <div class="dashboard-row">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h5><i class="bi bi-person-heart" style="color: var(--primary);"></i> 健康概览</h5>
+                        <a href="{{ url_for('patient_profile') }}" class="view-all">编辑资料 <i class="bi bi-chevron-right"></i></a>
+                    </div>
+                    <div class="panel-body">
+                        <div class="profile-overview">
+                            <div class="profile-avatar">
                                 <i class="bi bi-person"></i>
                             </div>
-                            <h4 style="margin: 0 0 5px;">{{ current_user.full_name or '患者' }}</h4>
-                            <p style="margin: 0; color: var(--secondary);">
-                                {% if patient %}
-                                    {{ patient.age }}岁 · 
-                                    {% if patient.gender == 'male' %}男
-                                    {% elif patient.gender == 'female' %}女
-                                    {% else %}其他
+                            <div class="profile-info">
+                                <div class="profile-name">{{ current_user.full_name or '患者' }}</div>
+                                <div class="profile-meta">
+                                    {% if patient %}
+                                        {{ patient.age }}岁 · 
+                                        {% if patient.gender == 'male' %}男
+                                        {% elif patient.gender == 'female' %}女
+                                        {% else %}其他
+                                        {% endif %}
+                                    {% else %}
+                                        信息待完善
                                     {% endif %}
-                                {% else %}
-                                    信息待完善
-                                {% endif %}
-                            </p>
-                            <button class="btn btn-sm btn-outline-primary" style="margin-top: 10px;" onclick="location.href='{{ url_for('patient_profile') }}'">编辑资料</button>
+                                </div>
+                                <div class="profile-tags">
+                                    <span class="profile-tag blue">患者ID：{% if patient %}PT{{ patient.patient_id }}{% else %}未分配{% endif %}</span>
+                                    <span class="profile-tag green">{{ completed_reports }} 次诊断</span>
+                                    <span class="profile-tag">{{ reports|length }} 份报告</span>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div class="health-stats">
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-item-label">患者ID</div>
-                                    <div class="stat-item-value">{% if patient %}PT{{ patient.patient_id }}{% else %}未分配{% endif %}</div>
+                        <div class="ov-stats">
+                            <div class="ov-stat">
+                                <div class="ov-stat-label">联系电话</div>
+                                <div class="ov-stat-value">{{ patient.contact_number or '未填写' }}</div>
+                            </div>
+                            <div class="ov-stat">
+                                <div class="ov-stat-label">最近就诊</div>
+                                <div class="ov-stat-value">
+                                    {% if patient and patient.updated_at %}
+                                        {{ patient.updated_at.strftime('%m-%d') }}
+                                    {% else %}
+                                        暂无记录
+                                    {% endif %}
                                 </div>
-                                <div class="stat-item">
-                                    <div class="stat-item-label">联系电话</div>
-                                    <div class="stat-item-value">{{ patient.contact_number or '未填写' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-item-label">紧急联系人</div>
-                                    <div class="stat-item-value">{{ patient.emergency_contact or '未填写' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-item-label">最近就诊</div>
-                                    <div class="stat-item-value">
-                                        {% if patient and patient.updated_at %}
-                                            {{ patient.updated_at.strftime('%Y-%m-%d') }}
-                                        {% else %}
-                                            暂无记录
+                            </div>
+                            <div class="ov-stat">
+                                <div class="ov-stat-label">下次预约</div>
+                                <div class="ov-stat-value">{{ '待安排' if not pending_appointments else '已预约' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h5><i class="bi bi-lightning-charge" style="color: var(--warning);"></i> 快捷服务</h5>
+                    </div>
+                    <div class="todo-list">
+                        <a class="todo-item" href="{{ url_for('patient_appointment') }}">
+                            <div class="todo-icon blue"><i class="bi bi-calendar-plus"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">预约挂号</div>
+                                <div class="todo-meta">预约医生门诊</div>
+                            </div>
+                            <span class="todo-badge" style="background: rgba(22,93,255,0.1); color: var(--primary);">预约</span>
+                        </a>
+                        <a class="todo-item" href="{{ url_for('patient_chat') }}">
+                            <div class="todo-icon green"><i class="bi bi-chat-dots"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">在线咨询</div>
+                                <div class="todo-meta">与医生在线沟通</div>
+                            </div>
+                            {% if unread_chat %}<span class="todo-badge" style="background: rgba(0,180,42,0.1); color: var(--success);">{{ unread_chat }} 新</span>{% endif %}
+                        </a>
+                        <a class="todo-item" href="{{ url_for('patient_followup') }}">
+                            <div class="todo-icon orange"><i class="bi bi-calendar-heart"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">随访计划</div>
+                                <div class="todo-meta">查看健康随访安排</div>
+                            </div>
+                            {% if pending_followups %}<span class="todo-badge" style="background: rgba(255,125,0,0.1); color: var(--warning);">{{ pending_followups }}</span>{% endif %}
+                        </a>
+                        <a class="todo-item" href="{{ url_for('patient_trend') }}">
+                            <div class="todo-icon purple"><i class="bi bi-graph-up"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">病灶趋势</div>
+                                <div class="todo-meta">查看病情发展曲线</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近报告 + 健康状态 -->
+            <div class="dashboard-row">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h5><i class="bi bi-file-medical" style="color: var(--success);"></i> 最近诊断报告</h5>
+                        <a href="{{ url_for('my_reports') }}" class="view-all">查看全部 <i class="bi bi-chevron-right"></i></a>
+                    </div>
+                    <div class="report-list">
+                        {% if reports %}
+                            {% for report in reports[:3] %}
+                            <div class="report-item">
+                                <div class="report-icon"><i class="bi bi-file-medical"></i></div>
+                                <div class="report-info">
+                                    <div class="report-title">诊断报告 #{{ report.report_id }}</div>
+                                    <div class="report-meta">
+                                        医生：{{ report.doctor_name }} · {{ report.created_at.strftime('%Y-%m-%d') }}
+                                        {% if report.lesion_area_ratio %}
+                                        · 病灶占比 {{ (report.lesion_area_ratio * 100)|round(1) }}%
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <div class="stat-item-label">诊断次数</div>
-                                    <div class="stat-item-value">{{ reports|length }}次</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-item-label">下次预约</div>
-                                    <div class="stat-item-value">暂无预约</div>
-                                </div>
+                                <a href="{{ url_for('my_reports') }}#report-{{ report.report_id }}" class="btn btn-sm btn-outline-primary">详情</a>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-file-medical" style="font-size: 48px; color: #C9CDD4;"></i>
+                            <h5 class="mt-3">暂无诊断报告</h5>
+                            <p class="text-muted">您还没有任何诊断报告记录</p>
+                            <a href="{{ url_for('patient_appointment') }}" class="btn btn-primary mt-2"><i class="bi bi-calendar-plus"></i> 预约医生</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h5><i class="bi bi-activity" style="color: #00838F;"></i> 健康状态</h5>
+                    </div>
+                    <div class="health-status-card">
+                        <div class="health-status-icon"><i class="bi bi-heart-pulse"></i></div>
+                        <div class="health-status-title">健康状况良好</div>
+                        <div class="health-status-sub">保持良好生活习惯，定期随访复查</div>
+                    </div>
+                    <div class="todo-list">
+                        <div class="todo-item">
+                            <div class="todo-icon blue"><i class="bi bi-bell"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">消息通知</div>
+                                <div class="todo-meta">{{ unread_notifications }} 条未读通知</div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 最近诊断报告列表 -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">最近诊断报告</h5>
-                    <a href="{{ url_for('my_reports') }}" class="btn btn-sm btn-outline-primary">查看全部</a>
-                </div>
-                <div class="card-body">
-                    {% if reports %}
-                    <ul class="list-group">
-                        {% for report in reports[:3] %}
-                        <li class="list-group-item">
-                            <div class="list-item-icon" style="background-color: rgba(0, 180, 42, 0.1); color: var(--success);">
-                                <i class="bi bi-file-medical"></i>
+                        <div class="todo-item">
+                            <div class="todo-icon green"><i class="bi bi-check-circle"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">已完成诊断</div>
+                                <div class="todo-meta">{{ completed_reports }} 份报告</div>
                             </div>
-                            <div class="list-item-info">
-                                <div class="list-item-title">诊断报告 #{{ report.report_id }}</div>
-                                <div class="list-item-meta">
-                                    医生：{{ report.doctor_name }} | 
-                                    日期：{{ report.created_at.strftime('%Y-%m-%d') }}
-                                    {% if report.findings %}
-                                    <br>诊断结果：{{ report.findings }}
-                                    {% endif %}
-                                    {% if report.lesion_area_ratio %}
-                                    <br>病灶面积占比：{{ (report.lesion_area_ratio * 100)|round(1) }}%
-                                    {% endif %}
-                                </div>
+                            <span class="todo-badge" style="background: rgba(0,180,42,0.1); color: var(--success);">{{ completed_reports }}</span>
+                        </div>
+                        <div class="todo-item">
+                            <div class="todo-icon orange"><i class="bi bi-hourglass-split"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">待审核报告</div>
+                                <div class="todo-meta">{{ pending_reports }} 份待处理</div>
                             </div>
-                            <a href="{{ url_for('my_reports') }}#report-{{ report.report_id }}" class="btn btn-sm btn-outline-primary">查看详情</a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="bi bi-file-medical display-1 text-muted"></i>
-                        <h5 class="mt-3">暂无诊断报告</h5>
-                        <p class="text-muted">您还没有任何诊断报告记录</p>
+                        </div>
+                        <div class="todo-item">
+                            <div class="todo-icon purple"><i class="bi bi-shield-check"></i></div>
+                            <div class="todo-info">
+                                <div class="todo-title">账户状态</div>
+                                <div class="todo-meta">信息完善度良好</div>
+                            </div>
+                            <span class="todo-badge" style="background: rgba(114,46,209,0.1); color: #722ED1;">正常</span>
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </main>
@@ -823,13 +1142,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 简单的动态统计（示例）
+        // 动态统计（从后端 API 获取实时未读数）
         function loadStats() {
-            // 可调用后端接口获取待就诊预约数量、未读消息等
-            // 这里使用占位
-            let pending = {{ reports|selectattr('findings', 'none')|list|length }};
-            document.getElementById('pendingAppointments').innerText = pending;
-            document.getElementById('unreadCount').innerText = 0;
+            // 待就诊预约数（后端已渲染）
+            const pendingEl = document.getElementById('pendingAppointments');
+            if (pendingEl) pendingEl.innerText = {{ pending_appointments }};
+            // 未读消息总数（聊天 + 通知）
+            fetch('/api/chat/unread')
+                .then(r => r.json())
+                .then(data => {
+                    const chatUnread = data.unread_count || 0;
+                    const unreadEl = document.getElementById('unreadCount');
+                    if (unreadEl) unreadEl.innerText = chatUnread + {{ unread_notifications }};
+                })
+                .catch(() => {
+                    const unreadEl = document.getElementById('unreadCount');
+                    if (unreadEl) unreadEl.innerText = {{ unread_chat + unread_notifications }};
+                });
         }
         document.addEventListener('DOMContentLoaded', loadStats);
     </script>
