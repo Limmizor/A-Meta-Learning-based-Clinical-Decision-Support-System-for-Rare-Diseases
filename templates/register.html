@@ -1,110 +1,408 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 肺影智诊系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="card shadow">
-            <div class="card-body p-5">
-                <h2 class="card-title text-center mb-4">注册账号</h2>
-                
-                <form method="POST" action="{{ url_for('register') }}">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">账号</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="email" class="form-label">邮箱</label>
-                                <input type="email" class="form-control" id="email" name="email" 
-                                       placeholder="例：example@123.com" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="password" class="form-label">设置密码</label>
-                                <input type="password" class="form-control" id="password" name="password" 
-                                       placeholder="5个字符到10个字符" minlength="5" maxlength="10" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="confirm_password" class="form-label">确认密码</label>
-                                <input type="password" class="form-control" id="confirm_password" 
-                                       name="confirm_password" placeholder="确认密码" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="full_name" class="form-label">昵称</label>
-                        <input type="text" class="form-control" id="full_name" name="full_name" 
-                               placeholder="2个字符到12个字符" minlength="2" maxlength="12" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="user_type" class="form-label">身份</label>
-                        <select class="form-select" id="user_type" name="user_type" required>
-                            <option value="">请选择身份</option>
-                            <option value="doctor">医生用户</option>
-                            <option value="patient">患者用户</option>
-                        </select>
-                    </div>
-                    
-                    <div id="patient_fields" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="patient_name" class="form-label">患者姓名</label>
-                                    <input type="text" class="form-control" id="patient_name" name="patient_name" 
-                                           placeholder="患者姓名">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="patient_gender" class="form-label">患者性别</label>
-                                    <select class="form-select" id="patient_gender" name="patient_gender">
-                                        <option value="">请选择</option>
-                                        <option value="male">男</option>
-                                        <option value="female">女</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="patient_age" class="form-label">患者年龄</label>
-                            <input type="number" class="form-control" id="patient_age" name="patient_age" min="0" max="120">
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100 py-2">注册</button>
-                    
-                    <hr class="my-4">
-                    
-                    <div class="text-center">
-                        <span class="text-muted">已有账户？</span>
-                        <a href="{{ url_for('login') }}">立即登录</a>
-                    </div>
-                </form>
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            background: #F5F7FB;
+        }
+
+        .auth-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ===== 左侧品牌区 ===== */
+        .brand-side {
+            flex: 1.05;
+            position: relative;
+            overflow: hidden;
+            color: #fff;
+            background: linear-gradient(150deg, #0E42D2 0%, #165DFF 40%, #00B4D8 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 48px 56px;
+        }
+        .brand-side::before {
+            content: '';
+            position: absolute;
+            top: -120px;
+            right: -120px;
+            width: 420px;
+            height: 420px;
+            border-radius: 50%;
+            border: 60px solid rgba(255,255,255,0.06);
+        }
+        .brand-side::after {
+            content: '';
+            position: absolute;
+            bottom: -160px;
+            left: -100px;
+            width: 380px;
+            height: 380px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 70%);
+        }
+        .brand-pulse {
+            position: absolute;
+            top: 28%;
+            left: 6%;
+            font-size: 220px;
+            color: rgba(255,255,255,0.07);
+            transform: rotate(-10deg);
+        }
+        .brand-grid {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 46px 46px;
+            pointer-events: none;
+        }
+
+        .brand-logo {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brand-logo-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.18);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+        .brand-logo-text { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+        .brand-logo-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+        .brand-mid { position: relative; z-index: 2; margin: 30px 0; }
+        .brand-title { font-size: 36px; font-weight: 800; line-height: 1.35; letter-spacing: 1px; }
+        .brand-desc { font-size: 15px; opacity: 0.9; margin-top: 16px; line-height: 1.8; max-width: 440px; }
+
+        .brand-quotes { margin-top: 32px; display: flex; flex-direction: column; gap: 14px; }
+        .brand-quote {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px;
+            padding: 12px 16px;
+            backdrop-filter: blur(4px);
+            max-width: 400px;
+        }
+        .brand-quote i { font-size: 18px; color: #A5D8FF; flex-shrink: 0; }
+
+        .brand-stats { position: relative; z-index: 2; display: flex; gap: 36px; margin-top: 16px; }
+        .brand-stat .num { font-size: 26px; font-weight: 800; }
+        .brand-stat .label { font-size: 12.5px; opacity: 0.8; }
+
+        /* ===== 右侧表单区 ===== */
+        .form-side {
+            flex: 1;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 48px;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .auth-card { width: 100%; max-width: 520px; }
+
+        .auth-header { text-align: center; margin-bottom: 26px; }
+        .auth-header .mobile-logo {
+            display: none;
+            width: 52px; height: 52px; margin: 0 auto 16px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #165DFF, #00B4D8);
+            color: #fff; font-size: 26px;
+            align-items: center; justify-content: center;
+        }
+        .auth-header h1 { font-size: 26px; font-weight: 800; color: #1D2129; }
+        .auth-header p { color: #86909C; font-size: 14px; margin-top: 8px; }
+
+        .form-label { font-weight: 600; font-size: 13px; color: #4E5969; margin-bottom: 6px; }
+
+        .input-group-custom { position: relative; margin-bottom: 16px; }
+        .input-group-custom .form-control,
+        .input-group-custom .form-select {
+            height: 46px;
+            border-radius: 10px;
+            border: 1.5px solid #E5E6EB;
+            padding-left: 40px;
+            font-size: 14px;
+            background: #FBFBFD;
+            transition: all 0.2s;
+        }
+        .input-group-custom .form-select { cursor: pointer; }
+        .input-group-custom .form-control:focus,
+        .input-group-custom .form-select:focus {
+            border-color: #165DFF;
+            box-shadow: 0 0 0 4px rgba(22,93,255,0.10);
+            background: #fff;
+        }
+        .input-group-custom .icon {
+            position: absolute;
+            left: 13px; top: 50%;
+            transform: translateY(-50%);
+            color: #A9AEB8;
+            font-size: 16px;
+            z-index: 5;
+        }
+
+        .btn-auth {
+            width: 100%;
+            height: 48px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15.5px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #165DFF 0%, #00B4D8 100%);
+            box-shadow: 0 6px 18px rgba(22,93,255,0.30);
+            transition: all 0.25s;
+            margin-top: 4px;
+        }
+        .btn-auth:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(22,93,255,0.40); }
+        .btn-auth:active { transform: translateY(0); }
+
+        .auth-footer { text-align: center; margin-top: 22px; font-size: 14px; color: #86909C; }
+        .auth-footer a { color: #165DFF; font-weight: 600; text-decoration: none; }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .auth-alert {
+            border-radius: 10px;
+            border: none;
+            font-size: 13.5px;
+            padding: 12px 14px;
+        }
+        .auth-alert-danger { background: #FFECE8; color: #F53F3F; border: 1px solid #FFD7D0; }
+        .auth-alert-success { background: #E8FFEA; color: #00B42A; border: 1px solid #AFF0B5; }
+        .auth-alert-warning { background: #FFF7E8; color: #FF7D00; border: 1px solid #FFE4BA; }
+
+        .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .role-option {
+            border: 1.5px solid #E5E6EB;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #FBFBFD;
+        }
+        .role-option i { font-size: 26px; color: #A9AEB8; display: block; margin-bottom: 6px; transition: all 0.2s; }
+        .role-option strong { font-size: 14px; color: #4E5969; display: block; }
+        .role-option small { font-size: 11.5px; color: #A9AEB8; }
+        .role-option.selected {
+            border-color: #165DFF;
+            background: rgba(22,93,255,0.04);
+            box-shadow: 0 0 0 3px rgba(22,93,255,0.08);
+        }
+        .role-option.selected i { color: #165DFF; }
+        .role-option.selected strong { color: #165DFF; }
+
+        .copyright {
+            position: absolute;
+            bottom: 16px;
+            left: 0; right: 0;
+            text-align: center;
+            color: #C9CDD4;
+            font-size: 12px;
+        }
+
+        @media (max-width: 992px) {
+            .brand-side { display: none; }
+            .auth-header .mobile-logo { display: flex; }
+            .form-side { padding: 40px 24px; }
+        }
+    </style>
+</head>
+<body>
+<div class="auth-wrapper">
+    <!-- 左侧品牌区 -->
+    <div class="brand-side">
+        <div class="brand-grid"></div>
+        <i class="bi bi-heart-pulse-fill brand-pulse"></i>
+
+        <div class="brand-logo">
+            <div class="brand-logo-icon"><i class="bi bi-clipboard2-pulse"></i></div>
+            <div>
+                <div class="brand-logo-text">肺影智诊系统</div>
+                <div class="brand-logo-sub">AI 智能影像诊断平台</div>
             </div>
         </div>
+
+        <div class="brand-mid">
+            <div class="brand-title">加入我们<br>守护每一份呼吸健康</div>
+            <div class="brand-desc">
+                无论是专业的医生还是需要帮助的患者，
+                肺影智诊系统都将为您提供智能、高效、专业的服务。
+            </div>
+
+            <div class="brand-quotes">
+                <div class="brand-quote"><i class="bi bi-person-badge"></i> 医生 · 智能辅助诊断，提升诊疗效率</div>
+                <div class="brand-quote"><i class="bi bi-person-heart"></i> 患者 · 在线问诊，随时掌握健康状况</div>
+            </div>
+        </div>
+
+        <div class="brand-stats">
+            <div class="brand-stat"><div class="num">500+</div><div class="label">注册医生</div></div>
+            <div class="brand-stat"><div class="num">10,000+</div><div class="label">服务患者</div></div>
+            <div class="brand-stat"><div class="num">4.9★</div><div class="label">用户评分</div></div>
+        </div>
+    </div>
+
+    <!-- 右侧表单区 -->
+    <div class="form-side">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="mobile-logo"><i class="bi bi-clipboard2-pulse"></i></div>
+                <h1>创建账户</h1>
+                <p>只需几步，即可开始使用肺影智诊系统</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert auth-alert auth-alert-{{ category }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('register') }}">
+                <label class="form-label">选择身份</label>
+                <div class="role-selector">
+                    <div class="role-option" data-role="patient" onclick="selectRole('patient')">
+                        <i class="bi bi-person-heart"></i>
+                        <strong>我是患者</strong>
+                        <small>在线问诊与健康管理</small>
+                    </div>
+                    <div class="role-option" data-role="doctor" onclick="selectRole('doctor')">
+                        <i class="bi bi-person-badge"></i>
+                        <strong>我是医生</strong>
+                        <small>AI辅助诊断服务</small>
+                    </div>
+                    <input type="hidden" id="user_type" name="user_type" value="">
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group-custom">
+                            <i class="bi bi-person icon"></i>
+                            <input type="text" class="form-control" id="username" name="username"
+                                   placeholder="设置用户名" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group-custom">
+                            <i class="bi bi-envelope icon"></i>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   placeholder="邮箱地址" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group-custom">
+                            <i class="bi bi-lock icon"></i>
+                            <input type="password" class="form-control" id="password" name="password"
+                                   placeholder="设置密码(5-10位)" minlength="5" maxlength="10" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group-custom">
+                            <i class="bi bi-shield-lock icon"></i>
+                            <input type="password" class="form-control" id="confirm_password"
+                                   name="confirm_password" placeholder="确认密码" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group-custom">
+                    <i class="bi bi-card-text icon"></i>
+                    <input type="text" class="form-control" id="full_name" name="full_name"
+                           placeholder="您的昵称 / 姓名" minlength="2" maxlength="12" required>
+                </div>
+
+                <!-- 患者专属信息 -->
+                <div id="patient_fields" style="display: none;">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="input-group-custom">
+                                <i class="bi bi-person-vcard icon"></i>
+                                <input type="text" class="form-control" id="patient_name" name="patient_name"
+                                       placeholder="患者姓名">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="input-group-custom">
+                                <i class="bi bi-gender-ambiguous icon"></i>
+                                <select class="form-select" id="patient_gender" name="patient_gender">
+                                    <option value="">性别</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="input-group-custom">
+                                <i class="bi bi-calendar-heart icon"></i>
+                                <input type="number" class="form-control" id="patient_age" name="patient_age"
+                                       placeholder="年龄" min="0" max="120">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-auth">
+                    <i class="bi bi-person-plus me-1"></i> 注册
+                </button>
+
+                <div class="auth-footer">
+                    已有账户？<a href="{{ url_for('login') }}">立即登录 <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </form>
+        </div>
+        <div class="copyright">© 2026 肺影智诊系统 · 基于MTL-MAML的肺纤维化CT影像小样本辅助诊断系统</div>
     </div>
 </div>
 
 <script>
-document.getElementById('user_type').addEventListener('change', function() {
-    const patientFields = document.getElementById('patient_fields');
-    if (this.value === 'patient') {
-        patientFields.style.display = 'block';
-    } else {
-        patientFields.style.display = 'none';
+// 身份选择
+function selectRole(role) {
+    document.querySelectorAll('.role-option').forEach(o => {
+        o.classList.toggle('selected', o.getAttribute('data-role') === role);
+    });
+    document.getElementById('user_type').value = role;
+    document.getElementById('patient_fields').style.display = role === 'patient' ? 'block' : 'none';
+    if (role === 'patient') {
+        document.getElementById('patient_name').required = false;
     }
-});
+}
 </script>
-{% endblock %}
+</body>
+</html>
