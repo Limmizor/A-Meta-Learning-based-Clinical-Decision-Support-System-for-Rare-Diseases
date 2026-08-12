@@ -942,14 +942,166 @@ def patient_list():
 #         db.disconnect()
 #         return jsonify({'success': False, 'message': f'删除异常: {str(e)}'})
 
-# 医生今日日程
+# 医生今日日程（接入真实预约数据）
 @app.route('/doctor/schedule')
 @login_required
 def doctor_schedule():
     if current_user.user_type != 'doctor':
         flash('无权访问此页面', 'danger')
         return redirect(url_for('patient_dashboard'))
-    return render_template('doctor_schedule.html')
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return render_template('doctor_schedule.html', appointments=[], patients=[], today='')
+    # 该医生名下全部预约（关联患者信息）
+    appointments = db.execute_query(
+        """SELECT a.*, p.name AS patient_name, p.user_id AS patient_user_id
+           FROM appointments a
+           JOIN patients p ON a.patient_id = p.patient_id
+           WHERE a.doctor_id = %s
+           ORDER BY a.appointment_date DESC, a.appointment_time DESC""",
+        (current_user.id,)
+    ) or []
+    # 将日期/时间字段转为字符串，避免 JSON 序列化问题（TIME 类型读回为 timedelta）
+    for a in appointments:
+        if hasattr(a.get('appointment_date'), 'strftime'):
+            a['appointment_date'] = a['appointment_date'].strftime('%Y-%m-%d')
+        if isinstance(a.get('appointment_time'), datetime.timedelta):
+            total_seconds = int(a['appointment_time'].total_seconds())
+            a['appointment_time'] = f'{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}'
+        for f in ('created_at', 'updated_at'):
+            if hasattr(a.get(f), 'strftime'):
+                a[f] = a[f].strftime('%Y-%m-%d %H:%M:%S')
+    patients = db.get_patients() or []
+    db.disconnect()
+    return render_template('doctor_schedule.html',
+                           appointments=appointments,
+                           patients=patients,
+                           today=datetime.date.today().strftime('%Y-%m-%d'))
+
+
+def _doctor_update_appointment(appointment_id, new_status, log_action, success_msg, notify_title, notify_msg_template):
+    """医生端预约状态更新公共逻辑，返回 jsonify 响应"""
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    appointment = db.execute_query(
+        "SELECT * FROM appointments WHERE appointment_id = %s AND doctor_id = %s",
+        (appointment_id, current_user.id)
+    )
+    if not appointment:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '未找到该预约记录'})
+    appt = appointment[0]
+    if appt.get('status') == 'cancelled':
+        db.disconnect()
+        return jsonify({'success': False, 'message': '该预约已取消，无法操作'})
+    result = db.execute_update(
+        "UPDATE appointments SET status = %s, updated_at = %s WHERE appointment_id = %s",
+        (new_status, datetime.datetime.now(), appointment_id)
+    )
+    if result is not None and result > 0:
+        db.add_system_log(current_user.id, log_action, f'{log_action}，预约ID: {appointment_id}')
+        # 通知患者
+        patient = db.execute_query(
+            "SELECT user_id FROM patients WHERE patient_id = %s", (appt['patient_id'],)
+        )
+        if patient and patient[0].get('user_id'):
+            db.add_notification(
+                patient[0]['user_id'],
+                notify_title,
+                notify_msg_template.format(date=appt.get('appointment_date'), time=appt.get('appointment_time')),
+                'appointment',
+                '/patient/appointment'
+            )
+        db.disconnect()
+        return jsonify({'success': True, 'message': success_msg})
+    db.disconnect()
+    return jsonify({'success': False, 'message': '操作失败'})
+
+
+# 医生确认预约
+@app.route('/doctor/appointment/<int:appointment_id>/confirm', methods=['POST'])
+@login_required
+def doctor_confirm_appointment(appointment_id):
+    return _doctor_update_appointment(
+        appointment_id, 'confirmed', 'CONFIRM_APPOINTMENT', '预约已确认',
+        '预约已确认', '您 {date} {time} 的预约已由医生确认，请按时就诊。'
+    )
+
+
+# 医生完成预约（就诊结束）
+@app.route('/doctor/appointment/<int:appointment_id>/complete', methods=['POST'])
+@login_required
+def doctor_complete_appointment(appointment_id):
+    return _doctor_update_appointment(
+        appointment_id, 'completed', 'COMPLETE_APPOINTMENT', '预约已完成',
+        '就诊已完成', '您 {date} {time} 的就诊已完成，祝您早日康复。'
+    )
+
+
+# 医生取消预约
+@app.route('/doctor/appointment/<int:appointment_id>/cancel', methods=['POST'])
+@login_required
+def doctor_cancel_appointment(appointment_id):
+    return _doctor_update_appointment(
+        appointment_id, 'cancelled', 'CANCEL_APPOINTMENT', '预约已取消',
+        '预约已取消', '很抱歉，您 {date} {time} 的预约已被医生取消，如有疑问请联系医生。'
+    )
+
+
+# 医生为患者新建预约
+@app.route('/doctor/create_appointment', methods=['POST'])
+@login_required
+def doctor_create_appointment():
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'})
+    patient_id = request.form.get('patient_id')
+    appointment_date = request.form.get('appointment_date')
+    appointment_time = request.form.get('appointment_time')
+    department = request.form.get('department') or '罕见病科'
+    symptoms = request.form.get('symptoms') or ''
+    notes = request.form.get('notes') or ''
+    if not all([patient_id, appointment_date, appointment_time]):
+        return jsonify({'success': False, 'message': '请填写完整的预约信息'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    patient = db.execute_query("SELECT user_id, name FROM patients WHERE patient_id = %s", (patient_id,))
+    if not patient:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '未找到患者信息'})
+    # 检查时间段冲突
+    existing = db.execute_query(
+        """SELECT * FROM appointments
+           WHERE doctor_id = %s AND appointment_date = %s AND appointment_time = %s AND status != 'cancelled'""",
+        (current_user.id, appointment_date, appointment_time)
+    )
+    if existing:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '该时间段已有预约，请选择其他时间'})
+    appointment_id = db.execute_insert(
+        """INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time,
+           department, symptoms, notes, status, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmed', %s)""",
+        (patient_id, current_user.id, appointment_date, appointment_time, department, symptoms, notes, datetime.datetime.now())
+    )
+    if appointment_id:
+        db.add_system_log(current_user.id, 'CREATE_APPOINTMENT', f'医生新建预约，预约ID: {appointment_id}')
+        if patient[0].get('user_id'):
+            db.add_notification(
+                patient[0]['user_id'],
+                '医生为您安排了预约',
+                f'医生为您预约了 {appointment_date} {appointment_time} 的门诊，请按时就诊。',
+                'appointment',
+                '/patient/appointment'
+            )
+        db.disconnect()
+        return jsonify({'success': True, 'message': '预约创建成功', 'appointment_id': appointment_id})
+    db.disconnect()
+    return jsonify({'success': False, 'message': '预约创建失败'})
 
 # 疾病查询页面（肺纤维化主题）
 @app.route('/disease_query')
@@ -1090,11 +1242,11 @@ def cancel_appointment(appointment_id):
     if not appointment_data:
         db.disconnect()
         return jsonify({'success': False, 'message': '未找到预约记录'})
-    result = db.execute_insert(
+    result = db.execute_update(
         "UPDATE appointments SET status = 'cancelled', updated_at = %s WHERE appointment_id = %s",
         (datetime.datetime.now(), appointment_id)
     )
-    if result:
+    if result is not None and result > 0:
         db.add_system_log(current_user.id, 'CANCEL_APPOINTMENT', f'患者取消预约，预约ID: {appointment_id}')
         db.disconnect()
         return jsonify({'success': True, 'message': '预约已取消'})

@@ -241,6 +241,9 @@
                                 <a class="nav-link {% if request.endpoint == 'doctor_dashboard' %}active{% endif %}" href="{{ url_for('doctor_dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>医生面板</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'doctor_schedule' %}active{% endif %}" href="{{ url_for('doctor_schedule') }}"><i class="bi bi-calendar-check me-1"></i>今日日程</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint in ['disease_management','disease_query'] %}active{% endif %}" href="{{ url_for('disease_management') }}"><i class="bi bi-capsule me-1"></i>疾病管理</a>
                             </li>
                             <li class="nav-item">

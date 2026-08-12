@@ -10,11 +10,11 @@
             <i class="bi bi-calendar-check me-2"></i>今日日程
         </h1>
         <div>
-            <button class="btn btn-primary me-2" onclick="addNewSchedule()">
-                <i class="bi bi-plus-circle"></i> 新增日程
+            <button class="btn btn-primary me-2" onclick="showCreateAppointmentModal()">
+                <i class="bi bi-plus-circle"></i> 新增预约
             </button>
-            <button class="btn btn-outline-success" onclick="saveAllSchedules()">
-                <i class="bi bi-check-circle"></i> 保存全部
+            <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> 刷新
             </button>
         </div>
     </div>
@@ -55,10 +55,10 @@
                         <!-- 空状态 -->
                         <div class="text-center py-5 d-none" id="emptySchedule">
                             <i class="bi bi-calendar-x display-1 text-muted"></i>
-                            <h5 class="mt-3 text-muted">暂无日程安排</h5>
-                            <p class="text-muted">点击"新增日程"开始规划您的一天</p>
-                            <button class="btn btn-primary" onclick="addNewSchedule()">
-                                <i class="bi bi-plus-circle"></i> 添加第一个日程
+                            <h5 class="mt-3 text-muted">当日暂无预约</h5>
+                            <p class="text-muted">患者提交的预约将显示在这里</p>
+                            <button class="btn btn-primary" onclick="showCreateAppointmentModal()">
+                                <i class="bi bi-plus-circle"></i> 添加预约
                             </button>
                         </div>
                         <!-- 日程列表动态注入 -->
@@ -96,25 +96,31 @@
                         <div class="col-6">
                             <div class="stat-item text-center p-3 border rounded">
                                 <div class="stat-value" id="totalSchedules">0</div>
-                                <div class="stat-label">总日程</div>
+                                <div class="stat-label">总预约</div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="stat-item text-center p-3 border rounded">
                                 <div class="stat-value text-warning" id="pendingSchedules">0</div>
-                                <div class="stat-label">待完成</div>
+                                <div class="stat-label">待确认</div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="stat-item text-center p-3 border rounded">
-                                <div class="stat-value text-success" id="completedSchedules">0</div>
+                                <div class="stat-value text-success" id="confirmedSchedules">0</div>
+                                <div class="stat-label">已确认</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item text-center p-3 border rounded">
+                                <div class="stat-value text-info" id="completedSchedules">0</div>
                                 <div class="stat-label">已完成</div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="stat-item text-center p-3 border rounded">
-                                <div class="stat-value text-info" id="importantSchedules">0</div>
-                                <div class="stat-label">重要</div>
+                                <div class="stat-value text-danger" id="cancelledSchedules">0</div>
+                                <div class="stat-label">已取消</div>
                             </div>
                         </div>
                     </div>
@@ -128,17 +134,11 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-outline-primary btn-sm text-start" onclick="addPatientAppointment()">
-                            <i class="bi bi-person-plus me-2"></i> 添加患者预约
+                        <button class="btn btn-outline-primary btn-sm text-start" onclick="showCreateAppointmentModal()">
+                            <i class="bi bi-person-plus me-2"></i> 新增患者预约
                         </button>
-                        <button class="btn btn-outline-success btn-sm text-start" onclick="addMeeting()">
-                            <i class="bi bi-people me-2"></i> 添加会议
-                        </button>
-                        <button class="btn btn-outline-info btn-sm text-start" onclick="addSurgery()">
-                            <i class="bi bi-scissors me-2"></i> 添加手术
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm text-start" onclick="addUrgentTask()">
-                            <i class="bi bi-exclamation-triangle me-2"></i> 添加紧急任务
+                        <button class="btn btn-outline-secondary btn-sm text-start" onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise me-2"></i> 刷新预约数据
                         </button>
                     </div>
                 </div>
@@ -159,64 +159,87 @@
     </div>
 </div>
 
-<!-- 添加/编辑日程模态框 -->
-<div class="modal fade" id="scheduleModal" tabindex="-1">
+<!-- 新增预约模态框 -->
+<div class="modal fade" id="appointmentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="scheduleModalTitle">新增日程</h5>
+                <h5 class="modal-title">新增患者预约</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="scheduleForm">
-                    <input type="hidden" id="scheduleId">
+                <form id="createAppointmentForm">
                     <div class="mb-3">
-                        <label class="form-label">日程标题</label>
-                        <input type="text" class="form-control" id="scheduleTitle" required placeholder="请输入日程标题">
+                        <label class="form-label">选择患者 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="newAppointmentPatient" required>
+                            <option value="">请选择患者</option>
+                            {% for patient in patients %}
+                            <option value="{{ patient.patient_id }}">{{ patient.name }}（{{ patient.gender or '未知' }}，{{ patient.age or '?' }}岁）</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">开始时间</label>
-                                <input type="time" class="form-control" id="startTime" required>
+                                <label class="form-label">预约日期 <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="newAppointmentDate" required min="{{ today }}">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">结束时间</label>
-                                <input type="time" class="form-control" id="endTime" required>
+                                <label class="form-label">预约时间 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="newAppointmentTime" required>
+                                    <option value="">请选择时间</option>
+                                    <option value="08:00">08:00-08:30</option>
+                                    <option value="08:30">08:30-09:00</option>
+                                    <option value="09:00">09:00-09:30</option>
+                                    <option value="09:30">09:30-10:00</option>
+                                    <option value="10:00">10:00-10:30</option>
+                                    <option value="10:30">10:30-11:00</option>
+                                    <option value="11:00">11:00-11:30</option>
+                                    <option value="14:00">14:00-14:30</option>
+                                    <option value="14:30">14:30-15:00</option>
+                                    <option value="15:00">15:00-15:30</option>
+                                    <option value="15:30">15:30-16:00</option>
+                                    <option value="16:00">16:00-16:30</option>
+                                    <option value="16:30">16:30-17:00</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">日程类型</label>
-                        <select class="form-select" id="scheduleType">
-                            <option value="appointment">患者预约</option>
-                            <option value="meeting">会议</option>
-                            <option value="surgery">手术</option>
-                            <option value="rounds">查房</option>
-                            <option value="research">科研</option>
-                            <option value="other">其他</option>
-                        </select>
+                        <label class="form-label">科室</label>
+                        <input type="text" class="form-control" id="newAppointmentDepartment" value="罕见病科">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">详细描述</label>
-                        <textarea class="form-control" id="scheduleDescription" rows="3" placeholder="请输入日程的详细描述..."></textarea>
+                        <label class="form-label">症状描述</label>
+                        <textarea class="form-control" id="newAppointmentSymptoms" rows="3" placeholder="请输入患者的主要症状..."></textarea>
                     </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="isImportant">
-                        <label class="form-check-label">重要日程</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="isCompleted">
-                        <label class="form-check-label">已完成</label>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="newAppointmentNotes" rows="2" placeholder="其他需要说明的情况..."></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger" id="deleteScheduleBtn" style="display: none;" onclick="deleteSchedule()">删除</button>
-                <button type="button" class="btn btn-primary" onclick="saveSchedule()">保存</button>
+                <button type="button" class="btn btn-primary" onclick="submitCreateAppointment()">创建预约</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 预约详情模态框 -->
+<div class="modal fade" id="appointmentDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">预约详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="appointmentDetailContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>
@@ -296,17 +319,16 @@
 </style>
 
 <script>
-    // 日程数据
-    let schedules = [];
+    // 预约数据（由后端渲染注入）
+    const allAppointments = {{ appointments | tojson }};
+    const allPatients = {{ patients | tojson }};
     let currentDate = new Date();
-    let editingScheduleId = null;
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function() {
-        loadSchedules();
         updateDateDisplay();
+        renderAppointments();
         startAutoSave();
-        renderSchedules();
     });
 
     // 日期显示
@@ -318,78 +340,47 @@
     function changeDate(days) {
         currentDate.setDate(currentDate.getDate() + days);
         updateDateDisplay();
-        loadSchedules();
+        renderAppointments();
     }
 
     function goToToday() {
         currentDate = new Date();
         updateDateDisplay();
-        loadSchedules();
+        renderAppointments();
     }
 
-    // 加载存储
-    function loadSchedules() {
-        const saved = localStorage.getItem(`schedules_${currentDate.toDateString()}`);
-        schedules = saved ? JSON.parse(saved) : [];
-        renderSchedules();
-        updateStatistics();
+    function formatDate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
 
-    function saveSchedulesToLocal() {
-        localStorage.setItem(`schedules_${currentDate.toDateString()}`, JSON.stringify(schedules));
-        updateStatistics();
+    function getSelectedDate() {
+        return formatDate(currentDate);
     }
 
-    // 渲染日程列表
-    function renderSchedules() {
-        const container = document.getElementById('scheduleList');
-        const emptyDiv = document.getElementById('emptySchedule');
-        if (schedules.length === 0) {
-            container.innerHTML = '';
-            container.appendChild(emptyDiv);
-            emptyDiv.classList.remove('d-none');
-            return;
-        }
-        emptyDiv.classList.add('d-none');
-        schedules.sort((a, b) => a.startTime.localeCompare(b.startTime));
-        container.innerHTML = schedules.map(schedule => `
-            <div class="schedule-item ${schedule.important ? 'important' : ''} ${schedule.completed ? 'completed' : ''}" onclick="editSchedule('${schedule.id}')">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center mb-2 flex-wrap">
-                            <span class="schedule-type ${schedule.type}">${getTypeText(schedule.type)}</span>
-                            <span class="schedule-time"><i class="bi bi-clock"></i> ${schedule.startTime} - ${schedule.endTime}</span>
-                        </div>
-                        <div class="schedule-title">${escapeHtml(schedule.title)}</div>
-                        ${schedule.description ? `<div class="text-muted small mt-1">${escapeHtml(schedule.description)}</div>` : ''}
-                    </div>
-                    <div class="schedule-actions ms-2">
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-success" onclick="event.stopPropagation(); toggleComplete('${schedule.id}')">
-                                <i class="bi ${schedule.completed ? 'bi-arrow-counterclockwise' : 'bi-check'}"></i>
-                            </button>
-                            <button class="btn btn-outline-danger" onclick="event.stopPropagation(); deleteScheduleById('${schedule.id}')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        renderUpcoming();
+    // 当前选中日期对应的预约列表（按时间排序）
+    function getDateAppointments() {
+        const selected = getSelectedDate();
+        return allAppointments.filter(a => a.appointment_date === selected)
+            .sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
     }
 
-    function getTypeText(type) {
+    // 状态文案与样式
+    function getStatusInfo(status) {
         const map = {
-            'appointment': '患者预约', 'meeting': '会议', 'surgery': '手术',
-            'rounds': '查房', 'research': '科研', 'other': '其他'
+            'pending': { text: '待确认', cls: 'bg-warning text-dark' },
+            'confirmed': { text: '已确认', cls: 'bg-success' },
+            'completed': { text: '已完成', cls: 'bg-info' },
+            'cancelled': { text: '已取消', cls: 'bg-secondary' }
         };
-        return map[type] || '其他';
+        return map[status] || { text: '未知', cls: 'bg-secondary' };
     }
 
     function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
             if (m === '&') return '&amp;';
             if (m === '<') return '&lt;';
             if (m === '>') return '&gt;';
@@ -397,165 +388,214 @@
         });
     }
 
-    // 统计
-    function updateStatistics() {
-        const total = schedules.length;
-        const pending = schedules.filter(s => !s.completed).length;
-        const completed = schedules.filter(s => s.completed).length;
-        const important = schedules.filter(s => s.important).length;
-        document.getElementById('scheduleCount').innerText = `${total} 个日程`;
-        document.getElementById('totalSchedules').innerText = total;
-        document.getElementById('pendingSchedules').innerText = pending;
-        document.getElementById('completedSchedules').innerText = completed;
-        document.getElementById('importantSchedules').innerText = important;
+    // 渲染预约列表
+    function renderAppointments() {
+        const container = document.getElementById('scheduleList');
+        const emptyDiv = document.getElementById('emptySchedule');
+        const list = getDateAppointments();
+
+        document.getElementById('scheduleCount').innerText = `${list.length} 个预约`;
+        if (list.length === 0) {
+            container.innerHTML = '';
+            container.appendChild(emptyDiv);
+            emptyDiv.classList.remove('d-none');
+        } else {
+            emptyDiv.classList.add('d-none');
+            container.innerHTML = list.map(a => {
+                const status = getStatusInfo(a.status);
+                const symptoms = a.symptoms && a.symptoms.length > 30 ? a.symptoms.slice(0, 30) + '...' : (a.symptoms || '');
+                return `
+                <div class="schedule-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2 flex-wrap">
+                                <span class="badge ${status.cls} me-2">${status.text}</span>
+                                <span class="schedule-time"><i class="bi bi-clock"></i> ${escapeHtml(a.appointment_time)}</span>
+                            </div>
+                            <div class="schedule-title">${escapeHtml(a.patient_name || '未知患者')}</div>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-building"></i> ${escapeHtml(a.department || '未填科室')}
+                                ${symptoms ? ` · <i class="bi bi-chat-square-text"></i> ${escapeHtml(symptoms)}` : ''}
+                            </div>
+                        </div>
+                        <div class="schedule-actions ms-2">
+                            ${renderActionButtons(a)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+        updateStatistics();
+        renderUpcoming();
     }
 
-    // 即将开始
+    // 根据状态渲染操作按钮（确认/完成/取消）
+    function renderActionButtons(a) {
+        let html = '';
+        if (a.status === 'pending') {
+            html += `<button class="btn btn-sm btn-success me-1" onclick="appointmentAction('${a.appointment_id}', 'confirm', this)"><i class="bi bi-check-lg"></i> 确认</button>`;
+            html += `<button class="btn btn-sm btn-outline-danger me-1" onclick="appointmentAction('${a.appointment_id}', 'cancel', this)"><i class="bi bi-x-lg"></i> 取消</button>`;
+        } else if (a.status === 'confirmed') {
+            html += `<button class="btn btn-sm btn-info text-white me-1" onclick="appointmentAction('${a.appointment_id}', 'complete', this)"><i class="bi bi-check2-circle"></i> 完成</button>`;
+            html += `<button class="btn btn-sm btn-outline-danger me-1" onclick="appointmentAction('${a.appointment_id}', 'cancel', this)"><i class="bi bi-x-lg"></i> 取消</button>`;
+        }
+        html += `<button class="btn btn-sm btn-outline-secondary" onclick="viewAppointmentDetail('${a.appointment_id}')"><i class="bi bi-eye"></i></button>`;
+        return html;
+    }
+
+    // 执行确认/完成/取消操作
+    function appointmentAction(appointmentId, action, btn) {
+        const tips = {
+            confirm: '确定确认该预约吗？',
+            complete: '确定将该预约标记为已完成吗？',
+            cancel: '确定取消该预约吗？取消后需要重新预约。'
+        };
+        if (!confirm(tips[action])) return;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+        fetch(`/doctor/appointment/${appointmentId}/${action}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    if (btn) { btn.disabled = false; btn.innerHTML = '重试'; }
+                    alert('操作失败: ' + data.message);
+                }
+            })
+            .catch(err => {
+                if (btn) { btn.disabled = false; }
+                alert('网络错误，请重试');
+            });
+    }
+
+    // 查看预约详情
+    function viewAppointmentDetail(appointmentId) {
+        const appt = allAppointments.find(a => String(a.appointment_id) === String(appointmentId));
+        if (!appt) return;
+        const status = getStatusInfo(appt.status);
+        document.getElementById('appointmentDetailContent').innerHTML = `
+            <div class="mb-3">
+                <strong>患者:</strong> ${escapeHtml(appt.patient_name || '未知患者')}
+            </div>
+            <div class="mb-3">
+                <strong>科室:</strong> ${escapeHtml(appt.department || '未填科室')}
+            </div>
+            <div class="mb-3">
+                <strong>预约时间:</strong> ${escapeHtml(appt.appointment_date)} ${escapeHtml(appt.appointment_time)}
+            </div>
+            <div class="mb-3">
+                <strong>状态:</strong> <span class="badge ${status.cls}">${status.text}</span>
+            </div>
+            <div class="mb-3">
+                <strong>症状描述:</strong>
+                <p class="text-muted mb-0">${escapeHtml(appt.symptoms || '无')}</p>
+            </div>
+            <div class="mb-3">
+                <strong>备注:</strong>
+                <p class="text-muted mb-0">${escapeHtml(appt.notes || '无')}</p>
+            </div>
+        `;
+        new bootstrap.Modal(document.getElementById('appointmentDetailModal')).show();
+    }
+
+    // 统计
+    function updateStatistics() {
+        const list = getDateAppointments();
+        const pending = list.filter(a => a.status === 'pending').length;
+        const confirmed = list.filter(a => a.status === 'confirmed').length;
+        const completed = list.filter(a => a.status === 'completed').length;
+        const cancelled = list.filter(a => a.status === 'cancelled').length;
+        document.getElementById('totalSchedules').innerText = list.length;
+        document.getElementById('pendingSchedules').innerText = pending;
+        document.getElementById('confirmedSchedules').innerText = confirmed;
+        document.getElementById('completedSchedules').innerText = completed;
+        document.getElementById('cancelledSchedules').innerText = cancelled;
+    }
+
+    // 即将开始（今日已确认且未到时间的预约）
     function renderUpcoming() {
-        const now = new Date();
-        const currentTime = now.toTimeString().slice(0,5);
-        const upcoming = schedules.filter(s => !s.completed && s.startTime > currentTime).slice(0,3);
+        const today = formatDate(new Date());
+        const nowTime = new Date().toTimeString().slice(0, 5);
+        const upcoming = allAppointments.filter(a =>
+            a.appointment_date === today &&
+            a.status === 'confirmed' &&
+            a.appointment_time > nowTime
+        ).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time)).slice(0, 3);
         const container = document.getElementById('upcomingSchedules');
         if (upcoming.length === 0) {
-            container.innerHTML = '<div class="text-center py-3 text-muted">暂无即将开始的日程</div>';
+            container.innerHTML = '<div class="text-center py-3 text-muted">今日暂无即将开始的预约</div>';
             return;
         }
-        container.innerHTML = upcoming.map(s => `
+        container.innerHTML = upcoming.map(a => `
             <div class="upcoming-item">
-                <div class="fw-bold">${escapeHtml(s.title)}</div>
-                <div class="small text-muted"><i class="bi bi-clock"></i> ${s.startTime} <span class="badge bg-secondary ms-2">${getTypeText(s.type)}</span></div>
+                <div class="fw-bold">${escapeHtml(a.patient_name || '未知患者')}</div>
+                <div class="small text-muted"><i class="bi bi-clock"></i> ${escapeHtml(a.appointment_time)} <span class="badge bg-primary ms-2">已确认</span></div>
             </div>
         `).join('');
     }
 
-    // 模态框操作
-    function addNewSchedule() {
-        editingScheduleId = null;
-        document.getElementById('scheduleModalTitle').innerText = '新增日程';
-        document.getElementById('scheduleForm').reset();
-        document.getElementById('deleteScheduleBtn').style.display = 'none';
-        const now = new Date();
-        const nextHour = new Date(now.getTime() + 60*60*1000);
-        document.getElementById('startTime').value = nextHour.toTimeString().slice(0,5);
-        document.getElementById('endTime').value = new Date(nextHour.getTime()+60*60*1000).toTimeString().slice(0,5);
-        new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+    // 新增预约模态框
+    function showCreateAppointmentModal() {
+        document.getElementById('createAppointmentForm').reset();
+        document.getElementById('newAppointmentDate').value = formatDate(new Date());
+        document.getElementById('newAppointmentDate').min = formatDate(new Date());
+        document.getElementById('newAppointmentDepartment').value = '罕见病科';
+        new bootstrap.Modal(document.getElementById('appointmentModal')).show();
     }
 
-    function editSchedule(scheduleId) {
-        const schedule = schedules.find(s => s.id === scheduleId);
-        if (!schedule) return;
-        editingScheduleId = scheduleId;
-        document.getElementById('scheduleModalTitle').innerText = '编辑日程';
-        document.getElementById('deleteScheduleBtn').style.display = 'block';
-        document.getElementById('scheduleId').value = schedule.id;
-        document.getElementById('scheduleTitle').value = schedule.title;
-        document.getElementById('startTime').value = schedule.startTime;
-        document.getElementById('endTime').value = schedule.endTime;
-        document.getElementById('scheduleType').value = schedule.type;
-        document.getElementById('scheduleDescription').value = schedule.description || '';
-        document.getElementById('isImportant').checked = schedule.important || false;
-        document.getElementById('isCompleted').checked = schedule.completed || false;
-        new bootstrap.Modal(document.getElementById('scheduleModal')).show();
-    }
-
-    function saveSchedule() {
-        const title = document.getElementById('scheduleTitle').value.trim();
-        if (!title) {
-            alert('请输入日程标题');
+    function submitCreateAppointment() {
+        const form = document.getElementById('createAppointmentForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
             return;
         }
-        const startTime = document.getElementById('startTime').value;
-        const endTime = document.getElementById('endTime').value;
-        if (!startTime || !endTime) {
-            alert('请选择开始和结束时间');
-            return;
-        }
-        const scheduleData = {
-            id: editingScheduleId || generateId(),
-            title: title,
-            startTime: startTime,
-            endTime: endTime,
-            type: document.getElementById('scheduleType').value,
-            description: document.getElementById('scheduleDescription').value,
-            important: document.getElementById('isImportant').checked,
-            completed: document.getElementById('isCompleted').checked
-        };
-        if (editingScheduleId) {
-            const idx = schedules.findIndex(s => s.id === editingScheduleId);
-            if (idx !== -1) schedules[idx] = scheduleData;
-        } else {
-            schedules.push(scheduleData);
-        }
-        saveSchedulesToLocal();
-        renderSchedules();
-        bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
-        showToast('日程保存成功');
+        const formData = new FormData();
+        formData.append('patient_id', document.getElementById('newAppointmentPatient').value);
+        formData.append('appointment_date', document.getElementById('newAppointmentDate').value);
+        formData.append('appointment_time', document.getElementById('newAppointmentTime').value);
+        formData.append('department', document.getElementById('newAppointmentDepartment').value);
+        formData.append('symptoms', document.getElementById('newAppointmentSymptoms').value);
+        formData.append('notes', document.getElementById('newAppointmentNotes').value);
+        const submitBtn = document.querySelector('#appointmentModal .btn-primary');
+        const original = submitBtn.textContent;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 提交中...';
+        submitBtn.disabled = true;
+        fetch('/doctor/create_appointment', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
+                    window.location.reload();
+                } else {
+                    alert('创建失败: ' + data.message);
+                }
+            })
+            .catch(() => alert('网络错误，请重试'))
+            .finally(() => { submitBtn.textContent = original; submitBtn.disabled = false; });
     }
 
-    function deleteSchedule() {
-        if (editingScheduleId && confirm('确定删除此日程？')) {
-            schedules = schedules.filter(s => s.id !== editingScheduleId);
-            saveSchedulesToLocal();
-            renderSchedules();
-            bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
-            showToast('日程已删除');
-        }
-    }
-
-    function deleteScheduleById(id) {
-        if (confirm('确定删除此日程？')) {
-            schedules = schedules.filter(s => s.id !== id);
-            saveSchedulesToLocal();
-            renderSchedules();
-            showToast('日程已删除');
-        }
-    }
-
-    function toggleComplete(id) {
-        const schedule = schedules.find(s => s.id === id);
-        if (schedule) {
-            schedule.completed = !schedule.completed;
-            saveSchedulesToLocal();
-            renderSchedules();
-            showToast(`日程已标记为${schedule.completed ? '完成' : '未完成'}`);
-        }
-    }
-
-    function generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    }
-
-    // 快捷操作
-    function addPatientAppointment() { addNewScheduleWithType('appointment'); }
-    function addMeeting() { addNewScheduleWithType('meeting'); }
-    function addSurgery() { addNewScheduleWithType('surgery'); }
-    function addUrgentTask() { addNewScheduleWithType('other'); }
-    function addNewScheduleWithType(type) {
-        addNewSchedule();
-        document.getElementById('scheduleType').value = type;
-        if (type === 'other') document.getElementById('isImportant').checked = true;
-    }
-
-    // 笔记自动保存
+    // 工作笔记自动保存（按日期持久化到本地）
     function startAutoSave() {
-        const savedNotes = localStorage.getItem(`notes_${currentDate.toDateString()}`);
+        const key = `notes_${formatDate(new Date())}`;
+        const savedNotes = localStorage.getItem(key);
         if (savedNotes) document.getElementById('workNotes').value = savedNotes;
         setInterval(() => {
             const notes = document.getElementById('workNotes').value;
-            localStorage.setItem(`notes_${currentDate.toDateString()}`, notes);
+            localStorage.setItem(key, notes);
         }, 30000);
     }
     function saveNotesManually() {
         const notes = document.getElementById('workNotes').value;
-        localStorage.setItem(`notes_${currentDate.toDateString()}`, notes);
+        localStorage.setItem(`notes_${formatDate(new Date())}`, notes);
         showToast('笔记已保存');
     }
-    function saveAllSchedules() {
-        saveSchedulesToLocal();
-        showToast('所有日程已保存');
-    }
     function showToast(msg) {
-        // 简单alert，可替换为更优雅的toast
         alert(msg);
     }
 </script>

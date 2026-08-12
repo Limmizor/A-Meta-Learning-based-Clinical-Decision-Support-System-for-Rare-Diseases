@@ -50,6 +50,20 @@ class Database:
         finally:
             cursor.close()
 
+    def execute_update(self, query, params=None):
+        """执行 UPDATE/DELETE，返回受影响行数（用于判断是否成功）"""
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, params or ())
+            self.connection.commit()
+            return cursor.rowcount
+        except Error as e:
+            print(f"更新错误: {e}")
+            self.connection.rollback()
+            return None
+        finally:
+            cursor.close()
+
     # ---------- 疾病管理 ----------
     def get_diseases(self):
         return self.execute_query("SELECT * FROM diseases ORDER BY disease_id DESC")
