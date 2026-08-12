@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, flash, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, flash, redirect, url_for, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
 import uuid
+import io
+import re
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
@@ -48,8 +50,8 @@ def load_user(user_id):
 
 # 初始化肺纤维化诊断服务（全局单例）
 import os
-model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'maml_model_final .pth')
-pf_service = PFDianosisService(model_path=model_path)
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'best_maml_fold1.pth')
+pf_service = PFDianosisService(model_path=MODEL_PATH)
 
 # 登录路由
 @app.route('/login', methods=['GET', 'POST'])
@@ -200,7 +202,7 @@ def doctor_dashboard():
         flash('无权访问此页面', 'danger')
         return redirect(url_for('patient_dashboard'))
     
-    model_trained = os.path.exists('./models/pf_maml_model.pth')
+    model_trained = os.path.exists(MODEL_PATH)
     db = Database()
     if not db.connect():
         flash('数据库连接失败', 'danger')
@@ -408,7 +410,7 @@ def patient_detail(patient_id):
     patient_user_id = patient[0].get('user_id')
     
     db.disconnect()
-    model_trained = os.path.exists('./models/pf_maml_model.pth')
+    model_trained = os.path.exists(MODEL_PATH)
     return render_template('patient.html', 
                           patient=patient[0], 
                           images=images, 
@@ -494,14 +496,20 @@ def diagnose():
     if not patient_id:
         return jsonify({'success': False, 'message': '患者ID不能为空'})
     
-    # 调用诊断服务（返回 predictions 和量化指标）
-    # 注意：原 pf_service.diagnose_patient 只返回 predictions，我们需要扩展它
-    # 临时方案：先获取 predictions，然后生成模拟量化指标
-    predictions = pf_service.diagnose_patient(patient_id)
-    
-    # 模拟量化指标（实际应从模型获取）
-    lesion_area_ratio = 0.32
-    distribution_range = '双肺下叶背段及胸膜下'
+    # 调用诊断服务（返回预测结果与基于模型输出的量化指标）
+    result = pf_service.diagnose_patient(patient_id)
+    if isinstance(result, dict):
+        predictions = result['predictions']
+        lesion_area_ratio = result['lesion_area_ratio']
+        distribution_range = result['distribution_range']
+        findings = result['imaging_findings']
+        suggestions = result['suggestions']
+    else:
+        predictions = result
+        lesion_area_ratio = 0.0
+        distribution_range = ''
+        findings = ''
+        suggestions = ''
     
     db = Database()
     if not db.connect():
@@ -509,7 +517,7 @@ def diagnose():
     
     doctor_id = current_user.id
     report_id = db.add_diagnosis_report(
-        patient_id, doctor_id, clinical_notes, "AI辅助诊断结果",
+        patient_id, doctor_id, clinical_notes, findings or "AI辅助诊断结果",
         lesion_area_ratio=lesion_area_ratio,
         distribution_range=distribution_range
     )
@@ -1612,6 +1620,8 @@ def api_ai_diagnose():
             'imaging_findings': findings,
             'suggestions': suggestions,
             'time_cost': 32,
+            'n_slices': int(distribution.split('/')[0]) if '/' in str(distribution) else len(saved_paths),
+            'model_version': os.path.basename(MODEL_PATH),
             'thumbnails': thumbnails,     # 缩略图列表（用于缩略图栏）
             'previews': previews          # 预览图列表（用于主图显示）
         })
@@ -1620,6 +1630,42 @@ def api_ai_diagnose():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': 'AI诊断服务暂时不可用，请稍后重试'})
+
+
+@app.route('/api/export_report', methods=['POST'])
+@login_required
+def api_export_report():
+    """导出规范化的 AI 辅助诊断报告 PDF"""
+    try:
+        data = request.get_json(silent=True) or {}
+        patient_id = data.get('patient_id')
+        if not patient_id:
+            return jsonify({'success': False, 'message': '缺少患者ID'}), 400
+
+        patient_name = ''
+        db = Database()
+        if db.connect():
+            row = db.execute_query(
+                "SELECT name FROM patients WHERE patient_id = %s", (patient_id,))
+            if row:
+                patient_name = row[0].get('name', '')
+            db.disconnect()
+
+        from pdf_report import build_diagnosis_report_pdf
+        pdf_bytes = build_diagnosis_report_pdf(
+            data,
+            doctor_name=current_user.full_name or current_user.username or '',
+            patient_name=patient_name
+        )
+        now = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+        filename = f'肺影智诊_AI诊断报告_患者{patient_id}_{now}.pdf'
+        return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
+                         as_attachment=True, download_name=filename)
+    except Exception as e:
+        print(f"导出PDF失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': '报告导出失败，请稍后重试'})
 
 @app.route('/update_profile', methods=['POST'])
 @login_required
@@ -2260,4 +2306,6 @@ if __name__ == '__main__':
     if not os.path.exists(gradcam_dir):
         os.makedirs(gradcam_dir)
     
-    app.run(debug=True)
+    # Windows + Anaconda 环境下 debug reloader 会误监视 site-packages 导致无限重启崩溃，
+    # 故关闭自动重载（use_reloader=False），仍保留 debug 详细错误页；代码修改后手动重启即可
+    app.run(debug=True, use_reloader=False)

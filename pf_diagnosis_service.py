@@ -1,12 +1,15 @@
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image, ImageDraw
 import numpy as np
 from database import Database
 import torchvision.models as models
 import pydicom
+import copy
+from collections import Counter
 
 # 模型输出2类：论文中定义的IPF预后表型二分类
 # 类0 = Percent≥90（相对稳定组），类1 = Percent≤65（严重受损组）
@@ -17,9 +20,16 @@ CLASS_NAMES = {
     1: '严重受损组 (Percent≤65)'
 }
 
-# 论文预处理：肺窗窗宽窗位（窗宽1500HU，窗位-450HU，即 [-1200, 300]HU）
-CT_WINDOW_CENTER = -450.0
-CT_WINDOW_WIDTH = 1500.0
+# 论文/训练代码预处理：肺窗窗宽窗位（窗宽1500HU，窗位-450HU，即 [-1200, 300]）
+# 与 ipf_data.py 完全一致：直接对原始像素值截断，不做 Rescale 换算
+CT_WINDOW_CENTER = -450
+CT_WINDOW_WIDTH = 1500
+
+# MAML 推理配置（与 train_maml_final.py 一致：2 步内循环适应，学习率 0.003）
+INNER_STEPS = 2
+INNER_LR = 0.003
+SUPPORT_SET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'models', 'ipf_support_set.pt')
 
 class GradCAM:
     """手动实现 Grad-CAM，不依赖 torchcam"""
@@ -75,6 +85,9 @@ class PFDianosisService:
         ])
         self.disease_map = dict(CLASS_NAMES)
         self.gradcam = GradCAM(self.model, target_layer='layer4')
+        # 加载预生成的支持集（用于 MAML 快速适应），缺失时退化为直接推理
+        self.support_x, self.support_y = self._load_support_set()
+        self._base_state = copy.deepcopy(self.model.state_dict())
 
     def _load_model(self, path):
         model = models.resnet18(pretrained=False)
@@ -96,22 +109,53 @@ class PFDianosisService:
         model.eval()
         return model
 
+    def _load_support_set(self):
+        if not os.path.exists(SUPPORT_SET_PATH):
+            print(f"警告: 支持集 {SUPPORT_SET_PATH} 不存在，使用无适应直接推理")
+            return None, None
+        try:
+            data = torch.load(SUPPORT_SET_PATH, map_location=self.device, weights_only=False)
+            sx = data['support_x'].to(self.device)
+            sy = data['support_y'].to(self.device)
+            print(f"已加载支持集: {sx.shape[0]} 张切片（每类 {sx.shape[0]//2} 张）")
+            return sx, sy
+        except Exception as e:
+            print(f"支持集加载失败: {e}，使用无适应直接推理")
+            return None, None
+
+    def _adapt(self):
+        """从元初始参数出发，在支持集上执行 INNER_STEPS 步梯度下降
+        （与 train_maml_final (1).py 一致：CE(label_smoothing=0.1)，inner_lr=0.003）"""
+        if self.support_x is None:
+            return
+        self.model.load_state_dict(self._base_state)
+        self.model.train()
+        loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
+        for _ in range(INNER_STEPS):
+            self.model.zero_grad()
+            logits = self.model(self.support_x)
+            loss = loss_fn(logits, self.support_y)
+            grads = torch.autograd.grad(loss, self.model.parameters())
+            with torch.no_grad():
+                for p, g in zip(self.model.parameters(), grads):
+                    if g is not None:
+                        p.sub_(INNER_LR * g)
+        self.model.eval()
+
     def _preprocess_image(self, image_path):
-        """预处理：普通图像直接读取，DICOM 按论文做肺窗窗宽窗位调整"""
+        """预处理：与 ipf_data.py 完全一致（原始像素窗宽窗位 -> 224 -> RGB）"""
         ext = os.path.splitext(image_path)[1].lower()
         if ext == '.dcm':
             dcm = pydicom.dcmread(image_path)
-            # 原始像素 -> HU 值
-            slope = float(getattr(dcm, 'RescaleSlope', 1))
-            intercept = float(getattr(dcm, 'RescaleIntercept', 0))
-            hu = dcm.pixel_array.astype(np.float32) * slope + intercept
-            # 肺窗截断并线性映射到 [0,255]
-            lo = CT_WINDOW_CENTER - CT_WINDOW_WIDTH / 2.0
-            hi = CT_WINDOW_CENTER + CT_WINDOW_WIDTH / 2.0
-            img = np.clip(hu, lo, hi)
-            img = (img - lo) / (hi - lo) * 255.0
-            img = img.astype(np.uint8)
-            img = Image.fromarray(img).convert('RGB')
+            img = dcm.pixel_array.astype(np.float32)
+            low = CT_WINDOW_CENTER - CT_WINDOW_WIDTH // 2
+            high = CT_WINDOW_CENTER + CT_WINDOW_WIDTH // 2
+            img = np.clip(img, low, high)
+            img = (img - low) / (high - low)
+            img = (img * 255).astype(np.uint8)
+            img = Image.fromarray(img)
+            img = img.resize((224, 224), Image.BILINEAR)
+            img = img.convert('RGB')
         else:
             img = Image.open(image_path).convert('RGB')
         return self.transform(img).unsqueeze(0)
@@ -138,6 +182,9 @@ class PFDianosisService:
         """
         if not image_paths:
             return self._fallback_predictions()
+
+        # MAML 快速适应：先加载元初始参数，再在支持集上适应 INNER_STEPS 步
+        self._adapt()
 
         # 逐张切片预处理与推理
         tensors = []
@@ -175,7 +222,7 @@ class PFDianosisService:
         # 用一张最终类别对应的代表切片生成 Grad-CAM
         rep_idx = int(np.where(slice_classes == predicted_class)[0][0]) if agree_count else 0
         heatmap_img = self._generate_gradcam(input_tensor[rep_idx:rep_idx + 1], predicted_class)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         static_gradcam = os.path.join(base_dir, 'static', 'gradcam')
         os.makedirs(static_gradcam, exist_ok=True)
         heatmap_filename = f'heatmap_{patient_id}.png'

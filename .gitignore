@@ -22,6 +22,12 @@ data/
 *.db
 *.sqlite
 
+# 运行时生成的文件（上传影像、预览图、缩略图、热力图）
+static/uploads/
+static/previews/
+static/thumbnails/
+static/gradcam/
+
 # VS Code 配置
 .vscode/
 !.vscode/settings.json

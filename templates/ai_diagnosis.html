@@ -151,24 +151,25 @@
     <div class="right-panel">
         <div class="report-section bg-light rounded-top-3">
             <div class="row align-items-center">
-                <div class="col-7"><small class="text-secondary">当前病例</small><br><strong id="caseInfo">未选择患者</strong></div>
-                <div class="col-5 text-end"><small>诊断状态</small><br><span id="diagnosisStatus" class="badge bg-secondary status-badge">待诊断</span></div>
+            <div class="col-7"><small class="text-secondary">当前病例</small><br><strong id="caseInfo">未选择患者</strong>
+                <div class="small text-muted mt-1" style="font-size: 0.72rem;">MAML元迁移学习 · ResNet-18 · 2-way 2-shot 患者级分类</div>
+            </div>
+            <div class="col-5 text-end"><small>诊断状态</small><br><span id="diagnosisStatus" class="badge bg-secondary status-badge">待诊断</span></div>
             </div>
             <div class="small text-muted mt-1" id="timeCost"></div>
         </div>
         <div class="report-section"><h6><i class="fas fa-eye"></i> 影像所见</h6><p id="imagingFindings" class="small text-secondary">--</p></div>
-        <div class="report-section"><h6><i class="fas fa-chart-line"></i> 量化指标</h6>
-            <div class="d-flex justify-content-between"><span>病灶面积占比：</span><strong id="lesionRatio">--</strong></div>
-            <div class="d-flex justify-content-between mt-1"><span>分布范围：</span><strong id="distributionRange">--</strong></div>
+        <div class="report-section"><h6><i class="fas fa-chart-line"></i> 切片级统计</h6>
+            <div class="d-flex justify-content-between"><span>严重受损类切片占比：</span><strong id="lesionRatio">--</strong></div>
+            <div class="d-flex justify-content-between mt-1"><span>切片一致性：</span><strong id="distributionRange">--</strong></div>
         </div>
-        <div class="report-section"><h6><i class="fas fa-chart-simple"></i> Top-3 疑似亚型及置信度</h6><div id="predictionsList" class="mt-2"></div></div>
+        <div class="report-section"><h6><i class="fas fa-chart-simple"></i> IPF 预后分型结果（患者级多数投票）</h6><div id="predictionsList" class="mt-2"></div></div>
         <div class="report-section"><h6><i class="fas fa-fire"></i> Grad-CAM 热力图</h6><img id="heatmapImage" class="heatmap-img" src="" alt="热力图将在此显示"></div>
         <div class="report-section"><h6><i class="fas fa-clinic-medical"></i> 检查建议</h6><p id="suggestions" class="small">--</p><button id="exportPdfBtn" class="btn-export"><i class="fas fa-file-pdf"></i> 导出PDF报告</button></div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
     // DOM 元素
     const dropzone = document.getElementById('dropzone');
@@ -181,6 +182,7 @@
     let uploadedFiles = [];       // 存储上传的文件对象 { file, url }
     let currentImageIndex = 0;
     let currentScale = 1;
+    let lastResult = null;        // 最近一次诊断结果（用于导出PDF）
 
     // 上传交互
     dropzone.addEventListener('click', (e) => {
@@ -258,6 +260,7 @@
             setTimeout(() => progressDiv.classList.add('d-none'), 800);
 
             if(result.success) {
+                lastResult = result;
                 // 使用后端返回的缩略图和预览图构建界面
                 if (result.thumbnails && result.thumbnails.length) {
                     buildThumbnailsFromUrls(result.thumbnails, result.previews);
@@ -337,17 +340,53 @@
         document.getElementById('suggestions').innerText = data.suggestions || '请结合临床进一步评估。';
     }
 
-    // 导出PDF
-    exportBtn.addEventListener('click', () => {
-        const element = document.querySelector('.right-panel');
-        const opt = {
-            margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `肺影智诊_报告_${patientSelect.value || 'patient'}_${new Date().toISOString().slice(0,19)}.pdf`,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2, letterRendering: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    // 导出PDF（服务端生成规范化报告）
+    exportBtn.addEventListener('click', async () => {
+        if(!lastResult) {
+            alert('请先完成一次AI诊断，再导出报告');
+            return;
+        }
+        const payload = {
+            patient_id: patientSelect.value,
+            predictions: lastResult.predictions,
+            lesion_area_ratio: lastResult.lesion_area_ratio,
+            distribution_range: lastResult.distribution_range,
+            imaging_findings: lastResult.imaging_findings,
+            suggestions: lastResult.suggestions,
+            heatmap_url: lastResult.heatmap_url,
+            time_cost: lastResult.time_cost,
+            n_slices: lastResult.n_slices,
+            model_version: lastResult.model_version
         };
-        html2pdf().set(opt).from(element).save();
+        exportBtn.disabled = true;
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+        try {
+            const resp = await fetch('/api/export_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if(!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                alert('导出失败: ' + (err.message || '请稍后重试'));
+                return;
+            }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `肺影智诊_AI诊断报告_患者${patientSelect.value}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'_')}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch(err) {
+            console.error(err);
+            alert('网络或服务器错误，导出失败');
+        } finally {
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '<i class="fas fa-file-pdf"></i> 导出PDF报告';
+        }
     });
 
     // 图像浏览工具
