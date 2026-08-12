@@ -318,10 +318,13 @@
     }
 </style>
 
+<!-- 预约/患者数据（由后端渲染注入） -->
+<script type="application/json" id="appointmentsData">{{ appointments | tojson }}</script>
+<script type="application/json" id="patientsData">{{ patients | tojson }}</script>
 <script>
-    // 预约数据（由后端渲染注入）
-    const allAppointments = {{ appointments | tojson }};
-    const allPatients = {{ patients | tojson }};
+    // 预约/患者数据（由后端渲染注入）
+    const allAppointments = JSON.parse(document.getElementById('appointmentsData').textContent || '[]');
+    const allPatients = JSON.parse(document.getElementById('patientsData').textContent || '[]');
     let currentDate = new Date();
 
     // 初始化

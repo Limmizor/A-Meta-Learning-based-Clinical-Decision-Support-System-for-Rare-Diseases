@@ -948,7 +948,7 @@
                     <div>
                         <div class="kpi-value">{{ pending_reports }}</div>
                         <div class="kpi-label">待审核报告</div>
-                        <div class="kpi-trend" style="color: var(--warning);"><i class="bi bi-clock"></i> 需要处理</div>
+                        <div class="kpi-trend" style="color: var(--warning);"><a href="{{ url_for('doctor_reports') }}" style="color: var(--warning); text-decoration: none;"><i class="bi bi-clock"></i> 去复核 →</a></div>
                     </div>
                 </div>
                 <div class="kpi-card">

@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}报告复核 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <!-- 页面标题与状态统计 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-clipboard2-check me-2"></i>报告复核
+            <small class="text-muted fs-6 ms-2">确认/纠正 AI 预测，给出最终诊断结论</small>
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-sm btn-outline-secondary" onclick="filterReports('all')">
+                全部 <span class="badge bg-secondary ms-1" id="countTotal">{{ counts.total or 0 }}</span>
+            </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="filterReports('pending')">
+                待复核 <span class="badge bg-warning text-dark ms-1" id="countPending">{{ counts.pending or 0 }}</span>
+            </button>
+            <button class="btn btn-sm btn-outline-success" onclick="filterReports('completed')">
+                已完成 <span class="badge bg-success ms-1" id="countCompleted">{{ counts.completed or 0 }}</span>
+            </button>
+            <button class="btn btn-sm btn-outline-info" onclick="filterReports('reviewed')">
+                已审核 <span class="badge bg-info ms-1" id="countReviewed">{{ counts.reviewed or 0 }}</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4" id="reportContainer">
+        {% if reports %}
+            {% for report in reports %}
+            <div class="col-md-6 col-xl-4 report-card" data-status="{{ report.status or 'pending' }}">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                报告 #{{ report.report_id }}
+                                <span class="badge {% if report.status == 'completed' %}bg-success
+                                                  {% elif report.status == 'reviewed' %}bg-info
+                                                  {% elif report.status == 'pending' %}bg-warning text-dark
+                                                  {% else %}bg-secondary{% endif %} ms-2">
+                                    {% if report.status == 'completed' %}已完成
+                                    {% elif report.status == 'reviewed' %}已审核
+                                    {% elif report.status == 'pending' %}待复核
+                                    {% else %}未知{% endif %}
+                                </span>
+                            </h5>
+                        </div>
+                        <i class="bi bi-file-earmark-medical fs-3 text-primary opacity-50"></i>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong><i class="bi bi-person"></i> 患者：</strong>{{ report.patient_name }}</p>
+                        <p class="mb-1"><strong><i class="bi bi-person-badge"></i> 诊断医生：</strong>{{ report.doctor_name or '未知' }}</p>
+                        <p class="mb-1 text-muted small"><i class="bi bi-calendar3"></i> {{ report.created_at or '未知' }}</p>
+                        {% if report.findings %}
+                        <p class="mb-2 small"><strong><i class="bi bi-journal-text"></i> 诊断结论：</strong>{{ report.findings }}</p>
+                        {% endif %}
+                        {% if report.lesion_area_ratio is not none %}
+                        <p class="mb-2 small"><strong><i class="bi bi-percent"></i> 病灶面积占比：</strong>{{ (report.lesion_area_ratio * 100)|round(1) }}%</p>
+                        {% endif %}
+                        {% if report.reviewed_at %}
+                        <p class="mb-2 small text-muted"><i class="bi bi-clock-history"></i> 复核时间：{{ report.reviewed_at }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pb-3">
+                        <button class="btn btn-sm {% if report.status == 'pending' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                onclick="openReviewModal({{ report.report_id }})">
+                            <i class="bi {% if report.status == 'pending' %}bi-clipboard2-check{% else %}bi-eye{% endif %}"></i>
+                            {% if report.status == 'pending' %}复核{% elif report.status == 'completed' %}查看/审核{% else %}查看{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="viewPatient({{ report.patient_id }})">
+                            <i class="bi bi-person-lines-fill"></i> 患者详情
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-clipboard2-x display-1 text-muted"></i>
+            <h5 class="mt-3 text-muted">暂无诊断报告</h5>
+            <p class="text-muted">患者完成 AI 诊断后，报告会显示在这里供医生复核。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 复核模态框 -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-clipboard2-check me-1"></i>医生复核 - 报告 <span id="reviewReportId"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reviewModalBody">
+                <!-- 内容由 JS 动态加载 -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">加载报告中...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="submitReview()" id="reviewSubmitBtn">
+                    <i class="bi bi-check2-circle"></i> 提交复核
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 按状态筛选
+    function filterReports(status) {
+        document.querySelectorAll('.report-card').forEach(card => {
+            card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+        });
+    }
+
+    function viewPatient(patientId) {
+        window.location.href = `/patient/${patientId}`;
+    }
+
+    // 打开复核模态框并加载报告详情
+    function openReviewModal(reportId) {
+        document.getElementById('reviewReportId').textContent = '#' + reportId;
+        const body = document.getElementById('reviewModalBody');
+        body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">加载报告中...</p></div>';
+        new bootstrap.Modal(document.getElementById('reviewModal')).show();
+
+        fetch(`/api/reports/${reportId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    body.innerHTML = `<div class="alert alert-danger">${data.message || '加载失败'}</div>`;
+                    return;
+                }
+                renderReviewForm(data.report, data.predictions || []);
+            })
+            .catch(() => {
+                body.innerHTML = '<div class="alert alert-danger">网络错误，请重试</div>';
+            });
+    }
+
+    function statusBadge(status) {
+        const map = {
+            'pending': '<span class="badge bg-warning text-dark">待复核</span>',
+            'completed': '<span class="badge bg-success">已完成</span>',
+            'reviewed': '<span class="badge bg-info">已审核</span>'
+        };
+        return map[status] || '<span class="badge bg-secondary">未知</span>';
+    }
+
+    function renderReviewForm(report, predictions) {
+        const body = document.getElementById('reviewModalBody');
+        const predHtml = predictions.length
+            ? predictions.map(p => `
+                <div class="border rounded p-3 mb-2">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="form-check">
+                            <input class="form-check-input pred-confirm" type="checkbox" data-pid="${p.prediction_id}" ${p.is_confirmed ? 'checked' : ''}>
+                            <label class="form-check-label fw-semibold">
+                                ${escapeHtml(p.disease_name)}
+                                <span class="badge bg-primary rounded-pill ms-1">${(p.confidence * 100).toFixed(1)}%</span>
+                                <span class="badge bg-secondary ms-1">Top-${p.rank}</span>
+                            </label>
+                        </div>
+                        ${p.is_confirmed ? '<span class="badge bg-success"><i class="bi bi-patch-check"></i> 已确认</span>' : ''}
+                    </div>
+                    <input class="form-control form-control-sm mt-2 pred-notes" data-pid="${p.prediction_id}"
+                           value="${escapeHtml(p.notes || '')}" placeholder="复核意见 / 纠正说明（可选）">
+                </div>
+            `).join('')
+            : '<div class="alert alert-info mb-2"><i class="bi bi-info-circle"></i> 该报告暂无 AI 预测数据，可直接填写诊断结论并提交复核。</div>';
+
+        const currentStatus = report.status || 'pending';
+        const defaultStatus = currentStatus === 'pending' ? 'completed' : 'reviewed';
+
+        body.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>患者：</strong>${escapeHtml(report.patient_name)}</p>
+                    <p class="mb-1"><strong>诊断医生：</strong>${escapeHtml(report.doctor_name || '未知')}</p>
+                    <p class="mb-1"><strong>创建时间：</strong>${escapeHtml(report.created_at || '未知')}</p>
+                    <p class="mb-0"><strong>当前状态：</strong>${statusBadge(currentStatus)}</p>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>临床笔记：</strong>${escapeHtml(report.clinical_notes || '无')}</p>
+                    ${report.lesion_area_ratio != null ? `<p class="mb-1"><strong>病灶面积占比：</strong>${(report.lesion_area_ratio * 100).toFixed(1)}%</p>` : ''}
+                    ${report.distribution_range ? `<p class="mb-0"><strong>分布范围：</strong>${escapeHtml(report.distribution_range)}</p>` : ''}
+                </div>
+            </div>
+            <hr>
+            <h6 class="mb-2"><i class="bi bi-graph-up-arrow"></i> AI 预测复核（勾选确认为最终诊断，可多选补充确认）</h6>
+            ${predHtml}
+            <hr>
+            <div class="mb-3">
+                <label class="form-label fw-semibold"><i class="bi bi-journal-text"></i> 最终诊断结论</label>
+                <textarea class="form-control" id="reviewConclusion" rows="3"
+                          placeholder="请填写医生最终诊断结论（将展示给患者）">${escapeHtml(report.findings || '')}</textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label fw-semibold"><i class="bi bi-flag"></i> 复核结果</label>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="reviewStatus" id="statusCompleted" value="completed">
+                    <label class="form-check-label" for="statusCompleted">完成复核（待最终审核）</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="reviewStatus" id="statusReviewed" value="reviewed">
+                    <label class="form-check-label" for="statusReviewed">提交最终审核（已审核）</label>
+                </div>
+            </div>
+            <input type="hidden" id="reviewCurrentStatus" value="${escapeHtml(currentStatus)}">
+        `;
+        // 默认勾选
+        const radio = document.getElementById(defaultStatus === 'reviewed' ? 'statusReviewed' : 'statusCompleted');
+        if (radio) radio.checked = true;
+        // 默认确认置信度最高且未被确认的预测
+        if (!predictions.some(p => p.is_confirmed) && predictions.length) {
+            predictions.slice(0, 1).forEach(p => {
+                const cb = body.querySelector(`.pred-confirm[data-pid="${p.prediction_id}"]`);
+                if (cb) cb.checked = true;
+            });
+        }
+    }
+
+    // 提交复核
+    function submitReview() {
+        const body = document.getElementById('reviewModalBody');
+        const reportId = document.getElementById('reviewReportId').textContent.replace('#', '');
+        const conclusion = document.getElementById('reviewConclusion').value.trim();
+        const status = document.querySelector('input[name="reviewStatus"]:checked');
+        if (!status) { alert('请选择复核结果'); return; }
+        if (!conclusion) { alert('请填写最终诊断结论'); return; }
+
+        const predictions = [];
+        body.querySelectorAll('.pred-confirm').forEach(cb => {
+            const pid = cb.dataset.pid;
+            const notes = body.querySelector(`.pred-notes[data-pid="${pid}"]`);
+            predictions.push({
+                prediction_id: pid,
+                is_confirmed: cb.checked,
+                notes: notes ? notes.value : ''
+            });
+        });
+
+        const btn = document.getElementById('reviewSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 提交中...';
+
+        fetch(`/api/reports/${reportId}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conclusion, status: status.value, predictions })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                bootstrap.Modal.getInstance(document.getElementById('reviewModal')).hide();
+                window.location.reload();
+            } else {
+                alert('保存失败: ' + data.message);
+            }
+        })
+        .catch(() => alert('网络错误，请重试'))
+        .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-circle"></i> 提交复核'; });
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+</script>
+{% endblock %}

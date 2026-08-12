@@ -386,8 +386,11 @@
                     <div class="pd-report-title">
                         <i class="bi bi-file-medical"></i>
                         报告 #{{ report.report_id }}
-                        <span class="badge {% if report.status == 'completed' %}bg-success{% elif report.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
-                            {{ report.status or 'pending' }}
+                        <span class="badge {% if report.status == 'completed' %}bg-success{% elif report.status == 'reviewed' %}bg-info{% elif report.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {% if report.status == 'completed' %}已完成
+                            {% elif report.status == 'reviewed' %}已审核
+                            {% elif report.status == 'pending' %}待复核
+                            {% else %}未知{% endif %}
                         </span>
                     </div>
                     <span style="font-size: 12px; color: #86909C;">{{ report.created_at.strftime('%Y-%m-%d %H:%M') if report.created_at else '' }}</span>

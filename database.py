@@ -171,10 +171,49 @@ class Database:
         )
 
     def add_disease_prediction(self, report_id, disease_id, confidence, rank):
+        """rank 是 MySQL 保留字，需加反引号"""
         return self.execute_insert(
-            """INSERT INTO disease_predictions (report_id, disease_id, confidence, rank)
+            """INSERT INTO disease_predictions (report_id, disease_id, confidence, `rank`)
                VALUES (%s, %s, %s, %s)""",
             (report_id, disease_id, confidence, rank)
+        )
+
+    # ---------- 医生复核（诊断报告 + AI 预测确认） ----------
+    def get_all_reports(self):
+        """获取全部诊断报告（含患者名/医生名），待复核优先"""
+        return self.execute_query(
+            """SELECT r.*, p.name AS patient_name, u.full_name AS doctor_name
+               FROM diagnosis_reports r
+               JOIN patients p ON r.patient_id = p.patient_id
+               JOIN users u ON r.doctor_id = u.user_id
+               ORDER BY FIELD(r.status, 'pending', 'completed', 'reviewed'), r.created_at DESC"""
+        )
+
+    def get_report_by_id(self, report_id):
+        """按 ID 获取报告（含患者名/医生名）"""
+        return self.execute_query(
+            """SELECT r.*, p.name AS patient_name, u.full_name AS doctor_name
+               FROM diagnosis_reports r
+               JOIN patients p ON r.patient_id = p.patient_id
+               JOIN users u ON r.doctor_id = u.user_id
+               WHERE r.report_id = %s""",
+            (report_id,)
+        )
+
+    def update_report_review(self, report_id, conclusion, status):
+        """更新报告复核结果（诊断结论 + 状态 + 复核时间）"""
+        return self.execute_update(
+            """UPDATE diagnosis_reports SET findings = %s, status = %s, reviewed_at = %s
+               WHERE report_id = %s""",
+            (conclusion, status, datetime.datetime.now(), report_id)
+        )
+
+    def update_prediction_review(self, prediction_id, is_confirmed, confirmed_by, notes):
+        """更新单条 AI 预测的复核结果"""
+        return self.execute_update(
+            """UPDATE disease_predictions SET is_confirmed = %s, confirmed_by = %s, notes = %s
+               WHERE prediction_id = %s""",
+            (1 if is_confirmed else 0, confirmed_by if is_confirmed else None, notes or None, prediction_id)
         )
 
     # ---------- 随访计划 ----------

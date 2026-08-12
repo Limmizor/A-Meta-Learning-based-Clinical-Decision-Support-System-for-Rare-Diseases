@@ -11,6 +11,7 @@ import datetime
 import pydicom
 from PIL import Image
 import numpy as np
+from decimal import Decimal
 
 
 app = Flask(__name__)
@@ -520,6 +521,110 @@ def diagnose():
         db.disconnect()
         return jsonify({'success': False, 'message': '创建诊断报告失败'})
 
+
+# ---------- 医生复核（诊断报告与 AI 预测确认） ----------
+@app.route('/doctor/reports')
+@login_required
+def doctor_reports():
+    if current_user.user_type != 'doctor':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('patient_dashboard'))
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return render_template('doctor_reports.html', reports=[], counts={}, diseases=[])
+    reports = db.get_all_reports() or []
+    for r in reports:
+        if isinstance(r.get('created_at'), datetime.datetime):
+            r['created_at'] = r['created_at'].strftime('%Y-%m-%d %H:%M')
+        if isinstance(r.get('reviewed_at'), datetime.datetime):
+            r['reviewed_at'] = r['reviewed_at'].strftime('%Y-%m-%d %H:%M')
+        if isinstance(r.get('lesion_area_ratio'), Decimal):
+            r['lesion_area_ratio'] = float(r['lesion_area_ratio'])
+    counts = {
+        'total': len(reports),
+        'pending': sum(1 for r in reports if r.get('status') == 'pending'),
+        'completed': sum(1 for r in reports if r.get('status') == 'completed'),
+        'reviewed': sum(1 for r in reports if r.get('status') == 'reviewed'),
+    }
+    diseases = db.get_diseases() or []
+    db.disconnect()
+    return render_template('doctor_reports.html', reports=reports, counts=counts, diseases=diseases)
+
+
+@app.route('/api/reports/<int:report_id>')
+@login_required
+def api_report_detail(report_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+    report = db.get_report_by_id(report_id)
+    if not report:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '报告不存在'}), 404
+    report = report[0]
+    predictions = db.get_disease_predictions(report_id) or []
+    db.disconnect()
+    # JSON 序列化兼容处理
+    for p in predictions:
+        p['confidence'] = float(p.get('confidence') or 0)
+        p['is_confirmed'] = bool(p.get('is_confirmed'))
+    for f in ('created_at', 'reviewed_at'):
+        if isinstance(report.get(f), (datetime.datetime, datetime.date)):
+            report[f] = report[f].strftime('%Y-%m-%d %H:%M')
+    if isinstance(report.get('lesion_area_ratio'), Decimal):
+        report['lesion_area_ratio'] = float(report['lesion_area_ratio'])
+    return jsonify({'success': True, 'report': report, 'predictions': predictions})
+
+
+@app.route('/api/reports/<int:report_id>/review', methods=['POST'])
+@login_required
+def api_report_review(report_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'})
+    data = request.get_json(silent=True) or {}
+    conclusion = (data.get('conclusion') or '').strip()
+    status = data.get('status')
+    predictions = data.get('predictions') or []
+    if status not in ('completed', 'reviewed'):
+        return jsonify({'success': False, 'message': '无效的复核状态'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    report = db.get_report_by_id(report_id)
+    if not report:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '报告不存在'})
+    result = db.update_report_review(report_id, conclusion or '无', status)
+    if result is None:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '报告状态更新失败'})
+    # 逐条写入 AI 预测的复核结果
+    for p in predictions:
+        pid = p.get('prediction_id')
+        if not pid:
+            continue
+        is_confirmed = bool(p.get('is_confirmed'))
+        notes = (p.get('notes') or '').strip()
+        db.update_prediction_review(pid, is_confirmed, current_user.id if is_confirmed else None, notes or None)
+    db.add_system_log(current_user.id, 'REVIEW_REPORT', f'医生复核报告，报告ID: {report_id}，状态: {status}')
+    # 通知患者
+    patient = db.execute_query(
+        "SELECT user_id FROM patients WHERE patient_id = %s", (report[0]['patient_id'],)
+    )
+    if patient and patient[0].get('user_id'):
+        db.add_notification(
+            patient[0]['user_id'],
+            '诊断报告已更新',
+            f'医生已完成您的诊断报告复核（编号 #{report_id}），请查看诊断结论。',
+            'report',
+            '/my_reports'
+        )
+    db.disconnect()
+    return jsonify({'success': True, 'message': '复核已保存'})
+
 # 模型训练接口
 @app.route('/train_model', methods=['POST'])
 @login_required
@@ -1004,7 +1109,14 @@ def _doctor_update_appointment(appointment_id, new_status, log_action, success_m
     )
     if result is not None and result > 0:
         db.add_system_log(current_user.id, log_action, f'{log_action}，预约ID: {appointment_id}')
-        # 通知患者
+        # 通知患者（格式化预约时间，TIME 类型读回为 timedelta）
+        notify_date = appt.get('appointment_date')
+        notify_time = appt.get('appointment_time')
+        if isinstance(notify_date, datetime.date) and not isinstance(notify_date, datetime.datetime):
+            notify_date = notify_date.strftime('%Y-%m-%d')
+        if isinstance(notify_time, datetime.timedelta):
+            total_seconds = int(notify_time.total_seconds())
+            notify_time = f'{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}'
         patient = db.execute_query(
             "SELECT user_id FROM patients WHERE patient_id = %s", (appt['patient_id'],)
         )
@@ -1012,7 +1124,7 @@ def _doctor_update_appointment(appointment_id, new_status, log_action, success_m
             db.add_notification(
                 patient[0]['user_id'],
                 notify_title,
-                notify_msg_template.format(date=appt.get('appointment_date'), time=appt.get('appointment_time')),
+                notify_msg_template.format(date=notify_date, time=notify_time),
                 'appointment',
                 '/patient/appointment'
             )
