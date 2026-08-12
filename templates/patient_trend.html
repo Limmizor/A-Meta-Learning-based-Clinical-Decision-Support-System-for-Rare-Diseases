@@ -91,6 +91,22 @@
         </div>
     </div>
 
+    <!-- 症状评分趋势卡片（来自健康日志） -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0"><i class="bi bi-thermometer-half me-2"></i>症状评分变化趋势</h5>
+            <a href="{{ url_for('patient_health_log') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-journal-medical"></i> 去记录健康日志
+            </a>
+        </div>
+        <div class="card-body">
+            <canvas id="healthChart" height="300" style="max-height: 400px;"></canvas>
+            <div class="mt-3 text-muted small">
+                <i class="bi bi-info-circle"></i> 数据基于您在「健康日志」中记录的症状评分（1-10，越低越好），未评分日期自动跳过。
+            </div>
+        </div>
+    </div>
+
     <!-- 历史数据表格卡片 -->
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3">
@@ -268,6 +284,69 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', loadTrendData);
+    // 症状评分趋势（健康日志）
+    let healthChart = null;
+    async function loadHealthTrend() {
+        try {
+            const response = await fetch('/api/patient/health_trend');
+            if (!response.ok) throw new Error('获取数据失败');
+            const data = await response.json();
+            const ctx = document.getElementById('healthChart');
+            if (!ctx) return;
+            if (!data || data.length === 0) {
+                document.getElementById('healthChart').parentElement.innerHTML =
+                    '<div class="text-center py-4 text-muted"><i class="bi bi-journal-x display-4 d-block mb-2"></i>暂无健康日志记录，请前往「健康日志」记录您的症状评分</div>';
+                return;
+            }
+            const labels = data.map(item => item.log_date);
+            const scores = data.map(item => item.symptom_score);
+            if (healthChart) healthChart.destroy();
+            healthChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: '症状评分 (1-10)',
+                        data: scores,
+                        borderColor: '#FF7D00',
+                        backgroundColor: 'rgba(255, 125, 0, 0.08)',
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#FF7D00',
+                        pointBorderColor: '#fff',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            min: 1,
+                            max: 10,
+                            title: { display: true, text: '症状评分 (1-10)', color: '#4E5969' },
+                            grid: { color: '#E5E6EB' }
+                        },
+                        x: {
+                            title: { display: true, text: '记录日期', color: '#4E5969' },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        tooltip: { callbacks: { label: (ctx) => `症状评分：${ctx.raw}/10` } },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTrendData();
+        loadHealthTrend();
+    });
 </script>
 {% endblock %}

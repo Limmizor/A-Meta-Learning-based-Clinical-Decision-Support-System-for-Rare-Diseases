@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}健康日志 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-journal-medical me-2"></i>我的健康日志
+        </h1>
+        <button class="btn btn-primary" onclick="showCreateLogModal()">
+            <i class="bi bi-plus-circle"></i> 新增记录
+        </button>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon primary me-3">
+                        <i class="bi bi-journal-text"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="totalCount">0</div>
+                        <div class="stat-label">记录总数</div>
+                        <div class="stat-trend">健康档案</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon success me-3">
+                        <i class="bi bi-emoji-smile"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="avgScore">--</div>
+                        <div class="stat-label">平均症状评分</div>
+                        <div class="stat-trend">1-10 越低越好</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon warning me-3">
+                        <i class="bi bi-thermometer-half"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="lastScore">--</div>
+                        <div class="stat-label">最近症状评分</div>
+                        <div class="stat-trend">最新记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon info me-3">
+                        <i class="bi bi-calendar-week"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="activeDays">0</div>
+                        <div class="stat-label">记录天数</div>
+                        <div class="stat-trend">坚持记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 记录列表卡片 -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0"><i class="bi bi-list-check me-2"></i>健康记录明细</h5>
+            <a href="{{ url_for('patient_trend') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-graph-up"></i> 查看症状趋势
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div id="logList" class="list-group list-group-flush">
+                <div class="text-center py-5 text-muted">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/编辑模态框 -->
+<div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logModalTitle">新增健康记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="logForm">
+                    <input type="hidden" id="logId">
+                    <div class="mb-3">
+                        <label class="form-label">记录日期 <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="logDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">症状评分</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="range" class="form-range flex-grow-1" id="symptomScore" min="1" max="10" value="5" oninput="document.getElementById('scoreValue').innerText = this.value">
+                            <span class="badge bg-primary rounded-pill" id="scoreValue" style="font-size:16px;min-width:44px;">5</span>
+                        </div>
+                        <div class="form-text">1 = 无症状，10 = 症状最严重（可选，也可填写“未评分”）</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">当前用药</label>
+                        <input type="text" class="form-control" id="logMedication" placeholder="例如：吡非尼酮 300mg/次，每日3次">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">日常记录 / 备注</label>
+                        <textarea class="form-control" id="logNotes" rows="3" placeholder="记录今天的状态、症状变化、日常活动等"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deleteLogBtn" style="display:none" onclick="deleteLog()">删除</button>
+                <button type="button" class="btn btn-primary" onclick="saveLog()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    .stat-icon.primary { background-color: rgba(22, 93, 255, 0.1); color: #165DFF; }
+    .stat-icon.success { background-color: rgba(0, 180, 42, 0.1); color: #00B42A; }
+    .stat-icon.warning { background-color: rgba(255, 125, 0, 0.1); color: #FF7D00; }
+    .stat-icon.info { background-color: rgba(134, 144, 156, 0.1); color: #4E5969; }
+    .stat-value { font-size: 28px; font-weight: 700; margin-bottom: 5px; }
+    .stat-label { font-size: 14px; color: #4E5969; margin-bottom: 5px; }
+    .stat-trend { font-size: 12px; color: #86909C; }
+    .list-group-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-left: none;
+        border-right: none;
+        transition: background 0.2s;
+    }
+    .list-group-item:hover { background-color: rgba(22, 93, 255, 0.03); }
+    .score-pill {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+    }
+    .score-low { background-color: #00B42A; }
+    .score-mid { background-color: #FF7D00; }
+    .score-high { background-color: #F53F3F; }
+    .log-actions .btn { margin-left: 5px; }
+    @media (max-width: 768px) {
+        .list-group-item { flex-direction: column; align-items: flex-start; }
+        .log-actions { margin-top: 10px; align-self: flex-end; }
+    }
+</style>
+
+<script>
+    let currentEditId = null;
+    let allLogs = [];
+
+    function scoreClass(score) {
+        if (score == null) return '';
+        if (score <= 3) return 'score-low';
+        if (score <= 6) return 'score-mid';
+        return 'score-high';
+    }
+
+    function scoreText(score) {
+        return score == null ? '未评分' : score;
+    }
+
+    async function loadLogs() {
+        try {
+            const response = await fetch('/api/health_logs');
+            if (!response.ok) throw new Error('加载失败');
+            allLogs = await response.json();
+
+            const scored = allLogs.filter(l => l.symptom_score != null);
+            const avg = scored.length
+                ? (scored.reduce((s, l) => s + Number(l.symptom_score), 0) / scored.length).toFixed(1)
+                : '--';
+            const last = scored.length ? scored[scored.length - 1].symptom_score : '--';
+            const days = new Set(allLogs.map(l => l.log_date)).size;
+
+            document.getElementById('totalCount').innerText = allLogs.length;
+            document.getElementById('avgScore').innerText = avg;
+            document.getElementById('lastScore').innerText = last;
+            document.getElementById('activeDays').innerText = days;
+
+            const container = document.getElementById('logList');
+            if (!allLogs.length) {
+                container.innerHTML = '<div class="text-center py-5 text-muted">暂无健康记录，点击“新增记录”开始记录您的健康状况</div>';
+                return;
+            }
+            container.innerHTML = allLogs.map(log => `
+                <div class="list-group-item">
+                    <div class="d-flex align-items-center gap-3">
+                        ${log.symptom_score != null
+                            ? `<span class="score-pill ${scoreClass(log.symptom_score)}">${log.symptom_score}</span>`
+                            : '<span class="text-muted small" style="width:38px;text-align:center">--</span>'}
+                        <div>
+                            <h6 class="mb-1">📅 ${log.log_date}</h6>
+                            ${log.medication ? `<p class="mb-1 small"><i class="bi bi-capsule"></i> 用药：${escapeHtml(log.medication)}</p>` : ''}
+                            ${log.notes ? `<p class="mb-1 small text-muted">${escapeHtml(log.notes)}</p>` : ''}
+                            ${log.symptom_score != null ? `<small class="text-muted">症状评分：${log.symptom_score}/10</small>` : ''}
+                        </div>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-sm btn-outline-primary" onclick="editLog(${log.log_id})">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteLog(${log.log_id})">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error(error);
+            document.getElementById('logList').innerHTML = '<div class="text-center py-5 text-danger">加载失败，请刷新重试</div>';
+        }
+    }
+
+    function showCreateLogModal() {
+        currentEditId = null;
+        document.getElementById('logModalTitle').innerText = '新增健康记录';
+        document.getElementById('logForm').reset();
+        document.getElementById('symptomScore').value = 5;
+        document.getElementById('scoreValue').innerText = '5';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('logDate').value = today;
+        document.getElementById('deleteLogBtn').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('logModal')).show();
+    }
+
+    function editLog(logId) {
+        const log = allLogs.find(l => l.log_id === logId);
+        if (!log) return;
+        currentEditId = logId;
+        document.getElementById('logModalTitle').innerText = '编辑健康记录';
+        document.getElementById('logId').value = log.log_id;
+        document.getElementById('logDate').value = log.log_date;
+        document.getElementById('logMedication').value = log.medication || '';
+        document.getElementById('logNotes').value = log.notes || '';
+        const score = log.symptom_score;
+        document.getElementById('symptomScore').value = score != null ? score : 5;
+        document.getElementById('scoreValue').innerText = score != null ? score : 5;
+        document.getElementById('deleteLogBtn').style.display = '';
+        new bootstrap.Modal(document.getElementById('logModal')).show();
+    }
+
+    async function saveLog() {
+        const logDate = document.getElementById('logDate').value.trim();
+        if (!logDate) { alert('请选择记录日期'); return; }
+        const payload = {
+            log_id: currentEditId,
+            log_date: logDate,
+            symptom_score: parseInt(document.getElementById('symptomScore').value, 10),
+            medication: document.getElementById('logMedication').value.trim(),
+            notes: document.getElementById('logNotes').value.trim()
+        };
+        try {
+            const method = currentEditId ? 'PUT' : 'POST';
+            const response = await fetch('/api/health_logs', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.success || data.log_id) {
+                bootstrap.Modal.getInstance(document.getElementById('logModal')).hide();
+                loadLogs();
+            } else {
+                alert('保存失败: ' + (data.error || '未知错误'));
+            }
+        } catch (e) {
+            alert('网络错误，请重试');
+        }
+    }
+
+    async function deleteLog(logId) {
+        const id = logId || currentEditId;
+        if (!id) return;
+        if (!confirm('确定要删除这条健康记录吗？')) return;
+        try {
+            const response = await fetch(`/api/health_logs?log_id=${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('logModal'))?.hide();
+                loadLogs();
+            } else {
+                alert('删除失败: ' + (data.error || '未知错误'));
+            }
+        } catch (e) {
+            alert('网络错误，请重试');
+        }
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadLogs);
+</script>
+{% endblock %}

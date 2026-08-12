@@ -247,6 +247,9 @@
                                 <a class="nav-link {% if request.endpoint == 'doctor_reports' %}active{% endif %}" href="{{ url_for('doctor_reports') }}"><i class="bi bi-clipboard2-check me-1"></i>报告复核</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'doctor_followup' %}active{% endif %}" href="{{ url_for('doctor_followup') }}"><i class="bi bi-calendar-heart me-1"></i>随访管理</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint in ['disease_management','disease_query'] %}active{% endif %}" href="{{ url_for('disease_management') }}"><i class="bi bi-capsule me-1"></i>疾病管理</a>
                             </li>
                             <li class="nav-item">
@@ -261,6 +264,12 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'my_reports' %}active{% endif %}" href="{{ url_for('my_reports') }}"><i class="bi bi-file-medical me-1"></i>我的报告</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'patient_health_log' %}active{% endif %}" href="{{ url_for('patient_health_log') }}"><i class="bi bi-journal-medical me-1"></i>健康日志</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'patient_followup' %}active{% endif %}" href="{{ url_for('patient_followup') }}"><i class="bi bi-calendar-heart me-1"></i>随访计划</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'patient_chat' %}active{% endif %}" href="{{ url_for('patient_chat') }}"><i class="bi bi-chat-dots me-1"></i>在线咨询</a>

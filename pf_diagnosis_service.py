@@ -8,8 +8,18 @@ from database import Database
 import torchvision.models as models
 import pydicom
 
-# 假设你的模型输出2类（肺纤维化 vs 正常）
+# 模型输出2类：论文中定义的IPF预后表型二分类
+# 类0 = Percent≥90（相对稳定组），类1 = Percent≤65（严重受损组）
+# 若训练代码的类别顺序相反，只需交换 CLASS_NAMES 的两个值
 NUM_CLASSES = 2
+CLASS_NAMES = {
+    0: '相对稳定组 (Percent≥90)',
+    1: '严重受损组 (Percent≤65)'
+}
+
+# 论文预处理：肺窗窗宽窗位（窗宽1500HU，窗位-450HU，即 [-1200, 300]HU）
+CT_WINDOW_CENTER = -450.0
+CT_WINDOW_WIDTH = 1500.0
 
 class GradCAM:
     """手动实现 Grad-CAM，不依赖 torchcam"""
@@ -63,10 +73,7 @@ class PFDianosisService:
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
         ])
-        self.disease_map = {
-            0: '正常',
-            1: '肺纤维化'
-        }
+        self.disease_map = dict(CLASS_NAMES)
         self.gradcam = GradCAM(self.model, target_layer='layer4')
 
     def _load_model(self, path):
@@ -90,13 +97,20 @@ class PFDianosisService:
         return model
 
     def _preprocess_image(self, image_path):
-        """支持普通图像和 DICOM 文件的预处理"""
+        """预处理：普通图像直接读取，DICOM 按论文做肺窗窗宽窗位调整"""
         ext = os.path.splitext(image_path)[1].lower()
         if ext == '.dcm':
             dcm = pydicom.dcmread(image_path)
-            img = dcm.pixel_array.astype(np.float32)
-            img = (img - img.min()) / (img.max() - img.min() + 1e-8)
-            img = (img * 255).astype(np.uint8)
+            # 原始像素 -> HU 值
+            slope = float(getattr(dcm, 'RescaleSlope', 1))
+            intercept = float(getattr(dcm, 'RescaleIntercept', 0))
+            hu = dcm.pixel_array.astype(np.float32) * slope + intercept
+            # 肺窗截断并线性映射到 [0,255]
+            lo = CT_WINDOW_CENTER - CT_WINDOW_WIDTH / 2.0
+            hi = CT_WINDOW_CENTER + CT_WINDOW_WIDTH / 2.0
+            img = np.clip(hu, lo, hi)
+            img = (img - lo) / (hi - lo) * 255.0
+            img = img.astype(np.uint8)
             img = Image.fromarray(img).convert('RGB')
         else:
             img = Image.open(image_path).convert('RGB')
@@ -113,41 +127,54 @@ class PFDianosisService:
 
     def predict_from_paths(self, image_paths, patient_id):
         """
-        直接对图像路径列表进行预测，返回详细诊断信息
+        对一组CT切片进行患者级预测（论文：切片逐张推理 + 患者级多数投票）
         返回值：
             predictions: list of dict [{'disease_name': str, 'confidence': float}]
             heatmap_url: str (URL路径)
-            lesion_area_ratio: float (0~1)
-            distribution_range: str
+            lesion_area_ratio: float (0~1) 严重受损类切片占比
+            distribution_range: str 切片一致性描述
             imaging_findings: str
             suggestions: str
         """
         if not image_paths:
             return self._fallback_predictions()
-        img_path = image_paths[0]
-        input_tensor = self._preprocess_image(img_path).to(self.device)
 
-        # 模型推理
+        # 逐张切片预处理与推理
+        tensors = []
+        failed = []
+        for p in image_paths:
+            try:
+                tensors.append(self._preprocess_image(p))
+            except Exception as e:
+                failed.append(os.path.basename(p))
+        if not tensors:
+            raise RuntimeError(f'所有切片均无法读取（{"; ".join(failed[:3])}），请检查文件格式')
+
+        input_tensor = torch.cat(tensors, dim=0).to(self.device)
         with torch.no_grad():
             outputs = self.model(input_tensor)
-            probs = torch.softmax(outputs, dim=1).cpu().numpy()[0]
-        predicted_class = int(np.argmax(probs))
-        confidence = float(probs[predicted_class])
+            probs = torch.softmax(outputs, dim=1).cpu().numpy()
 
-        # 构建预测结果（二分类）
-        if predicted_class == 1:
-            predictions = [
-                {'disease_name': '肺纤维化', 'confidence': confidence},
-                {'disease_name': '正常', 'confidence': 1 - confidence}
-            ]
-        else:
-            predictions = [
-                {'disease_name': '正常', 'confidence': confidence},
-                {'disease_name': '肺纤维化', 'confidence': 1 - confidence}
-            ]
+        n_slices = probs.shape[0]
+        slice_classes = probs.argmax(axis=1)
+        # 患者级多数投票（论文机制）
+        counter = Counter(int(c) for c in slice_classes)
+        predicted_class = int(counter.most_common(1)[0][0])
+        agree_count = counter[predicted_class]
+        # 患者级置信度 = 被投为最终类别的切片平均概率
+        mask = (slice_classes == predicted_class)
+        confidence = float(probs[mask, predicted_class].mean()) if agree_count else float(probs[:, predicted_class].mean())
+        # 严重受损（类1）切片占比
+        impaired_slice_ratio = float((slice_classes == 1).mean())
 
-        # 生成 Grad-CAM 热力图
-        heatmap_img = self._generate_gradcam(input_tensor, predicted_class)
+        predictions = [
+            {'disease_name': CLASS_NAMES[0], 'confidence': float(probs[:, 0].mean())},
+            {'disease_name': CLASS_NAMES[1], 'confidence': float(probs[:, 1].mean())}
+        ]
+
+        # 用一张最终类别对应的代表切片生成 Grad-CAM
+        rep_idx = int(np.where(slice_classes == predicted_class)[0][0]) if agree_count else 0
+        heatmap_img = self._generate_gradcam(input_tensor[rep_idx:rep_idx + 1], predicted_class)
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         static_gradcam = os.path.join(base_dir, 'static', 'gradcam')
         os.makedirs(static_gradcam, exist_ok=True)
@@ -156,42 +183,30 @@ class PFDianosisService:
         heatmap_img.save(heatmap_path)
         heatmap_url = f'/static/gradcam/{heatmap_filename}'
 
-        # ========== 量化指标（真实场景应来自模型或后处理） ==========
-        # 这里示例使用模拟数据，实际应替换为模型输出的量化指标
+        # ========== 基于模型输出的报告文本（不再使用模拟数据） ==========
+        distribution = f'{agree_count}/{n_slices} 张切片支持该结论'
         if predicted_class == 1:
-            lesion_ratio = 0.32        # 病灶面积占比 (0~1)
-            distribution = '双肺下叶背段及胸膜下'   # 分布范围
-        else:
-            lesion_ratio = 0.05
-            distribution = '无明显病灶'
-
-        # ========== 轻量级报告生成模板 ==========
-        if predicted_class == 1:
-            lesion_percent = lesion_ratio * 100
-            # 根据病灶面积占比动态设定随访建议
-            if lesion_ratio > 0.5:
-                follow_up_months = 3
-                urgency = "病灶面积较大，请尽快"
-            elif lesion_ratio > 0.3:
-                follow_up_months = 6
-                urgency = ""
-            else:
-                follow_up_months = 12
-                urgency = ""
-
             imaging_findings = (
-                f"双肺可见网格影、蜂窝影，以{distribution}为著，伴牵拉性支气管扩张。"
-                f"病灶面积占比约{lesion_percent:.1f}%。"
+                f'基于 {n_slices} 张CT切片的患者级多数投票，模型判定为「{CLASS_NAMES[1]}」，'
+                f'其中 {impaired_slice_ratio * 100:.1f}% 的切片倾向该结论，'
+                f'提示肺功能严重受损（Percent≤65）表型可能性较高。'
             )
             suggestions = (
-                f"{urgency}建议高分辨率CT随访，每{follow_up_months}个月复查一次，"
-                f"评估抗纤维化药物治疗效果。"
+                '建议结合临床肺功能检查（FVC%）进一步确认，关注疾病快速进展风险，'
+                '及时评估抗纤维化药物治疗方案并按医嘱随访。'
             )
         else:
-            imaging_findings = "未见明显肺纤维化征象，肺纹理清晰。"
-            suggestions = "定期体检，保持良好生活习惯，建议每年进行一次低剂量CT筛查。"
+            imaging_findings = (
+                f'基于 {n_slices} 张CT切片的患者级多数投票，模型判定为「{CLASS_NAMES[0]}」，'
+                f'仅 {impaired_slice_ratio * 100:.1f}% 的切片倾向严重受损组，'
+                f'提示肺功能相对稳定（Percent≥90）表型可能性较高。'
+            )
+            suggestions = (
+                '建议维持常规随访，定期复查肺功能与CT影像，监测FVC变化趋势，'
+                '如出现下降应尽早启动干预。'
+            )
 
-        return predictions, heatmap_url, lesion_ratio, distribution, imaging_findings, suggestions
+        return predictions, heatmap_url, impaired_slice_ratio, distribution, imaging_findings, suggestions
     
     def diagnose_patient(self, patient_id):
         db = Database()
@@ -206,33 +221,37 @@ class PFDianosisService:
             print(f"患者 {patient_id} 没有上传影像")
             return self._fallback_predictions()
 
-        # 注意：数据库列名为 image_path
-        img_path = os.path.join('static', 'uploads', images[0]['image_path'])
-        if not os.path.exists(img_path):
+        image_paths = [os.path.join('static', 'uploads', img['image_path']) for img in images]
+        try:
+            predictions, heatmap_url, impaired_ratio, distribution, findings, suggestions = \
+                self.predict_from_paths(image_paths, patient_id)
+        except Exception as e:
+            print(f"患者 {patient_id} 推理失败: {e}")
             return self._fallback_predictions()
 
-        input_tensor = self._preprocess_image(img_path).to(self.device)
-        with torch.no_grad():
-            outputs = self.model(input_tensor)
-            probs = torch.softmax(outputs, dim=1).cpu().numpy()[0]
-
-        predictions = []
+        result = []
         for disease_id, disease_name in self.disease_map.items():
-            predictions.append({
+            result.append({
                 'disease_id': disease_id,
                 'disease_name': disease_name,
-                'confidence': float(probs[disease_id]),
+                'confidence': predictions[disease_id]['confidence'],
                 'rank': 0
             })
-        predictions.sort(key=lambda x: x['confidence'], reverse=True)
-        for i, p in enumerate(predictions):
+        result.sort(key=lambda x: x['confidence'], reverse=True)
+        for i, p in enumerate(result):
             p['rank'] = i + 1
 
-        return predictions[:3]
+        return {
+            'predictions': result,
+            'heatmap_url': heatmap_url,
+            'lesion_area_ratio': impaired_ratio,
+            'distribution_range': distribution,
+            'imaging_findings': findings,
+            'suggestions': suggestions
+        }
 
     def _fallback_predictions(self):
         return [
-            {'disease_id': 1, 'disease_name': '特发性肺纤维化(IPF)', 'confidence': 0.80, 'rank': 1},
-            {'disease_id': 2, 'disease_name': '非特异性间质性肺炎(NSIP)', 'confidence': 0.12, 'rank': 2},
-            {'disease_id': 3, 'disease_name': '结缔组织病相关肺纤维化(CTD-IP)', 'confidence': 0.08, 'rank': 3}
+            {'disease_id': 0, 'disease_name': CLASS_NAMES[0], 'confidence': 0.80, 'rank': 1},
+            {'disease_id': 1, 'disease_name': CLASS_NAMES[1], 'confidence': 0.20, 'rank': 2}
         ]

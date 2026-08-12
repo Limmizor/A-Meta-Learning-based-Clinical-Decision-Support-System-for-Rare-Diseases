@@ -798,6 +798,10 @@
                     <i class="bi bi-speedometer2"></i>
                     <span>工作台</span>
                 </a>
+                <a href="{{ url_for('doctor_followup') }}" class="nav-link">
+                    <i class="bi bi-calendar-heart"></i>
+                    <span>随访管理</span>
+                </a>
                 <a href="{{ url_for('disease_management') }}" class="nav-link">
                     <i class="bi bi-capsule"></i>
                     <span>肺纤维化疾病管理</span>
@@ -859,6 +863,12 @@
                     <a href="{{ url_for('doctor_schedule') }}" class="sidebar-menu-link">
                         <i class="bi bi-calendar"></i>
                         <span>今日日程</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{{ url_for('doctor_followup') }}" class="sidebar-menu-link">
+                        <i class="bi bi-calendar-heart"></i>
+                        <span>随访管理</span>
                     </a>
                 </li>
                 <li class="sidebar-menu-title">沟通</li>

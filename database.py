@@ -102,12 +102,46 @@ class Database:
             (user_id, action, details, datetime.datetime.now())
         )
 
-    # ---------- 患者管理 ----------
-    def get_patients(self):
-        return self.execute_query("SELECT * FROM patients ORDER BY patient_id DESC")
+    # ---------- 患者管理（含软删除 / 回收站）----------
+    def get_patients(self, include_deleted=False):
+        """获取患者列表，默认过滤已软删除患者"""
+        if include_deleted:
+            return self.execute_query("SELECT * FROM patients ORDER BY patient_id DESC")
+        return self.execute_query(
+            "SELECT * FROM patients WHERE is_deleted = 0 ORDER BY patient_id DESC"
+        )
 
-    def get_patient(self, patient_id):
-        return self.execute_query("SELECT * FROM patients WHERE patient_id = %s", (patient_id,))
+    def get_patient(self, patient_id, include_deleted=False):
+        """获取单个患者，默认过滤已软删除患者"""
+        if include_deleted:
+            return self.execute_query(
+                "SELECT * FROM patients WHERE patient_id = %s", (patient_id,)
+            )
+        return self.execute_query(
+            "SELECT * FROM patients WHERE patient_id = %s AND is_deleted = 0", (patient_id,)
+        )
+
+    def get_deleted_patients(self):
+        """获取已软删除的患者（回收站）"""
+        return self.execute_query(
+            "SELECT * FROM patients WHERE is_deleted = 1 ORDER BY updated_at DESC"
+        )
+
+    def soft_delete_patient(self, patient_id):
+        """软删除患者：仅标记 is_deleted=1，关联数据保留可恢复"""
+        return self.execute_update(
+            "UPDATE patients SET is_deleted = 1 WHERE patient_id = %s", (patient_id,)
+        )
+
+    def restore_patient(self, patient_id):
+        """恢复已软删除的患者"""
+        return self.execute_update(
+            "UPDATE patients SET is_deleted = 0 WHERE patient_id = %s", (patient_id,)
+        )
+
+    def purge_patient(self, patient_id):
+        """彻底删除患者：依赖外键 ON DELETE CASCADE 自动清理全部关联数据（返回受影响行数）"""
+        return self.execute_update("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
 
     def add_patient(self, name, age, gender, contact_number, medical_history):
         return self.execute_insert(
@@ -180,12 +214,13 @@ class Database:
 
     # ---------- 医生复核（诊断报告 + AI 预测确认） ----------
     def get_all_reports(self):
-        """获取全部诊断报告（含患者名/医生名），待复核优先"""
+        """获取全部诊断报告（含患者名/医生名），待复核优先，不含已软删除患者的报告"""
         return self.execute_query(
             """SELECT r.*, p.name AS patient_name, u.full_name AS doctor_name
                FROM diagnosis_reports r
                JOIN patients p ON r.patient_id = p.patient_id
                JOIN users u ON r.doctor_id = u.user_id
+               WHERE p.is_deleted = 0
                ORDER BY FIELD(r.status, 'pending', 'completed', 'reviewed'), r.created_at DESC"""
         )
 
@@ -238,6 +273,31 @@ class Database:
                 (patient_id,)
             )
 
+    def get_followup_plan(self, plan_id):
+        """获取单个随访计划（用于权限校验）"""
+        return self.execute_query(
+            "SELECT * FROM followup_plans WHERE plan_id = %s", (plan_id,)
+        )
+
+    def get_all_followup_plans(self, status=None):
+        """医生端：获取全部患者的随访计划（含患者姓名）"""
+        if status:
+            return self.execute_query(
+                """SELECT f.*, p.name AS patient_name, p.age AS patient_age, p.gender AS patient_gender
+                   FROM followup_plans f
+                   JOIN patients p ON f.patient_id = p.patient_id
+                   WHERE f.status = %s AND p.is_deleted = 0
+                   ORDER BY f.suggested_date ASC""",
+                (status,)
+            )
+        return self.execute_query(
+            """SELECT f.*, p.name AS patient_name, p.age AS patient_age, p.gender AS patient_gender
+               FROM followup_plans f
+               JOIN patients p ON f.patient_id = p.patient_id
+               WHERE p.is_deleted = 0
+               ORDER BY FIELD(f.status, 'pending', 'completed', 'cancelled'), f.suggested_date ASC"""
+        )
+
     def update_followup_status(self, plan_id, status):
         """更新随访计划状态"""
         return self.execute_insert(
@@ -248,6 +308,56 @@ class Database:
     def delete_followup_plan(self, plan_id):
         """删除随访计划"""
         return self.execute_insert("DELETE FROM followup_plans WHERE plan_id = %s", (plan_id,))
+
+    # ---------- 患者健康日志（health_logs）----------
+    def add_health_log(self, patient_id, log_date, symptom_score=None, medication=None, notes=None):
+        """新增患者健康日志（症状评分、用药、日常记录）"""
+        return self.execute_insert(
+            """INSERT INTO health_logs (patient_id, log_date, symptom_score, medication, notes)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (patient_id, log_date, symptom_score, medication, notes)
+        )
+
+    def get_health_logs(self, patient_id, limit=None):
+        """获取患者的健康日志，按日期倒序"""
+        if limit:
+            return self.execute_query(
+                "SELECT * FROM health_logs WHERE patient_id = %s ORDER BY log_date DESC, log_id DESC LIMIT %s",
+                (patient_id, limit)
+            )
+        return self.execute_query(
+            "SELECT * FROM health_logs WHERE patient_id = %s ORDER BY log_date DESC, log_id DESC",
+            (patient_id,)
+        )
+
+    def get_health_log(self, patient_id, log_id):
+        """获取单条健康日志（用于权限校验）"""
+        return self.execute_query(
+            "SELECT * FROM health_logs WHERE patient_id = %s AND log_id = %s",
+            (patient_id, log_id)
+        )
+
+    def update_health_log(self, log_id, log_date, symptom_score=None, medication=None, notes=None):
+        """更新健康日志"""
+        return self.execute_update(
+            """UPDATE health_logs SET log_date = %s, symptom_score = %s, medication = %s, notes = %s
+               WHERE log_id = %s""",
+            (log_date, symptom_score, medication, notes, log_id)
+        )
+
+    def delete_health_log(self, log_id):
+        """删除健康日志"""
+        return self.execute_insert("DELETE FROM health_logs WHERE log_id = %s", (log_id,))
+
+    def get_health_log_trend(self, patient_id):
+        """获取患者健康日志的症状评分趋势（供趋势分析使用）"""
+        return self.execute_query(
+            """SELECT log_date, symptom_score, medication, notes
+               FROM health_logs
+               WHERE patient_id = %s AND symptom_score IS NOT NULL
+               ORDER BY log_date ASC""",
+            (patient_id,)
+        )
 
     # ---------- 消息通知 ----------
     def add_notification(self, user_id, title, content=None, notification_type='system', link=None):

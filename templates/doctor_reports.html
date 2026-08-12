@@ -200,6 +200,17 @@
                 <textarea class="form-control" id="reviewConclusion" rows="3"
                           placeholder="请填写医生最终诊断结论（将展示给患者）">${escapeHtml(report.findings || '')}</textarea>
             </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="bi bi-calendar-heart"></i> 建议随访日期 <span class="text-muted small">（选填）</span></label>
+                    <input type="date" class="form-control" id="reviewFollowupDate" min="${new Date().toISOString().split('T')[0]}">
+                    <div class="form-text">填写后将自动为患者创建随访计划并通知</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="bi bi-chat-left-text"></i> 随访备注</label>
+                    <input type="text" class="form-control" id="reviewFollowupNotes" placeholder="例如：复查CT影像、评估用药效果（选填）">
+                </div>
+            </div>
             <div class="mb-2">
                 <label class="form-label fw-semibold"><i class="bi bi-flag"></i> 复核结果</label>
                 <div class="form-check form-check-inline">
@@ -234,6 +245,9 @@
         if (!status) { alert('请选择复核结果'); return; }
         if (!conclusion) { alert('请填写最终诊断结论'); return; }
 
+        const suggestedDate = document.getElementById('reviewFollowupDate').value || null;
+        const followupNotes = document.getElementById('reviewFollowupNotes').value.trim();
+
         const predictions = [];
         body.querySelectorAll('.pred-confirm').forEach(cb => {
             const pid = cb.dataset.pid;
@@ -252,12 +266,12 @@
         fetch(`/api/reports/${reportId}/review`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conclusion, status: status.value, predictions })
+            body: JSON.stringify({ conclusion, status: status.value, predictions, suggested_date: suggestedDate, followup_notes: followupNotes })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert(data.message);
+                alert(data.message + (data.followup_created ? '（已生成随访计划）' : ''));
                 bootstrap.Modal.getInstance(document.getElementById('reviewModal')).hide();
                 window.location.reload();
             } else {

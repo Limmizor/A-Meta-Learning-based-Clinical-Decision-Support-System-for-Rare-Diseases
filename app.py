@@ -277,7 +277,9 @@ def patient_dashboard():
         flash('数据库连接失败', 'danger')
         return render_template('patient_dashboard.html', reports=[], patient=None)
     
-    patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
+    patient_data = db.execute_query(
+        "SELECT * FROM patients WHERE user_id = %s AND is_deleted = 0", (current_user.id,)
+    )
     if not patient_data:
         db.disconnect()
         flash('未找到关联的患者信息', 'danger')
@@ -588,6 +590,9 @@ def api_report_review(report_id):
     conclusion = (data.get('conclusion') or '').strip()
     status = data.get('status')
     predictions = data.get('predictions') or []
+    # 随访联动：医生在复核时可填写建议随访日期，一键创建随访计划
+    suggested_date = data.get('suggested_date') or None
+    followup_notes = (data.get('followup_notes') or '').strip()
     if status not in ('completed', 'reviewed'):
         return jsonify({'success': False, 'message': '无效的复核状态'})
     db = Database()
@@ -610,9 +615,21 @@ def api_report_review(report_id):
         notes = (p.get('notes') or '').strip()
         db.update_prediction_review(pid, is_confirmed, current_user.id if is_confirmed else None, notes or None)
     db.add_system_log(current_user.id, 'REVIEW_REPORT', f'医生复核报告，报告ID: {report_id}，状态: {status}')
+
+    patient_id = report[0]['patient_id']
+    followup_created = False
+    # 联动创建随访计划
+    if suggested_date:
+        try:
+            datetime.datetime.strptime(suggested_date, '%Y-%m-%d')
+            plan_reason = followup_notes or f'基于诊断报告 #{report_id} 的复查建议'
+            followup_created = bool(db.create_followup_plan(patient_id, suggested_date, plan_reason))
+        except (ValueError, TypeError):
+            followup_created = False
+
     # 通知患者
     patient = db.execute_query(
-        "SELECT user_id FROM patients WHERE patient_id = %s", (report[0]['patient_id'],)
+        "SELECT user_id FROM patients WHERE patient_id = %s", (patient_id,)
     )
     if patient and patient[0].get('user_id'):
         db.add_notification(
@@ -622,8 +639,20 @@ def api_report_review(report_id):
             'report',
             '/my_reports'
         )
+        if followup_created:
+            db.add_notification(
+                patient[0]['user_id'],
+                '新的随访计划',
+                f'医生已为您安排随访复查，建议日期：{suggested_date}，请及时查看。',
+                'followup',
+                '/patient/followup'
+            )
     db.disconnect()
-    return jsonify({'success': True, 'message': '复核已保存'})
+    return jsonify({
+        'success': True,
+        'message': '复核已保存' + ('，并已创建随访计划' if followup_created else ''),
+        'followup_created': followup_created
+    })
 
 # 模型训练接口
 @app.route('/train_model', methods=['POST'])
@@ -739,7 +768,7 @@ def patient_profile():
                          prescriptions_count=0,
                          follow_up_count=0)
 
-# 删除患者（同时删除相关诊断报告和影像）
+# 删除患者（软删除：标记 is_deleted，可恢复；彻底删除请使用回收站）
 @app.route('/delete_patient/<int:patient_id>', methods=['DELETE'])
 @login_required
 def delete_patient(patient_id):
@@ -750,28 +779,102 @@ def delete_patient(patient_id):
         return jsonify({'success': False, 'message': '数据库连接失败'})
     try:
         # 获取患者名称用于日志
-        patient_data = db.execute_query("SELECT name FROM patients WHERE patient_id = %s", (patient_id,))
+        patient_data = db.get_patient(patient_id, include_deleted=True)
         patient_name = patient_data[0]['name'] if patient_data else '未知患者'
-        
-        # 1. 删除关联的疾病预测记录
-        db.execute_insert("DELETE FROM disease_predictions WHERE report_id IN (SELECT report_id FROM diagnosis_reports WHERE patient_id=%s)", (patient_id,))
-        # 2. 删除诊断报告
-        db.execute_insert("DELETE FROM diagnosis_reports WHERE patient_id=%s", (patient_id,))
-        # 3. 删除医学影像
-        db.execute_insert("DELETE FROM medical_images WHERE patient_id=%s", (patient_id,))
-        # 4. 最后删除患者
-        result = db.execute_insert("DELETE FROM patients WHERE patient_id=%s", (patient_id,))
-        
-        if result:
-            db.add_system_log(current_user.id, 'DELETE_PATIENT', f'删除患者: {patient_name}')
+        if not patient_data:
             db.disconnect()
-            return jsonify({'success': True, 'message': '患者删除成功'})
+            return jsonify({'success': False, 'message': '患者不存在'})
+        if patient_data[0].get('is_deleted'):
+            db.disconnect()
+            return jsonify({'success': False, 'message': '该患者已在回收站中'})
+
+        # 软删除：仅标记 is_deleted=1，关联数据（诊断报告/影像/随访/预约/健康日志）全部保留可恢复
+        result = db.soft_delete_patient(patient_id)
+
+        if result:
+            db.add_system_log(current_user.id, 'DELETE_PATIENT', f'软删除患者: {patient_name}（可恢复）')
+            db.disconnect()
+            return jsonify({'success': True, 'message': '患者已移入回收站，可随时恢复'})
         else:
             db.disconnect()
             return jsonify({'success': False, 'message': '删除患者失败'})
     except Exception as e:
         db.disconnect()
         return jsonify({'success': False, 'message': f'删除异常: {str(e)}'})
+
+
+# API: 获取回收站中的已删除患者
+@app.route('/api/patients/deleted')
+@login_required
+def api_deleted_patients():
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': '权限不足'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    patients = db.get_deleted_patients()
+    # 附加每个已删除患者的关联数据统计（用于提示彻底删除影响）
+    for p in patients:
+        p['_stats'] = db.execute_query(
+            """SELECT
+                 (SELECT COUNT(*) FROM diagnosis_reports WHERE patient_id = %s) AS reports,
+                 (SELECT COUNT(*) FROM medical_images WHERE patient_id = %s) AS images,
+                 (SELECT COUNT(*) FROM followup_plans WHERE patient_id = %s) AS followups,
+                 (SELECT COUNT(*) FROM appointments WHERE patient_id = %s) AS appointments,
+                 (SELECT COUNT(*) FROM health_logs WHERE patient_id = %s) AS health_logs""",
+            (p['patient_id'], p['patient_id'], p['patient_id'], p['patient_id'], p['patient_id'])
+        )
+        if p.get('_stats'):
+            p['_stats'] = p['_stats'][0]
+    db.disconnect()
+    return jsonify(patients)
+
+
+# API: 恢复已删除的患者
+@app.route('/api/patients/<int:patient_id>/restore', methods=['POST'])
+@login_required
+def api_restore_patient(patient_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    patient = db.get_patient(patient_id, include_deleted=True)
+    if not patient:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '患者不存在'})
+    result = db.restore_patient(patient_id)
+    if result:
+        db.add_system_log(current_user.id, 'RESTORE_PATIENT', f'恢复患者: {patient[0]["name"]}')
+    db.disconnect()
+    return jsonify({'success': result is not None, 'message': '患者已恢复' if result else '恢复失败'})
+
+
+# API: 彻底删除患者（不可恢复，依赖外键级联清理全部关联数据）
+@app.route('/api/patients/<int:patient_id>/purge', methods=['DELETE'])
+@login_required
+def api_purge_patient(patient_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    try:
+        patient = db.get_patient(patient_id, include_deleted=True)
+        if not patient:
+            db.disconnect()
+            return jsonify({'success': False, 'message': '患者不存在'})
+        patient_name = patient[0]['name']
+        # 只删除 patients 主记录，外键 ON DELETE CASCADE 自动清理
+        # diagnosis_reports / medical_images / followup_plans / appointments / health_logs
+        result = db.purge_patient(patient_id)
+        if result:
+            db.add_system_log(current_user.id, 'PURGE_PATIENT', f'彻底删除患者: {patient_name}（含全部关联数据）')
+        db.disconnect()
+        return jsonify({'success': bool(result), 'message': '患者已彻底删除' if result else '删除失败'})
+    except Exception as e:
+        db.disconnect()
+        return jsonify({'success': False, 'message': f'彻底删除异常: {str(e)}'})
 
 # API: 获取所有疾病（用于疾病查询页面）
 @app.route('/api/diseases')
@@ -1612,12 +1715,20 @@ def api_patient_trend():
     if current_user.user_type != 'patient':
         return jsonify({'error': '权限不足'}), 403
     db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
     patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
     if not patient_data:
         db.disconnect()
         return jsonify({'error': '未找到患者信息'}), 404
     patient_id = patient_data[0]['patient_id']
-    trend_data = db.get_patient_trend_data(patient_id)
+    trend_data = db.get_patient_trend_data(patient_id) or []
+    # JSON 序列化兼容处理（datetime -> str, Decimal -> float）
+    for row in trend_data:
+        if isinstance(row.get('created_at'), (datetime.datetime, datetime.date)):
+            row['created_at'] = row['created_at'].strftime('%Y-%m-%d %H:%M')
+        if isinstance(row.get('lesion_area_ratio'), Decimal):
+            row['lesion_area_ratio'] = float(row['lesion_area_ratio'])
     db.disconnect()
     return jsonify(trend_data)
 
@@ -1687,6 +1798,255 @@ def followup_api():
         result = db.delete_followup_plan(plan_id)
         db.disconnect()
         return jsonify({'success': result is not None})
+
+
+# ==================== 医生端随访管理 ====================
+@app.route('/doctor/followup')
+@login_required
+def doctor_followup():
+    """医生端随访管理页面：查看/创建/维护全部患者的随访计划"""
+    if current_user.user_type != 'doctor':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('patient_dashboard'))
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return render_template('doctor_followup.html', plans=[], patients=[])
+    plans = db.get_all_followup_plans() or []
+    for p in plans:
+        if isinstance(p.get('suggested_date'), datetime.date):
+            p['suggested_date'] = p['suggested_date'].strftime('%Y-%m-%d')
+        if isinstance(p.get('created_at'), datetime.datetime):
+            p['created_at'] = p['created_at'].strftime('%Y-%m-%d %H:%M')
+    patients = db.get_patients() or []
+    db.disconnect()
+    return render_template('doctor_followup.html', plans=plans, patients=patients)
+
+
+@app.route('/api/doctor/followup', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required
+def doctor_followup_api():
+    """医生端随访计划管理 API（GET 查询 / POST 创建 / PUT 状态 / DELETE 删除）"""
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': '仅医生可操作'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+
+    if request.method == 'GET':
+        status = request.args.get('status')
+        plans = db.get_all_followup_plans(status) or []
+        for p in plans:
+            if isinstance(p.get('suggested_date'), datetime.date):
+                p['suggested_date'] = p['suggested_date'].strftime('%Y-%m-%d')
+            if isinstance(p.get('created_at'), datetime.datetime):
+                p['created_at'] = p['created_at'].strftime('%Y-%m-%d %H:%M')
+        db.disconnect()
+        return jsonify(plans)
+
+    elif request.method == 'POST':
+        data = request.json or {}
+        patient_id = data.get('patient_id')
+        suggested_date = data.get('suggested_date')
+        notes = data.get('notes')
+        if not patient_id or not suggested_date:
+            return jsonify({'error': '患者和建议日期不能为空'}), 400
+        # 校验患者存在且未删除
+        patient = db.get_patient(patient_id)
+        if not patient:
+            db.disconnect()
+            return jsonify({'error': '患者不存在'}), 404
+        try:
+            datetime.datetime.strptime(suggested_date, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': '日期格式无效'}), 400
+        plan_id = db.create_followup_plan(patient_id, suggested_date, notes)
+        # 通知患者
+        if plan_id and patient[0].get('user_id'):
+            db.add_notification(
+                patient[0]['user_id'],
+                '新的随访计划',
+                f'医生已为您安排随访复查，建议日期：{suggested_date}。',
+                'followup',
+                '/patient/followup'
+            )
+        db.disconnect()
+        if plan_id:
+            return jsonify({'success': True, 'plan_id': plan_id})
+        return jsonify({'error': '创建失败'}), 500
+
+    elif request.method == 'PUT':
+        data = request.json or {}
+        plan_id = data.get('plan_id')
+        status = data.get('status')
+        if not plan_id or status not in ['pending', 'completed', 'cancelled']:
+            return jsonify({'error': '参数无效'}), 400
+        plan = db.get_followup_plan(plan_id)
+        if not plan:
+            db.disconnect()
+            return jsonify({'error': '计划不存在'}), 404
+        result = db.update_followup_status(plan_id, status)
+        db.disconnect()
+        return jsonify({'success': result is not None})
+
+    elif request.method == 'DELETE':
+        plan_id = request.args.get('plan_id')
+        if not plan_id:
+            return jsonify({'error': '缺少 plan_id'}), 400
+        plan = db.get_followup_plan(plan_id)
+        if not plan:
+            db.disconnect()
+            return jsonify({'error': '计划不存在'}), 404
+        result = db.delete_followup_plan(plan_id)
+        db.disconnect()
+        return jsonify({'success': result is not None})
+
+
+# ==================== 患者健康日志（health_logs）====================
+@app.route('/patient/health_log')
+@login_required
+def patient_health_log():
+    """患者健康日志页面：记录症状评分、用药、日常情况"""
+    if current_user.user_type != 'patient':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return render_template('patient_health_log.html', logs=[], patient_id=None)
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        flash('未找到患者信息', 'warning')
+        return render_template('patient_health_log.html', logs=[], patient_id=None)
+    patient_id = patient_data[0]['patient_id']
+    logs = db.get_health_logs(patient_id) or []
+    for log in logs:
+        if isinstance(log.get('log_date'), datetime.date):
+            log['log_date'] = log['log_date'].strftime('%Y-%m-%d')
+        if isinstance(log.get('created_at'), datetime.datetime):
+            log['created_at'] = log['created_at'].strftime('%Y-%m-%d %H:%M')
+    db.disconnect()
+    return render_template('patient_health_log.html', logs=logs, patient_id=patient_id)
+
+
+@app.route('/api/health_logs', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required
+def health_logs_api():
+    """患者健康日志 API（GET 查询 / POST 新增 / PUT 更新 / DELETE 删除）"""
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '仅患者可操作健康日志'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        return jsonify({'error': '未找到患者信息'}), 404
+    patient_id = patient_data[0]['patient_id']
+
+    if request.method == 'GET':
+        logs = db.get_health_logs(patient_id) or []
+        for log in logs:
+            if isinstance(log.get('log_date'), datetime.date):
+                log['log_date'] = log['log_date'].strftime('%Y-%m-%d')
+            if isinstance(log.get('created_at'), datetime.datetime):
+                log['created_at'] = log['created_at'].strftime('%Y-%m-%d %H:%M')
+        db.disconnect()
+        return jsonify(logs)
+
+    elif request.method == 'POST':
+        data = request.json or {}
+        log_date = data.get('log_date')
+        symptom_score = data.get('symptom_score')
+        medication = data.get('medication')
+        notes = data.get('notes')
+        if not log_date:
+            return jsonify({'error': '记录日期不能为空'}), 400
+        try:
+            datetime.datetime.strptime(log_date, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': '日期格式无效'}), 400
+        # 症状评分 1-10 校验
+        if symptom_score not in (None, ''):
+            try:
+                symptom_score = int(symptom_score)
+                if not (1 <= symptom_score <= 10):
+                    return jsonify({'error': '症状评分需在 1-10 之间'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': '症状评分格式无效'}), 400
+        else:
+            symptom_score = None
+        log_id = db.add_health_log(patient_id, log_date, symptom_score, medication, notes)
+        db.disconnect()
+        if log_id:
+            return jsonify({'success': True, 'log_id': log_id})
+        return jsonify({'error': '创建失败'}), 500
+
+    elif request.method == 'PUT':
+        data = request.json or {}
+        log_id = data.get('log_id')
+        log_date = data.get('log_date')
+        symptom_score = data.get('symptom_score')
+        medication = data.get('medication')
+        notes = data.get('notes')
+        if not log_id or not log_date:
+            return jsonify({'error': '参数缺失'}), 400
+        log = db.get_health_log(patient_id, log_id)
+        if not log:
+            db.disconnect()
+            return jsonify({'error': '记录不存在或无权操作'}), 404
+        try:
+            datetime.datetime.strptime(log_date, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': '日期格式无效'}), 400
+        if symptom_score not in (None, ''):
+            try:
+                symptom_score = int(symptom_score)
+                if not (1 <= symptom_score <= 10):
+                    return jsonify({'error': '症状评分需在 1-10 之间'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': '症状评分格式无效'}), 400
+        else:
+            symptom_score = None
+        result = db.update_health_log(log_id, log_date, symptom_score, medication, notes)
+        db.disconnect()
+        return jsonify({'success': result is not None})
+
+    elif request.method == 'DELETE':
+        log_id = request.args.get('log_id')
+        if not log_id:
+            return jsonify({'error': '缺少 log_id'}), 400
+        log = db.get_health_log(patient_id, log_id)
+        if not log:
+            db.disconnect()
+            return jsonify({'error': '记录不存在或无权操作'}), 404
+        result = db.delete_health_log(log_id)
+        db.disconnect()
+        return jsonify({'success': result is not None})
+
+
+# API: 患者健康日志症状评分趋势（供趋势分析页使用）
+@app.route('/api/patient/health_trend')
+@login_required
+def api_patient_health_trend():
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '权限不足'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id = %s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        return jsonify({'error': '未找到患者信息'}), 404
+    trend = db.get_health_log_trend(patient_data[0]['patient_id']) or []
+    for row in trend:
+        if isinstance(row.get('log_date'), datetime.date):
+            row['log_date'] = row['log_date'].strftime('%Y-%m-%d')
+        if row.get('symptom_score') is not None:
+            row['symptom_score'] = int(row['symptom_score'])
+    db.disconnect()
+    return jsonify(trend)
 
 
 # ==================== 消息通知 ====================
