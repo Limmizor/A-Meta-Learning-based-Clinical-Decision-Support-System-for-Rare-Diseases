@@ -1,4 +1,4 @@
-# 肺影智诊 · 罕见病临床决策支持系统
+# 肺影智诊 · 肺纤维化临床决策支持系统
 # Python 3.12（Windows / Anaconda），版本号与当前已验证环境一致
 
 # Web 框架
@@ -13,6 +13,10 @@ mysql-connector-python==9.4.0
 torch==2.8.0
 torchvision==0.23.0
 numpy==1.26.4
+
+# Grad-CAM（jacobgil/pytorch-grad-cam，热力图解释）
+grad-cam==1.5.5
+opencv-python==4.10.0.84
 
 # 影像处理
 Pillow==10.4.0

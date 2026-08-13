@@ -110,7 +110,7 @@
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-0">{{ doctor.full_name }}</h6>
-                                    <small class="text-muted">{{ doctor.specialty or '罕见病专科' }}</small>
+                                    <small class="text-muted">{{ doctor.specialty or '间质性肺病专科' }}</small>
                                 </div>
                                 <button class="btn btn-sm btn-outline-primary" onclick="startConsult({{ doctor.user_id }}, '{{ doctor.full_name }}')">
                                     咨询

@@ -291,8 +291,8 @@
                     <span class="pd-info-value">{{ patient.emergency_contact or '未填写' }}</span>
                 </li>
                 <li class="pd-info-item">
-                    <span class="pd-info-label"><i class="bi bi-dna"></i> 遗传背景</span>
-                    <span class="pd-info-value">{{ patient.genetic_background or '未填写' }}</span>
+                    <span class="pd-info-label"><i class="bi bi-journal-medical"></i> 既往史</span>
+                    <span class="pd-info-value">{{ patient.medical_history or patient.genetic_background or '未填写' }}</span>
                 </li>
                 <li class="pd-info-item">
                     <span class="pd-info-label"><i class="bi bi-people"></i> 家族史</span>

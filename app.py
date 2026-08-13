@@ -10,6 +10,7 @@ from config import Config
 from database import Database
 from pf_diagnosis_service import PFDianosisService
 import datetime
+import time
 import pydicom
 from PIL import Image
 import numpy as np
@@ -1284,7 +1285,7 @@ def doctor_create_appointment():
     patient_id = request.form.get('patient_id')
     appointment_date = request.form.get('appointment_date')
     appointment_time = request.form.get('appointment_time')
-    department = request.form.get('department') or '罕见病科'
+    department = request.form.get('department') or '呼吸科'
     symptoms = request.form.get('symptoms') or ''
     notes = request.form.get('notes') or ''
     if not all([patient_id, appointment_date, appointment_time]):
@@ -1363,8 +1364,8 @@ def patient_appointment():
     ) or []
     # 兼容旧模板字段名：specialty -> specialization, department -> hospital_affiliation, title -> 默认职称
     for d in doctors:
-        d['specialty'] = d.get('specialization') or '罕见病诊断与治疗'
-        d['department'] = d.get('hospital_affiliation') or '罕见病科'
+        d['specialty'] = d.get('specialization') or '间质性肺病诊疗'
+        d['department'] = d.get('hospital_affiliation') or '呼吸科'
         d['title'] = '医师'
     patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
     appointments = []
@@ -1590,9 +1591,11 @@ def api_ai_diagnose():
         if not saved_paths:
             return jsonify({'success': False, 'message': '文件上传失败'})
 
-        # 调用诊断服务（返回预测、热力图、量化指标等）
-        predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions = \
+        # 调用诊断服务（返回预测、热力图、量化指标等），诊断耗时取真实计时
+        t0 = time.time()
+        predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions, diagnosis_view = \
             pf_service.predict_from_paths(saved_paths, patient_id)
+        time_cost = round(time.time() - t0, 1)
 
         # 通知患者：AI 诊断已完成
         try:
@@ -1614,12 +1617,18 @@ def api_ai_diagnose():
         return jsonify({
             'success': True,
             'predictions': predictions,
+            'primary_diagnosis': diagnosis_view.get('primary_diagnosis'),
+            'icd_code': diagnosis_view.get('icd_code'),
+            'differentials': diagnosis_view.get('differentials', []),
+            'conclusion_text': diagnosis_view.get('conclusion_text'),
+            'imaging_blocks': diagnosis_view.get('imaging_blocks', []),
+            'suggestions_list': diagnosis_view.get('suggestions', []),
             'heatmap_url': heatmap_url,
             'lesion_area_ratio': lesion_ratio,
             'distribution_range': distribution,
             'imaging_findings': findings,
             'suggestions': suggestions,
-            'time_cost': 32,
+            'time_cost': time_cost,
             'n_slices': int(distribution.split('/')[0]) if '/' in str(distribution) else len(saved_paths),
             'model_version': os.path.basename(MODEL_PATH),
             'thumbnails': thumbnails,     # 缩略图列表（用于缩略图栏）

@@ -209,7 +209,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">科室</label>
-                        <input type="text" class="form-control" id="newAppointmentDepartment" value="罕见病科">
+                        <input type="text" class="form-control" id="newAppointmentDepartment" value="呼吸科">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">症状描述</label>
@@ -547,7 +547,7 @@
         document.getElementById('createAppointmentForm').reset();
         document.getElementById('newAppointmentDate').value = formatDate(new Date());
         document.getElementById('newAppointmentDate').min = formatDate(new Date());
-        document.getElementById('newAppointmentDepartment').value = '罕见病科';
+        document.getElementById('newAppointmentDepartment').value = '呼吸科';
         new bootstrap.Modal(document.getElementById('appointmentModal')).show();
     }
 

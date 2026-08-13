@@ -1,7 +1,7 @@
-# 肺影智诊 · 罕见病临床决策支持系统
+# 肺影智诊 · 肺纤维化临床决策支持系统
 
-基于 Flask 的罕见病（特发性肺纤维化 IPF）临床决策支持系统，集成 MAML 元迁移学习模型，
-对肺纤维化 CT 影像进行患者级预后分型（相对稳定组 Percent≥90 / 严重受损组 Percent≤65），
+基于 Flask 的肺纤维化临床决策支持系统，集成 MAML 元迁移学习模型，
+对肺纤维化 CT 影像进行患者级分型辅助识别（主要诊断 + 鉴别诊断参考），
 并提供 AI 辅助诊断、Grad-CAM 可视化与规范化 PDF 报告导出。
 
 ## 一、环境要求
@@ -35,7 +35,7 @@ python db_migrations.py
 
 | 文件 | 说明 |
 | --- | --- |
-| `models/best_maml_fold1.pth` | MAML 训练好的 ResNet-18 二分类模型（第 1 折最优） |
+| `models/best_maml_fold1.pth` | MAML 训练好的 ResNet-18 肺纤维化分型识别模型（第 1 折最优） |
 | `models/ipf_support_set.pt` | 推理用支持集（第 1 折训练集每类 2 名患者 × 8 张切片），用于 MAML 快速适应 |
 | `data/osic-pulmonary-fibrosis-progression/` | OSIC 肺纤维化数据集（train.csv + train/ 患者 DICOM） |
 
@@ -58,7 +58,7 @@ python app.py
 访问地址：**http://127.0.0.1:5000**
 
 医生登录后进入「AI辅助诊断」：选择患者 → 上传 DICOM / JPG / PNG CT 切片（建议 30 张）→
-自动完成支持集适应与患者级多数投票 → 查看诊断结果 → 「导出PDF报告」。
+自动完成支持集适应与患者级综合判读 → 查看诊断结果 → 「导出PDF报告」。
 
 ## 五、模型训练（可选）
 

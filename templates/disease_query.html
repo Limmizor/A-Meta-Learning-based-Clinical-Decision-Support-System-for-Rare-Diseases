@@ -320,26 +320,10 @@
                         <textarea class="form-control" id="preventionMeasures" rows="2" 
                                   placeholder="请输入疾病的预防措施..."></textarea>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">发病率</label>
-                                <input type="text" class="form-control" id="incidenceRate" 
-                                       placeholder="如：1/100,000">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">遗传方式</label>
-                                <select class="form-select" id="inheritancePattern">
-                                    <option value="">请选择</option>
-                                    <option value="sporadic">散发性</option>
-                                    <option value="autosomal_dominant">常染色体显性遗传</option>
-                                    <option value="autosomal_recessive">常染色体隐性遗传</option>
-                                    <option value="environmental">环境相关</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">高危人群 / 流行病学</label>
+                        <input type="text" class="form-control" id="incidenceRate" 
+                               placeholder="如：老年男性、吸烟、职业粉尘暴露等">
                     </div>
                     <div class="mb-3">
                         <div class="form-check">
@@ -554,8 +538,8 @@ function displayDiseaseDetail(disease) {
                 <div class="card bg-light">
                     <div class="card-body">
                         <h6>疾病信息</h6>
-                        <p><strong>发病率:</strong> ${escapeHtml(disease.incidence || '未知')}</p>
-                        <p><strong>遗传方式:</strong> ${escapeHtml(disease.inheritance || '散发性')}</p>
+                        <p><strong>高危人群:</strong> ${escapeHtml(disease.incidence || '未知')}</p>
+                        <p><strong>发病特点:</strong> ${escapeHtml(disease.inheritance || '未设置')}</p>
                     </div>
                 </div>
             </div>
@@ -662,7 +646,6 @@ function editDisease(diseaseId) {
             document.getElementById('treatmentPlan').value = disease.treatment_options || '';
             document.getElementById('preventionMeasures').value = disease.prevention || '';
             document.getElementById('incidenceRate').value = disease.incidence || '';
-            document.getElementById('inheritancePattern').value = disease.inheritance_pattern || '';
             document.getElementById('isFeatured').checked = disease.is_featured || false;
             new bootstrap.Modal(document.getElementById('diseaseFormModal')).show();
         })
@@ -690,7 +673,6 @@ function saveDisease() {
         treatment_options: document.getElementById('treatmentPlan').value,
         prevention: document.getElementById('preventionMeasures').value,
         incidence: document.getElementById('incidenceRate').value,
-        inheritance_pattern: document.getElementById('inheritancePattern').value,
         is_featured: document.getElementById('isFeatured').checked
     };
     const url = diseaseId ? `/api/diseases/${diseaseId}` : '/api/diseases';

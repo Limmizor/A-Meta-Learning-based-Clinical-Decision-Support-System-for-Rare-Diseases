@@ -49,6 +49,9 @@ logs/
 .env.local
 .env.*.local
 
+# 本地工具配置（Claude Code 等个人设置，不入库）
+.claude/
+
 # 临时文件
 *.tmp
 *.temp

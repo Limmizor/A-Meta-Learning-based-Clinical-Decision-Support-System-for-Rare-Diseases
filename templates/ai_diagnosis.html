@@ -152,19 +152,20 @@
         <div class="report-section bg-light rounded-top-3">
             <div class="row align-items-center">
             <div class="col-7"><small class="text-secondary">当前病例</small><br><strong id="caseInfo">未选择患者</strong>
-                <div class="small text-muted mt-1" style="font-size: 0.72rem;">MAML元迁移学习 · ResNet-18 · 2-way 2-shot 患者级分类</div>
+                <div class="small text-muted mt-1" style="font-size: 0.72rem;">MAML元迁移学习 · ResNet-18 · 肺纤维化分型辅助识别</div>
             </div>
             <div class="col-5 text-end"><small>诊断状态</small><br><span id="diagnosisStatus" class="badge bg-secondary status-badge">待诊断</span></div>
             </div>
             <div class="small text-muted mt-1" id="timeCost"></div>
         </div>
+        <div class="report-section"><h6><i class="fas fa-stethoscope"></i> 主要诊断结论</h6><div id="primaryDiagnosis" class="mt-1">--</div><div class="small text-muted mt-2" id="conclusionText"></div></div>
+        <div class="report-section"><h6><i class="fas fa-list-check"></i> 鉴别诊断参考</h6><ul id="differentialList" class="small text-secondary ps-3 mb-0 mt-1"></ul></div>
         <div class="report-section"><h6><i class="fas fa-eye"></i> 影像所见</h6><p id="imagingFindings" class="small text-secondary">--</p></div>
         <div class="report-section"><h6><i class="fas fa-chart-line"></i> 切片级统计</h6>
-            <div class="d-flex justify-content-between"><span>严重受损类切片占比：</span><strong id="lesionRatio">--</strong></div>
+            <div class="d-flex justify-content-between"><span>支持主要结论的切片占比：</span><strong id="lesionRatio">--</strong></div>
             <div class="d-flex justify-content-between mt-1"><span>切片一致性：</span><strong id="distributionRange">--</strong></div>
         </div>
-        <div class="report-section"><h6><i class="fas fa-chart-simple"></i> IPF 预后分型结果（患者级多数投票）</h6><div id="predictionsList" class="mt-2"></div></div>
-        <div class="report-section"><h6><i class="fas fa-fire"></i> Grad-CAM 热力图</h6><img id="heatmapImage" class="heatmap-img" src="" alt="热力图将在此显示"></div>
+        <div class="report-section"><h6><i class="fas fa-fire"></i> Grad-CAM 热力图（叠加原始CT）</h6><img id="heatmapImage" class="heatmap-img" src="" alt="热力图将在此显示"></div>
         <div class="report-section"><h6><i class="fas fa-clinic-medical"></i> 检查建议</h6><p id="suggestions" class="small">--</p><button id="exportPdfBtn" class="btn-export"><i class="fas fa-file-pdf"></i> 导出PDF报告</button></div>
     </div>
 </div>
@@ -268,7 +269,7 @@
                 updateReportPanel(result);
                 document.getElementById('caseInfo').innerText = `患者ID: ${patientSelect.value}`;
                 document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-success">已完成</span>';
-                document.getElementById('timeCost').innerHTML = `<i class="far fa-clock"></i> 耗时：${result.time_cost || '28'} 秒`;
+                document.getElementById('timeCost').innerHTML = `<i class="far fa-clock"></i> 诊断耗时：${result.time_cost != null ? result.time_cost : '--'} 秒`;
             } else {
                 alert('诊断失败: ' + result.message);
                 document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-danger">失败</span>';
@@ -309,35 +310,75 @@
     }
 
     function updateReportPanel(data) {
-        document.getElementById('imagingFindings').innerText = data.imaging_findings || '无异常发现';
         let ratio = data.lesion_area_ratio ? (data.lesion_area_ratio * 100).toFixed(1) : '--';
         document.getElementById('lesionRatio').innerHTML = ratio !== '--' ? `${ratio}%` : '--';
         document.getElementById('distributionRange').innerText = data.distribution_range || '--';
 
-        const predContainer = document.getElementById('predictionsList');
-        predContainer.innerHTML = '';
-        if(data.predictions && data.predictions.length) {
-            data.predictions.forEach(pred => {
-                const div = document.createElement('div');
-                div.className = 'disease-item';
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between">
-                        <span class="disease-name">${pred.disease_name}</span>
-                        <span class="fw-bold">${(pred.confidence * 100).toFixed(1)}%</span>
-                    </div>
-                    <div class="confidence-bar"><div class="confidence-fill" style="width: ${pred.confidence * 100}%;"></div></div>
-                `;
-                predContainer.appendChild(div);
+        // 主要诊断结论（疑似亚型 + 综合置信度）
+        const primaryBox = document.getElementById('primaryDiagnosis');
+        const pred = data.predictions && data.predictions[0];
+        if (pred) {
+            const pct = (pred.confidence * 100).toFixed(1);
+            primaryBox.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <span class="disease-name">${pred.disease_name}</span>
+                    <span class="fw-bold">${pct}%</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" style="width: ${pct}%;"></div></div>
+            `;
+        } else {
+            primaryBox.innerHTML = '<div class="text-muted">暂无诊断结论</div>';
+        }
+        document.getElementById('conclusionText').innerText = data.conclusion_text || '';
+
+        // 鉴别诊断参考（候选亚型 + 鉴别要点）
+        const diffList = document.getElementById('differentialList');
+        diffList.innerHTML = '';
+        if (data.differentials && data.differentials.length) {
+            data.differentials.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'mb-1';
+                const name = typeof item === 'string' ? item : (item.name || '');
+                const note = typeof item === 'string' ? '' : (item.note || '');
+                li.textContent = note ? `${name}——${note}` : name;
+                diffList.appendChild(li);
             });
         } else {
-            predContainer.innerHTML = '<div class="text-muted">暂无预测结果</div>';
+            diffList.innerHTML = '<li class="mb-0">需结合临床表现、HRCT分布与肺功能检查进一步鉴别。</li>';
         }
+
+        // 影像所见（结构化：判读基础 / 影像特征 / 判读提示）
+        const findingsBox = document.getElementById('imagingFindings');
+        if (data.imaging_blocks && data.imaging_blocks.length) {
+            findingsBox.innerHTML = '';
+            data.imaging_blocks.forEach(block => {
+                const div = document.createElement('div');
+                div.className = 'mb-2';
+                let html = `<div class="fw-semibold small">${block.title}</div><ul class="small text-secondary ps-3 mb-1">`;
+                (block.items || []).forEach(it => { html += `<li class="mb-1">${it}</li>`; });
+                html += '</ul>';
+                div.innerHTML = html;
+                findingsBox.appendChild(div);
+            });
+        } else {
+            findingsBox.innerText = data.imaging_findings || '无异常发现';
+        }
+
+        // 检查建议（结构化列表）
+        const suggBox = document.getElementById('suggestions');
+        if (data.suggestions_list && data.suggestions_list.length) {
+            suggBox.innerHTML = '<ul class="small ps-3 mb-0">' +
+                data.suggestions_list.map(s => `<li class="mb-1">${s}</li>`).join('') +
+                '</ul>';
+        } else {
+            suggBox.innerText = data.suggestions || '请结合临床进一步评估。';
+        }
+
         if(data.heatmap_url) {
             document.getElementById('heatmapImage').src = data.heatmap_url;
         } else {
             document.getElementById('heatmapImage').src = '';
         }
-        document.getElementById('suggestions').innerText = data.suggestions || '请结合临床进一步评估。';
     }
 
     // 导出PDF（服务端生成规范化报告）
@@ -349,6 +390,12 @@
         const payload = {
             patient_id: patientSelect.value,
             predictions: lastResult.predictions,
+            primary_diagnosis: lastResult.primary_diagnosis,
+            icd_code: lastResult.icd_code,
+            differentials: lastResult.differentials,
+            conclusion_text: lastResult.conclusion_text,
+            imaging_blocks: lastResult.imaging_blocks,
+            suggestions_list: lastResult.suggestions_list,
             lesion_area_ratio: lastResult.lesion_area_ratio,
             distribution_range: lastResult.distribution_range,
             imaging_findings: lastResult.imaging_findings,

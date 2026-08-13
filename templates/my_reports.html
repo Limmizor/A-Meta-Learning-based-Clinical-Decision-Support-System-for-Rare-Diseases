@@ -133,7 +133,7 @@
                         <p class="mb-2"><strong>📋 临床记录：</strong>{{ report.clinical_notes or '无' }}</p>
                         <p class="mb-2"><strong>📝 诊断结果：</strong>{{ report.findings or '待诊断' }}</p>
                         {% if report.lesion_area_ratio %}
-                        <p class="mb-2"><strong>📊 病灶面积占比：</strong>{{ (report.lesion_area_ratio * 100)|round(1) }}%</p>
+                        <p class="mb-2"><strong>📊 支持主要结论的切片占比：</strong>{{ (report.lesion_area_ratio * 100)|round(1) }}%</p>
                         {% endif %}
                         {% if report.distribution_range %}
                         <p class="mb-2"><strong>📍 分布范围：</strong>{{ report.distribution_range }}</p>
@@ -315,7 +315,7 @@
                 <strong>医生：</strong> ${report.doctor_name || '未知'}<br>
                 <strong>创建时间：</strong> ${new Date(report.created_at).toLocaleString()}<br>
                 <strong>诊断状态：</strong> ${report.findings ? '<span class="badge bg-success">已完成</span>' : '<span class="badge bg-warning">待审核</span>'}<br>
-                ${report.lesion_area_ratio ? `<strong>病灶面积占比：</strong> ${(report.lesion_area_ratio*100).toFixed(1)}%<br>` : ''}
+                ${report.lesion_area_ratio ? `<strong>支持主要结论的切片占比：</strong> ${(report.lesion_area_ratio*100).toFixed(1)}%<br>` : ''}
                 ${report.distribution_range ? `<strong>分布范围：</strong> ${report.distribution_range}<br>` : ''}
             </div>
             <hr>

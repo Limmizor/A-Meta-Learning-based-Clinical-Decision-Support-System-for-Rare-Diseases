@@ -81,7 +81,7 @@
                                     <i class="bi bi-heart-pulse text-primary display-6"></i>
                                     <h5 class="mt-3">肺纤维化专科</h5>
                                     <p class="text-muted">专业肺纤维化CT影像诊断与治疗</p>
-                                    <button class="btn btn-outline-primary" onclick="quickBook('rare_disease')">立即预约</button>
+                                    <button class="btn btn-outline-primary" onclick="quickBook('pf_clinic')">立即预约</button>
                                 </div>
                             </div>
                         </div>
@@ -127,10 +127,10 @@
                                         <div class="flex-grow-1">
                                             <h6 class="card-title mb-1">{{ doctor.full_name }}</h6>
                                             <p class="text-muted small mb-1">
-                                                {{ doctor.title or '医师' }} | {{ doctor.department or '罕见病科' }}
+                                                {{ doctor.title or '医师' }} | {{ doctor.department or '呼吸科' }}
                                             </p>
                                             <p class="text-muted small mb-2">
-                                                {{ doctor.specialty or '罕见病诊断与治疗' }}
+                                                {{ doctor.specialty or '间质性肺病诊疗' }}
                                             </p>
                                             <div class="doctor-actions">
                                                 <button class="btn btn-sm btn-outline-primary" 
@@ -267,8 +267,8 @@
                                 <select class="form-select" id="doctorSelect" required>
                                     <option value="">请选择医生</option>
                                     {% for doctor in doctors %}
-                                    <option value="{{ doctor.user_id }}" data-department="{{ doctor.department or '罕见病科' }}">
-                                        {{ doctor.full_name }} - {{ doctor.department or '罕见病科' }} - {{ doctor.title or '医师' }}
+                                    <option value="{{ doctor.user_id }}" data-department="{{ doctor.department or '呼吸科' }}">
+                                        {{ doctor.full_name }} - {{ doctor.department or '呼吸科' }} - {{ doctor.title or '医师' }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -499,7 +499,7 @@ function setupFormListeners() {
     // 医生选择变化时更新科室
     document.getElementById('doctorSelect').addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
-        const department = selectedOption.getAttribute('data-department') || '罕见病科';
+        const department = selectedOption.getAttribute('data-department') || '呼吸科';
         document.getElementById('department').value = department;
         document.getElementById('selectedDoctorId').value = this.value;
     });
@@ -518,11 +518,11 @@ function showAppointmentModal() {
 function quickBook(type) {
     showAppointmentModal();
     
-    if (type === 'rare_disease') {
-        // 自动选择罕见病专科医生
-        const rareDiseaseDoctors = document.querySelectorAll('#doctorSelect option');
-        for (let option of rareDiseaseDoctors) {
-            if (option.textContent.includes('罕见病') || option.getAttribute('data-department') === '罕见病科') {
+    if (type === 'pf_clinic') {
+        // 自动选择肺纤维化专科医生
+        const pfDoctors = document.querySelectorAll('#doctorSelect option');
+        for (let option of pfDoctors) {
+            if (option.textContent.includes('肺纤维化') || option.textContent.includes('呼吸') || option.getAttribute('data-department') === '呼吸科') {
                 option.selected = true;
                 document.getElementById('doctorSelect').dispatchEvent(new Event('change'));
                 break;
@@ -633,7 +633,7 @@ function viewAppointmentDetail(appointmentId) {
                 <strong>医生:</strong> 张医生
             </div>
             <div class="mb-3">
-                <strong>科室:</strong> 罕见病科
+                <strong>科室:</strong> 呼吸科
             </div>
             <div class="mb-3">
                 <strong>预约时间:</strong> 2024-01-15 10:00-10:30
@@ -643,7 +643,7 @@ function viewAppointmentDetail(appointmentId) {
             </div>
             <div class="mb-3">
                 <strong>症状描述:</strong> 
-                <p class="text-muted">关节疼痛，疲劳，视力模糊</p>
+                <p class="text-muted">干咳、活动后气促，伴双肺底Velcro啰音</p>
             </div>
             <div class="mb-3">
                 <strong>备注:</strong> 

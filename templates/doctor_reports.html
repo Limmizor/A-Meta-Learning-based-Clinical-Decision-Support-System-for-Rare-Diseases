@@ -187,7 +187,7 @@
                 </div>
                 <div class="col-md-6">
                     <p class="mb-1"><strong>临床笔记：</strong>${escapeHtml(report.clinical_notes || '无')}</p>
-                    ${report.lesion_area_ratio != null ? `<p class="mb-1"><strong>病灶面积占比：</strong>${(report.lesion_area_ratio * 100).toFixed(1)}%</p>` : ''}
+                    ${report.lesion_area_ratio != null ? `<p class="mb-1"><strong>支持主要结论的切片占比：</strong>${(report.lesion_area_ratio * 100).toFixed(1)}%</p>` : ''}
                     ${report.distribution_range ? `<p class="mb-0"><strong>分布范围：</strong>${escapeHtml(report.distribution_range)}</p>` : ''}
                 </div>
             </div>

@@ -128,22 +128,19 @@ def _conclusion_box(st, conclusion_text):
     return t
 
 
-def _prediction_table(st, predictions, n_slices):
-    header = [Paragraph('类别', st['cell_b']),
-              Paragraph('切片平均置信度', st['cell_b']),
-              Paragraph('置信度分布', st['cell_b'])]
+def _differential_table(st, differentials):
+    """鉴别诊断参考表：候选亚型 + 鉴别要点"""
+    header = [Paragraph('候选亚型', st['cell_b']),
+              Paragraph('鉴别要点', st['cell_b'])]
     rows = [header]
-    for p in predictions:
-        name = p.get('disease_name', '')
-        conf = float(p.get('confidence', 0))
-        rows.append([Paragraph(name, st['cell']),
-                     Paragraph(f'{conf * 100:.2f}%', st['cell']),
-                     ConfidenceBar(conf)])
-    t = Table(rows, colWidths=[62 * mm, 34 * mm, 81 * mm])
+    for d in differentials:
+        name = d.get('name', '') if isinstance(d, dict) else str(d)
+        note = d.get('note', '') if isinstance(d, dict) else ''
+        rows.append([Paragraph(name, st['cell']), Paragraph(note or '需结合临床资料进一步鉴别', st['cell'])])
+    t = Table(rows, colWidths=[58 * mm, 119 * mm])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), HEADER_BG),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (1, 1), (1, -1), 'CENTER'),
         ('GRID', (0, 0), (-1, -1), 0.5, BORDER),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
@@ -154,12 +151,12 @@ def _prediction_table(st, predictions, n_slices):
     return t
 
 
-def _slice_stat_table(st, n_slices, impaired_ratio, distribution):
+def _slice_stat_table(st, n_slices, support_ratio, distribution):
     rows = [
-        [Paragraph('参与诊断的切片数', st['cell']), Paragraph(str(n_slices), st['cell_b'])],
-        [Paragraph('严重受损类切片占比', st['cell']),
-         Paragraph(f'{impaired_ratio * 100:.1f}%', st['cell_b'])],
-        [Paragraph('切片投票一致性', st['cell']), Paragraph(distribution or '--', st['cell'])],
+        [Paragraph('参与判读的切片数', st['cell']), Paragraph(str(n_slices), st['cell_b'])],
+        [Paragraph('支持主要结论的切片占比', st['cell']),
+         Paragraph(f'{support_ratio * 100:.1f}%', st['cell_b'])],
+        [Paragraph('切片判读一致性', st['cell']), Paragraph(distribution or '--', st['cell'])],
     ]
     t = Table(rows, colWidths=[62 * mm, 115 * mm])
     t.setStyle(TableStyle([
@@ -174,10 +171,39 @@ def _slice_stat_table(st, n_slices, impaired_ratio, distribution):
     return t
 
 
+def _bullet_flowables(st, items):
+    """有序列表 Flowable 列表"""
+    flow = []
+    for i, item in enumerate(items, 1):
+        flow.append(Paragraph(f'{i}. {item}', ParagraphStyle(
+            'bullet', fontName=BODY_FONT, fontSize=10, leading=16,
+            textColor=colors.HexColor('#374151'), spaceAfter=2)))
+    return flow
+
+
+def _imaging_blocks_flowables(st, blocks):
+    """影像所见结构化块（标题 + 列表）"""
+    flow = []
+    for block in blocks:
+        title = block.get('title', '')
+        items = block.get('items', [])
+        if title:
+            flow.append(Paragraph(title, ParagraphStyle(
+                'ib', fontName=BOLD_FONT, fontSize=10.5, leading=15,
+                textColor=PRIMARY_DARK, spaceBefore=4, spaceAfter=2)))
+        for item in items:
+            flow.append(Paragraph(f'· {item}', ParagraphStyle(
+                'ib_item', fontName=BODY_FONT, fontSize=10, leading=15,
+                textColor=colors.HexColor('#374151'), leftIndent=4 * mm, spaceAfter=1)))
+    return flow
+
+
 def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
     """根据诊断结果数据生成 A4 报告 PDF，返回字节流。
-    data 字段: patient_id, predictions, lesion_area_ratio, distribution_range,
-              imaging_findings, suggestions, heatmap_url, time_cost, model_version
+    data 字段: patient_id, predictions, primary_diagnosis, icd_code, differentials,
+              conclusion_text, imaging_blocks, suggestions_list, imaging_findings,
+              suggestions, lesion_area_ratio, distribution_range, heatmap_url,
+              time_cost, model_version, n_slices
     """
     st = _styles()
     buf = BytesIO()
@@ -200,7 +226,7 @@ def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
         canvas.rect(0, A4[1] - 8 * mm, A4[0], 8 * mm, stroke=0, fill=1)
         canvas.setFillColor(colors.white)
         canvas.setFont(HEAD_FONT, 11)
-        canvas.drawString(18 * mm, A4[1] - 5.6 * mm, '肺影智诊 · 罕见病临床决策支持系统')
+        canvas.drawString(18 * mm, A4[1] - 5.6 * mm, '肺影智诊 · 肺纤维化临床决策支持系统')
         # 底部页脚
         canvas.setFillColor(GRAY)
         canvas.setFont(BODY_FONT, 8)
@@ -219,7 +245,7 @@ def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
     # 标题区
     story.append(Paragraph('AI 辅助诊断报告', st['title']))
     story.append(Spacer(1, 2 * mm))
-    story.append(Paragraph('IPF 预后分型 · 基于 MAML 元迁移学习的 CT 影像小样本分类', st['subtitle']))
+    story.append(Paragraph('肺纤维化分型辅助识别 · 基于 MAML 元迁移学习的 CT 影像小样本分类', st['subtitle']))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(f'报告编号：{report_no}　|　生成时间：{now.strftime("%Y-%m-%d %H:%M")}', st['subtitle']))
     story.append(Spacer(1, 5 * mm))
@@ -230,27 +256,46 @@ def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
         ('患者ID', patient_id or '--'),
         ('患者姓名', patient_name or '--'),
         ('检查类型', '胸部 CT 影像（DICOM 序列）'),
-        ('诊断模型', f'MAML 元迁移学习（ResNet-18 骨干，2-way 2-shot）'),
+        ('诊断模型', 'MAML 元迁移学习（ResNet-18 骨干，肺纤维化分型辅助识别）'),
         ('模型版本', model_version),
         ('诊断耗时', f"{data.get('time_cost', '--')} 秒"),
     ]))
 
-    # 诊断结论
-    story.append(Paragraph('二、诊断结论（患者级多数投票）', st['h2']))
+    # AI 诊断结论（疑似亚型 + 综合置信度）
+    story.append(Paragraph('二、AI 诊断结论', st['h2']))
     preds = data.get('predictions') or []
     if preds:
         winner = max(preds, key=lambda p: p.get('confidence', 0))
-        conclusion = (f'综合 {data.get("n_slices", "--")} 张 CT 切片的患者级多数投票，'
-                      f'该患者被判定为「{winner.get("disease_name", "")}」，'
-                      f'模型置信度约 {float(winner.get("confidence", 0)) * 100:.1f}%。')
+        conclusion = data.get('conclusion_text') or (
+            f'综合 {data.get("n_slices", "--")} 张CT切片的AI判读结果，'
+            f'该患者疑似「{winner.get("disease_name", "")}」，'
+            f'模型综合置信度约 {float(winner.get("confidence", 0)) * 100:.1f}%。'
+            f'建议结合临床表现、HRCT影像特征及肺功能检查进一步确认。')
         story.append(_conclusion_box(st, conclusion))
+        conf = float(winner.get('confidence', 0))
+        story.append(Spacer(1, 2 * mm))
+        cb = ConfidenceBar(conf, width=120 * mm, height=6 * mm)
+        cb.hAlign = 'LEFT'
+        story.append(cb)
+        story.append(Spacer(1, 1 * mm))
+        story.append(Paragraph(f'综合置信度：{conf * 100:.1f}%', st['meta']))
 
-    # 分类置信度
-    story.append(Paragraph('三、分类置信度', st['h2']))
-    story.append(_prediction_table(st, preds, data.get('n_slices')))
+    # 鉴别诊断参考
+    diffs = data.get('differentials') or []
+    if diffs:
+        story.append(Paragraph('三、鉴别诊断参考', st['h2']))
+        story.append(_differential_table(st, diffs))
+
+    # 影像所见（AI判读）
+    story.append(Paragraph('四、影像所见（AI判读）', st['h2']))
+    blocks = data.get('imaging_blocks') or []
+    if blocks:
+        story.extend(_imaging_blocks_flowables(st, blocks))
+    else:
+        story.append(Paragraph(data.get('imaging_findings') or '--', st['body']))
 
     # 切片级统计
-    story.append(Paragraph('四、切片级统计', st['h2']))
+    story.append(Paragraph('五、切片级统计', st['h2']))
     story.append(_slice_stat_table(
         st,
         data.get('n_slices', '--'),
@@ -258,13 +303,13 @@ def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
         data.get('distribution_range') or '--'
     ))
 
-    # 影像所见
-    story.append(Paragraph('五、影像所见', st['h2']))
-    story.append(Paragraph(data.get('imaging_findings') or '--', st['body']))
-
     # 检查建议
     story.append(Paragraph('六、检查建议', st['h2']))
-    story.append(Paragraph(data.get('suggestions') or '--', st['body']))
+    sugg_list = data.get('suggestions_list') or []
+    if sugg_list:
+        story.extend(_bullet_flowables(st, sugg_list))
+    else:
+        story.append(Paragraph(data.get('suggestions') or '--', st['body']))
 
     # Grad-CAM 热力图
     heatmap_url = data.get('heatmap_url') or ''
@@ -278,18 +323,21 @@ def build_diagnosis_report_pdf(data, doctor_name='', patient_name='') -> bytes:
             story.append(img)
             story.append(Spacer(1, 2 * mm))
             story.append(Paragraph(
-                '图：模型重点关注区域的 Grad-CAM 可视化（红色区域表示对分类决策贡献较大的像素）。',
+                '图：Grad-CAM 热力图半透明叠加于原始 CT 切片之上，'
+                '高亮区域表示对AI判读结果贡献较大的肺实质区域。',
                 ParagraphStyle('cap', fontName=BODY_FONT, fontSize=8.5, leading=12,
                                textColor=GRAY, alignment=TA_CENTER)))
 
     # 附注
     story.append(Paragraph('八、附注', st['h2']))
     notes = [
-        '1. 分类标签定义：类0 为相对稳定组（Percent≥90），类1 为严重受损组（Percent≤65），'
-        '依据公开 OSIC 肺纤维化数据集的 FVC 百分比指标划分。',
-        '2. 模型方法：MAML 元迁移学习，ResNet-18 骨干网络（ImageNet 预训练），'
-        '2-way 2-shot 患者级任务构造，5 折患者级分层交叉验证；诊断结论由切片级预测经患者级多数投票得到。',
-        '3. 本报告由 AI 模型自动生成，仅供临床参考，不构成最终诊断意见；'
+        '1. 本报告由 AI 模型基于肺纤维化 CT 影像自动生成，诊断结论经切片级判读与一致性汇总得到，'
+        '仅供临床参考。',
+        '2. 模型方法：MAML 元迁移学习（ResNet-18 骨干网络），面向小样本CT影像场景的'
+        '肺纤维化分型辅助识别。',
+        '3. 鉴别诊断类型为临床复核提示，不构成概率排序；最终诊断需由执业医师结合'
+        '临床表现、肺功能检查及其他影像资料综合确认。',
+        '4. 本报告不构成最终诊断意见，'
         '请执业医师结合患者临床表现、肺功能检查及其他影像资料综合判读。',
     ]
     for n in notes:
@@ -320,16 +368,35 @@ if __name__ == '__main__':
     sample = {
         'patient_id': '6',
         'predictions': [
-            {'disease_name': '相对稳定组 (Percent≥90)', 'confidence': 0.9424},
-            {'disease_name': '严重受损组 (Percent≤65)', 'confidence': 0.0576},
+            {'disease_name': '特发性肺纤维化（IPF）', 'confidence': 0.9424},
+        ],
+        'primary_diagnosis': '特发性肺纤维化（IPF）',
+        'icd_code': 'J84.1',
+        'differentials': [
+            {'name': '非特异性间质性肺炎（NSIP）', 'note': '常伴较广泛的磨玻璃影，需结合HRCT分布鉴别'},
+            {'name': '慢性过敏性肺炎（HP）', 'note': '与吸入性抗原暴露相关，需追问暴露史'},
+            {'name': '结缔组织病相关ILD（CTD-ILD）', 'note': '需结合自身抗体及系统表现筛查'},
+        ],
+        'conclusion_text': '综合 28 张CT切片的AI判读结果，该患者疑似「特发性肺纤维化（IPF）」，模型综合置信度约 94.2%。建议结合临床表现、HRCT影像特征及肺功能检查进一步确认。',
+        'imaging_blocks': [
+            {'title': 'AI判读基础', 'items': ['参与判读的CT切片：28 张', '支持主要结论的切片占比：100.0%', '切片判读一致性：28/28']},
+            {'title': '建议重点评估的影像特征', 'items': ['双肺底及胸膜下分布为主的网格影', '牵拉性支气管扩张', '蜂窝影（中晚期常见）', '磨玻璃影通常少见且范围局限']},
+            {'title': '影像判读提示', 'items': ['切片判读结果总体一致，未见明显快速进展征象，建议按常规随访管理。']},
+        ],
+        'suggestions_list': [
+            '建议完善肺功能检查（FVC%、DLCO）评估功能受损程度',
+            '建议高分辨率CT（HRCT）复查，进一步明确影像分型',
+            '结合临床与影像资料，必要时行多学科（呼吸/影像/病理）讨论',
+            '如确诊IPF，建议规律随访并动态监测肺功能与影像变化。',
         ],
         'n_slices': 28,
         'lesion_area_ratio': 0.0,
-        'distribution_range': '28/28 张切片支持该结论',
-        'imaging_findings': '基于 28 张CT切片的患者级多数投票，模型判定为「相对稳定组 (Percent≥90)」，提示肺功能相对稳定表型可能性较高。',
-        'suggestions': '建议维持常规随访，定期复查肺功能与CT影像，监测FVC变化趋势。',
+        'distribution_range': '28/28 张切片判读一致',
+        'imaging_findings': '【AI判读基础】\n- 参与判读的CT切片：28 张\n- 支持主要结论的切片占比：100.0%',
+        'suggestions': '建议完善肺功能检查（FVC%、DLCO）评估功能受损程度。',
         'heatmap_url': '/static/gradcam/heatmap_6.png',
-        'time_cost': 32,
+        'time_cost': 38.5,
+        'model_version': 'best_maml_fold1.pth',
     }
     out = 'tmp_sample_report.pdf'
     os.makedirs('tmp', exist_ok=True)
