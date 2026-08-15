@@ -175,14 +175,16 @@ class Database:
         )
 
     def add_diagnosis_report(self, patient_id, doctor_id, clinical_notes, conclusion,
-                             lesion_area_ratio=None, distribution_range=None):
+                             lesion_area_ratio=None, distribution_range=None,
+                             suggestions=None, differentials=None, conclusion_text=None):
         """添加诊断报告，同时保存量化指标（conclusion 写入 findings 列）"""
         return self.execute_insert(
-            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, findings, 
-               lesion_area_ratio, distribution_range, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO diagnosis_reports (patient_id, doctor_id, clinical_notes, findings,
+               lesion_area_ratio, distribution_range, suggestions, differentials, conclusion, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (patient_id, doctor_id, clinical_notes, conclusion,
-             lesion_area_ratio, distribution_range, datetime.datetime.now())
+             lesion_area_ratio, distribution_range,
+             suggestions, differentials, conclusion_text, datetime.datetime.now())
         )
 
     def get_patient_trend_data(self, patient_id):

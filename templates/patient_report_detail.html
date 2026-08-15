@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报告详情 - 肺影智诊系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #165DFF; --primary-dark: #0E42D2; --secondary: #4E5969;
+            --border-color: #E5E6EB; --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+        body { font-family: 'Microsoft YaHei', sans-serif; color: #1D2129; background-color: #F7F8FA; margin: 0; padding: 0; }
+        .main-header { height: 70px; background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%); box-shadow: 0 4px 18px rgba(22, 93, 255, 0.25); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .header-container { display: flex; align-items: center; justify-content: space-between; height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo i { font-size: 24px; color: #fff; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #fff; }
+        .main-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 10px; padding: 3px; }
+        .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: rgba(255,255,255,0.92); text-decoration: none; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,0.15); }
+        .nav-link.active { background-color: #fff; color: var(--primary); font-weight: 600; }
+        .user-info { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #fff, #dbe8ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.6); }
+        .user-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .main-container { display: flex; margin-top: 70px; min-height: calc(100vh - 70px); }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border-color); padding: 20px 0; height: calc(100vh - 70px); position: fixed; overflow-y: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu-title { padding: 0 20px 8px; font-size: 12px; color: #86909C; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-menu-item { margin-bottom: 2px; }
+        .sidebar-menu-link { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--secondary); text-decoration: none; transition: all 0.2s; }
+        .sidebar-menu-link:hover { color: var(--primary); background-color: rgba(22,93,255,0.05); }
+        .sidebar-menu-link.active { color: var(--primary); background-color: rgba(22,93,255,0.08); border-right: 3px solid var(--primary); }
+
+        .content { margin-left: 220px; padding: 24px; width: 100%; }
+        .report-wrap { max-width: 900px; margin: 0 auto; }
+        .report-card { background: #fff; border-radius: 14px; box-shadow: var(--shadow); padding: 28px 32px; margin-bottom: 18px; }
+        .report-title { text-align: center; font-size: 22px; font-weight: 700; color: #0B2545; }
+        .report-sub { text-align: center; color: #86909C; font-size: 13px; margin-bottom: 14px; }
+        .section-title { font-size: 15px; font-weight: 700; color: var(--primary-dark); border-left: 4px solid var(--primary); padding-left: 10px; margin: 20px 0 12px; }
+        .meta-table td { padding: 7px 10px; font-size: 13px; border-bottom: 1px solid #F2F3F5; }
+        .meta-table td:first-child { color: #86909C; width: 140px; }
+        .conclusion-box { background: #EAF1FF; border: 1px solid #165DFF; border-radius: 10px; padding: 14px 16px; color: #0B3D91; font-weight: 600; }
+        .findings-block { margin-bottom: 10px; }
+        .findings-block .fb-title { font-weight: 600; font-size: 13px; color: #1D2129; margin-bottom: 4px; }
+        .findings-block ul { padding-left: 20px; margin: 0; font-size: 13px; color: #374151; }
+        .stat-row { display: flex; gap: 14px; flex-wrap: wrap; }
+        .stat-box { flex: 1; min-width: 150px; background: #F7F8FA; border-radius: 10px; padding: 12px; text-align: center; }
+        .stat-box .num { font-size: 20px; font-weight: 700; color: #1D2129; }
+        .stat-box .lbl { font-size: 12px; color: #86909C; }
+        .heatmap-img { max-width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        .img-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 8px; }
+        .img-item i { font-size: 22px; color: #165DFF; }
+        .img-item .fn { font-size: 13px; word-break: break-all; }
+        .img-item .mt { font-size: 12px; color: #86909C; }
+        .print-only { display: none; }
+        @media print {
+            body { background: #fff !important; }
+            .no-print, .main-header, .sidebar, .btn { display: none !important; }
+            .print-only { display: block !important; }
+            .content { margin-left: 0 !important; padding: 0 !important; }
+            .report-card { box-shadow: none !important; border: 1px solid #D9D9D9; break-inside: avoid; padding: 18px 20px; }
+            @page { margin: 14mm; }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('patient_dashboard') }}" class="logo"><i class="bi bi-clipboard2-pulse-fill"></i><span class="logo-text">肺影智诊系统</span></a>
+            <nav class="main-nav">
+                <a href="{{ url_for('patient_dashboard') }}" class="nav-link"><i class="bi bi-house"></i> 患者首页</a>
+                <a href="{{ url_for('my_reports') }}" class="nav-link active"><i class="bi bi-file-medical"></i> 我的报告</a>
+                <a href="{{ url_for('patient_profile') }}" class="nav-link"><i class="bi bi-person-heart"></i> 健康档案</a>
+                <a href="{{ url_for('patient_chat') }}" class="nav-link"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            </nav>
+            <a href="{{ url_for('profile') }}" class="user-info">
+                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '患' }}</div>
+                <div class="user-name">{{ current_user.full_name or '患者' }}</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_dashboard') }}" class="sidebar-menu-link"><i class="bi bi-speedometer2"></i><span>首页</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_profile') }}" class="sidebar-menu-link"><i class="bi bi-person-heart"></i><span>健康档案</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link active"><i class="bi bi-file-medical"></i><span>我的报告</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_trend') }}" class="sidebar-menu-link"><i class="bi bi-graph-up"></i><span>病灶趋势</span></a></li>
+                <li class="sidebar-menu-title">就诊服务</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_appointment') }}" class="sidebar-menu-link"><i class="bi bi-calendar-plus"></i><span>预约挂号</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+            </ul>
+        </aside>
+
+        <div class="content">
+            <div class="report-wrap">
+                <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                    <a href="{{ url_for('my_reports') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回列表</a>
+                    <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> 打印报告</button>
+                </div>
+
+                <div class="report-card">
+                    <div class="report-title">AI 辅助诊断报告</div>
+                    <div class="report-sub">肺纤维化分型辅助识别 · 基于 MAML 元迁移学习的 CT 影像小样本分类</div>
+                    <div class="report-sub">报告编号：PF-{{ report.patient_id }}-{{ report.report_id }}　|　生成时间：{{ report.created_at or '—' }}</div>
+                    <hr>
+
+                    <div class="section-title">一、报告信息</div>
+                    <table class="meta-table w-100">
+                        <tr><td>患者姓名</td><td>{{ patient.name }}</td><td>患者ID</td><td>PT{{ patient.patient_id }}</td></tr>
+                        <tr><td>诊断医生</td><td>{{ report.doctor_name or '—' }}</td><td>报告状态</td>
+                            <td>
+                                {% if report.status == 'reviewed' %}<span class="badge bg-info">已审核</span>
+                                {% elif report.status == 'completed' %}<span class="badge bg-success">已完成</span>
+                                {% else %}<span class="badge bg-warning text-dark">待复核</span>{% endif %}
+                            </td></tr>
+                        <tr><td>检查类型</td><td>胸部 CT 影像（DICOM 序列）</td><td>复核时间</td><td>{{ report.reviewed_at or '—' }}</td></tr>
+                    </table>
+
+                    <div class="section-title">二、AI 诊断结论</div>
+                    {% if report.conclusion %}
+                    <div class="conclusion-box">{{ report.conclusion }}</div>
+                    {% elif predictions %}
+                    <div class="conclusion-box">
+                        综合判读，该患者疑似「{{ predictions[0].disease_name }}」，模型综合置信度约 {{ '%.1f'|format(predictions[0].confidence * 100) }}%。
+                    </div>
+                    {% else %}
+                    <div class="conclusion-box">暂无 AI 诊断结论。</div>
+                    {% endif %}
+
+                    {% if predictions %}
+                    <div class="section-title">三、疑似亚型与置信度</div>
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light"><tr><th>疑似亚型</th><th style="width:140px">综合置信度</th><th style="width:220px">置信度分布</th></tr></thead>
+                        <tbody>
+                        {% for p in predictions %}
+                        <tr>
+                            <td>{{ p.disease_name }}</td>
+                            <td>{{ '%.1f'|format(p.confidence * 100) }}%</td>
+                            <td>
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar" style="width: {{ p.confidence * 100 }}%; background:#165DFF;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+
+                    {% if differentials %}
+                    <div class="section-title">四、鉴别诊断参考</div>
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light"><tr><th>候选亚型</th><th>鉴别要点</th></tr></thead>
+                        <tbody>
+                        {% for d in differentials %}
+                        <tr><td>{{ d.name if d.name else d }}</td><td class="text-muted">{{ d.note if d.note else '需结合临床资料进一步鉴别' }}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+
+                    {% if findings_blocks %}
+                    <div class="section-title">{{ '五' if differentials else '四' }}、影像所见（AI 判读）</div>
+                    {% for block in findings_blocks %}
+                    <div class="findings-block">
+                        <div class="fb-title">{{ block.title }}</div>
+                        <ul>
+                            {% for item in block.lines %}
+                            <li>{{ item }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <div class="section-title">切片级统计</div>
+                    <div class="stat-row">
+                        <div class="stat-box"><div class="num">{{ report.lesion_area_ratio * 100 if report.lesion_area_ratio is not none else '--' }}{% if report.lesion_area_ratio is not none %}%{% endif %}</div><div class="lbl">支持主要结论切片占比</div></div>
+                        <div class="stat-box"><div class="num">{{ report.distribution_range or '--' }}</div><div class="lbl">切片判读一致性</div></div>
+                        <div class="stat-box"><div class="num">{{ predictions|length }}</div><div class="lbl">AI 预测条目</div></div>
+                    </div>
+
+                    {% if suggestions %}
+                    <div class="section-title">检查建议</div>
+                    <ol class="mb-0">
+                        {% for s in suggestions %}
+                        <li style="font-size:13px; color:#374151;">{{ s }}</li>
+                        {% endfor %}
+                    </ol>
+                    {% endif %}
+
+                    {% if heatmap_url %}
+                    <div class="section-title">Grad-CAM 注意力热力图</div>
+                    <img src="{{ heatmap_url }}" class="heatmap-img" alt="Grad-CAM热力图">
+                    <div class="text-muted small mt-2"><i class="bi bi-info-circle"></i> 高亮区域表示对 AI 判读结果贡献较大的肺实质区域。</div>
+                    {% endif %}
+
+                    {% if images %}
+                    <div class="section-title">检查影像（{{ images|length }} 张）</div>
+                    {% for img in images %}
+                    <div class="img-item">
+                        <i class="bi {% if img.image_type and img.image_type|lower == 'ct' %}bi-lungs{% else %}bi-file-earmark-medical{% endif %}"></i>
+                        <div class="flex-grow-1">
+                            <div class="fn">{{ img.image_path }}</div>
+                            <div class="mt">{{ img.image_type or '影像' }} · {{ img.upload_date or '—' }}{% if img.description %} · {{ img.description }}{% endif %}</div>
+                        </div>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('uploaded_file', filename=img.image_path) }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> 查看</a>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <div class="section-title">医生复核</div>
+                    <table class="meta-table w-100">
+                        <tr><td>复核状态</td><td>
+                            {% if report.status == 'reviewed' %}已审核
+                            {% elif report.status == 'completed' %}已完成
+                            {% else %}待复核{% endif %}
+                        </td></tr>
+                        <tr><td>最终诊断结论</td><td>{{ report.findings or '—' }}</td></tr>
+                    </table>
+
+                    <div class="text-muted small mt-4 border-top pt-3">
+                        <i class="bi bi-shield-check"></i> 本报告由 AI 模型基于肺纤维化 CT 影像自动生成，仅供临床参考，不构成最终诊断意见；请以执业医师的最终诊断结论为准。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -4,6 +4,7 @@ import os
 import uuid
 import io
 import re
+import json
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
@@ -188,18 +189,108 @@ def my_reports():
     db = Database()
     if not db.connect():
         flash('数据库连接失败', 'danger')
-        return render_template('my_reports.html', reports=[])
+        return render_template('my_reports.html', reports=[],
+                               stats={'total': 0, 'pending': 0, 'completed': 0, 'reviewed': 0})
     
     patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
     if not patient_data:
         db.disconnect()
         flash('未找到关联的患者信息', 'danger')
-        return render_template('my_reports.html', reports=[])
+        return render_template('my_reports.html', reports=[],
+                               stats={'total': 0, 'pending': 0, 'completed': 0, 'reviewed': 0})
     
     patient_id = patient_data[0]['patient_id']
-    reports = db.get_diagnosis_reports(patient_id)
+    reports = db.get_diagnosis_reports(patient_id) or []
+    for r in reports:
+        r['predictions'] = db.get_disease_predictions(r['report_id']) or []
+        for f in ('created_at', 'reviewed_at'):
+            if hasattr(r.get(f), 'strftime'):
+                r[f] = r[f].strftime('%Y-%m-%d %H:%M')
+        if isinstance(r.get('lesion_area_ratio'), Decimal):
+            r['lesion_area_ratio'] = float(r['lesion_area_ratio'])
+    stats = {
+        'total': len(reports),
+        'pending': sum(1 for r in reports if r.get('status') == 'pending'),
+        'completed': sum(1 for r in reports if r.get('status') == 'completed'),
+        'reviewed': sum(1 for r in reports if r.get('status') == 'reviewed'),
+    }
     db.disconnect()
-    return render_template('my_reports.html', reports=reports)
+    return render_template('my_reports.html', reports=reports, stats=stats)
+
+
+def _parse_findings_blocks(text):
+    """把影像所见文本解析为结构化块（【标题】 + 条目）"""
+    blocks = []
+    cur = None
+    for line in (text or '').splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith('【') and '】' in line:
+            cur = {'title': line.strip('【】'), 'lines': []}
+            blocks.append(cur)
+        elif cur is not None:
+            cur['lines'].append(line.lstrip('- '))
+    return blocks
+
+
+# 患者报告详情（规范报告）
+@app.route('/patient/report/<int:report_id>')
+@login_required
+def patient_report_detail(report_id):
+    if current_user.user_type != 'patient':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return redirect(url_for('my_reports'))
+    patient_data = db.execute_query("SELECT * FROM patients WHERE user_id=%s", (current_user.id,))
+    if not patient_data:
+        db.disconnect()
+        flash('未找到患者信息', 'danger')
+        return redirect(url_for('my_reports'))
+    patient = patient_data[0]
+    report_rows = db.get_report_by_id(report_id) or []
+    if not report_rows or report_rows[0]['patient_id'] != patient['patient_id']:
+        db.disconnect()
+        flash('报告不存在或无权查看', 'danger')
+        return redirect(url_for('my_reports'))
+    report = report_rows[0]
+    predictions = db.get_disease_predictions(report_id) or []
+    images = db.get_medical_images(patient['patient_id']) or []
+    db.disconnect()
+
+    for f in ('created_at', 'reviewed_at'):
+        if hasattr(report.get(f), 'strftime'):
+            report[f] = report[f].strftime('%Y-%m-%d %H:%M')
+    if isinstance(report.get('lesion_area_ratio'), Decimal):
+        report['lesion_area_ratio'] = float(report['lesion_area_ratio'])
+    for p in predictions:
+        p['confidence'] = float(p.get('confidence') or 0)
+    for img in images:
+        if hasattr(img.get('upload_date'), 'strftime'):
+            img['upload_date'] = img['upload_date'].strftime('%Y-%m-%d')
+
+    findings_blocks = _parse_findings_blocks(report.get('findings'))
+    suggestions = [s for s in (report.get('suggestions') or '').splitlines() if s.strip()]
+    differentials = []
+    try:
+        diffs = json.loads(report.get('differentials') or '[]')
+        if isinstance(diffs, list):
+            differentials = diffs
+    except Exception:
+        differentials = []
+
+    heatmap_url = None
+    hp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      'static', 'gradcam', f'heatmap_{patient["patient_id"]}.png')
+    if os.path.exists(hp):
+        heatmap_url = f'/static/gradcam/heatmap_{patient["patient_id"]}.png'
+
+    return render_template('patient_report_detail.html', report=report, predictions=predictions,
+                           images=images, findings_blocks=findings_blocks, suggestions=suggestions,
+                           differentials=differentials, heatmap_url=heatmap_url, patient=patient)
 
 # 退出登录
 @app.route('/logout')
@@ -527,12 +618,14 @@ def diagnose():
         distribution_range = result['distribution_range']
         findings = result['imaging_findings']
         suggestions = result['suggestions']
+        diagnosis_view = result.get('diagnosis_view') or {}
     else:
         predictions = result
         lesion_area_ratio = 0.0
         distribution_range = ''
         findings = ''
         suggestions = ''
+        diagnosis_view = {}
     
     db = Database()
     if not db.connect():
@@ -542,7 +635,10 @@ def diagnose():
     report_id = db.add_diagnosis_report(
         patient_id, doctor_id, clinical_notes, findings or "AI辅助诊断结果",
         lesion_area_ratio=lesion_area_ratio,
-        distribution_range=distribution_range
+        distribution_range=distribution_range,
+        suggestions='\n'.join(diagnosis_view.get('suggestions') or []),
+        differentials=json.dumps(diagnosis_view.get('differentials') or [], ensure_ascii=False),
+        conclusion_text=diagnosis_view.get('conclusion_text')
     )
     
     if report_id:
@@ -1830,7 +1926,10 @@ def api_ai_diagnose():
                     patient_id, current_user.id, '',
                     findings or 'AI辅助诊断结果',
                     lesion_area_ratio=lesion_ratio,
-                    distribution_range=distribution)
+                    distribution_range=distribution,
+                    suggestions='\n'.join(diagnosis_view.get('suggestions') or []),
+                    differentials=json.dumps(diagnosis_view.get('differentials') or [], ensure_ascii=False),
+                    conclusion_text=diagnosis_view.get('conclusion_text'))
                 if report_id and predictions:
                     for pred in predictions:
                         rdb.add_disease_prediction(

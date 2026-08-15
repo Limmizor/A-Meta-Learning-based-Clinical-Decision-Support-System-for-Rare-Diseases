@@ -84,6 +84,17 @@ def run_migrations():
             cursor.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
             applied.append(f"patients.{col}")
 
+    # 4. diagnosis_reports 表补充：完整报告内容字段（幂等）
+    report_columns = [
+        ('suggestions', "TEXT NULL COMMENT '检查建议'"),
+        ('differentials', "TEXT NULL COMMENT '鉴别诊断参考(JSON)'"),
+        ('conclusion', "TEXT NULL COMMENT 'AI诊断结论文字'"),
+    ]
+    for col, ddl in report_columns:
+        if not column_exists(cursor, 'diagnosis_reports', col):
+            cursor.execute(f"ALTER TABLE diagnosis_reports ADD COLUMN {col} {ddl}")
+            applied.append(f"diagnosis_reports.{col}")
+
     if applied:
         conn.commit()
         print("已应用的迁移:", ", ".join(applied))

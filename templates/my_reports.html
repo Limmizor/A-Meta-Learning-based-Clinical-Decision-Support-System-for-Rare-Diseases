@@ -1,347 +1,222 @@
-{% extends "base.html" %}
-
-{% block title %}我的报告 - 肺影智诊系统{% endblock %}
-
-{% block content %}
-<div class="container-fluid px-4 py-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">
-            <i class="bi bi-file-medical me-2"></i>我的诊断报告
-        </h1>
-        <div>
-            <button class="btn btn-outline-primary btn-sm me-2" onclick="window.print()">
-                <i class="bi bi-printer"></i> 打印
-            </button>
-            <button class="btn btn-outline-success btn-sm" onclick="exportReports()">
-                <i class="bi bi-download"></i> 导出
-            </button>
-        </div>
-    </div>
-
-    <!-- 统计卡片（与个人信息界面风格一致） -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon primary me-3">
-                        <i class="bi bi-file-text"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value">{{ reports|length }}</div>
-                        <div class="stat-label">总报告数</div>
-                        <div class="stat-trend">历史累计</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon success me-3">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="completedCount">0</div>
-                        <div class="stat-label">已完成诊断</div>
-                        <div class="stat-trend">有效报告</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon warning me-3">
-                        <i class="bi bi-clock"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="pendingCount">0</div>
-                        <div class="stat-label">待审核</div>
-                        <div class="stat-trend">等待医生确认</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon info me-3">
-                        <i class="bi bi-calendar-week"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="recentCount">0</div>
-                        <div class="stat-label">近30天新增</div>
-                        <div class="stat-trend">近期动态</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 搜索和筛选栏 -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body py-3">
-            <div class="row g-3 align-items-center">
-                <div class="col-md-5">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索报告ID、医生或诊断结果...">
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="statusFilter">
-                        <option value="">全部状态</option>
-                        <option value="completed">已完成</option>
-                        <option value="reviewed">已审核</option>
-                        <option value="pending">待复核</option>
-                    </select>
-                </div>
-                <div class="col-md-4 text-md-end">
-                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="bi bi-arrow-clockwise"></i> 重置筛选
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 报告列表（卡片式或表格，与患者仪表板统一） -->
-    <div class="row g-4" id="reportContainer">
-        {% if reports %}
-            {% for report in reports %}
-            <div class="col-md-6 col-xl-4 report-card" data-status="{{ report.status or 'pending' }}" data-date="{{ report.created_at.strftime('%Y-%m-%d') if report.created_at else '' }}">
-                <div class="card h-100 shadow-sm border-0 hover-shadow">
-                    <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-start">
-                        <div>
-                            <h5 class="card-title mb-0">
-                                报告 #{{ report.report_id }}
-                                <span class="badge {% if report.status == 'completed' %}bg-success{% elif report.status == 'reviewed' %}bg-info{% elif report.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-2">
-                                    {% if report.status == 'completed' %}已完成
-                                    {% elif report.status == 'reviewed' %}已审核
-                                    {% elif report.status == 'pending' %}待复核
-                                    {% else %}未知{% endif %}
-                                </span>
-                            </h5>
-                            <div class="text-muted small mt-1">
-                                <i class="bi bi-calendar3 me-1"></i>{{ report.created_at.strftime('%Y-%m-%d %H:%M') if report.created_at else '未知' }}
-                            </div>
-                        </div>
-                        <i class="bi bi-file-earmark-text fs-3 text-primary opacity-50"></i>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-2"><strong>👨‍⚕️ 医生：</strong>{{ report.doctor_name }}</p>
-                        <p class="mb-2"><strong>📋 临床记录：</strong>{{ report.clinical_notes or '无' }}</p>
-                        <p class="mb-2"><strong>📝 诊断结果：</strong>{{ report.findings or '待诊断' }}</p>
-                        {% if report.lesion_area_ratio %}
-                        <p class="mb-2"><strong>📊 支持主要结论的切片占比：</strong>{{ (report.lesion_area_ratio * 100)|round(1) }}%</p>
-                        {% endif %}
-                        {% if report.distribution_range %}
-                        <p class="mb-2"><strong>📍 分布范围：</strong>{{ report.distribution_range }}</p>
-                        {% endif %}
-                        {% if report.predictions %}
-                        <hr>
-                        <h6>疾病预测</h6>
-                        <ul class="list-group list-group-flush">
-                            {% for prediction in report.predictions %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                {{ prediction.disease_name }}
-                                <span class="badge bg-primary rounded-pill">{{ "%.1f"|format(prediction.confidence * 100) }}%</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-                    </div>
-                    <div class="card-footer bg-transparent border-0 pb-3">
-                        <button class="btn btn-sm btn-outline-primary" onclick="viewReportDetail({{ report.report_id }})">
-                            <i class="bi bi-eye"></i> 查看详情
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="printReport({{ report.report_id }})">
-                            <i class="bi bi-printer"></i> 打印
-                        </button>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12 text-center py-5">
-                <i class="bi bi-file-text display-1 text-muted"></i>
-                <h5 class="mt-3 text-muted">暂无诊断报告</h5>
-                <p class="text-muted">您目前还没有任何诊断报告。请等待医生为您创建诊断报告。</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- 报告详情模态框（可单独展示完整内容） -->
-<div class="modal fade" id="reportDetailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">报告详情</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="reportDetailContent">
-                <!-- 动态加载 -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                <button type="button" class="btn btn-primary" onclick="printModalReport()">打印</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .stat-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        flex-shrink: 0;
-    }
-    .stat-icon.primary {
-        background-color: rgba(22, 93, 255, 0.1);
-        color: #165DFF;
-    }
-    .stat-icon.success {
-        background-color: rgba(0, 180, 42, 0.1);
-        color: #00B42A;
-    }
-    .stat-icon.warning {
-        background-color: rgba(255, 125, 0, 0.1);
-        color: #FF7D00;
-    }
-    .stat-icon.info {
-        background-color: rgba(134, 144, 156, 0.1);
-        color: #4E5969;
-    }
-    .stat-value {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-    .stat-label {
-        font-size: 14px;
-        color: #4E5969;
-        margin-bottom: 5px;
-    }
-    .stat-trend {
-        font-size: 12px;
-        color: #86909C;
-    }
-    .hover-shadow {
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .hover-shadow:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
-    }
-    .list-group-flush {
-        font-size: 0.9rem;
-    }
-</style>
-
-<script>
-    // 更新统计卡片
-    function updateStats() {
-        const cards = document.querySelectorAll('.report-card');
-        let total = cards.length;
-        let completed = 0, pending = 0, recent = 0;
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        cards.forEach(card => {
-            const status = card.getAttribute('data-status');
-            if (status === 'completed' || status === 'reviewed') completed++;
-            else if (status === 'pending') pending++;
-            const dateStr = card.getAttribute('data-date');
-            if (dateStr && new Date(dateStr) >= thirtyDaysAgo) recent++;
-        });
-        document.getElementById('completedCount').innerText = completed;
-        document.getElementById('pendingCount').innerText = pending;
-        document.getElementById('recentCount').innerText = recent;
-    }
-
-    // 搜索和筛选
-    function filterReports() {
-        const keyword = document.getElementById('searchInput').value.toLowerCase();
-        const status = document.getElementById('statusFilter').value;
-        const cards = document.querySelectorAll('.report-card');
-        cards.forEach(card => {
-            const text = card.innerText.toLowerCase();
-            const cardStatus = card.getAttribute('data-status');
-            let match = true;
-            if (keyword && !text.includes(keyword)) match = false;
-            if (status && cardStatus !== status) match = false;
-            card.style.display = match ? '' : 'none';
-        });
-    }
-    function clearFilters() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('statusFilter').value = '';
-        filterReports();
-    }
-    document.getElementById('searchInput').addEventListener('input', filterReports);
-    document.getElementById('statusFilter').addEventListener('change', filterReports);
-
-    // 导出报告（模拟）
-    function exportReports() {
-        alert('导出报告功能开发中，可导出PDF或CSV');
-    }
-
-    // 单个报告详情（调用后端API）
-    async function viewReportDetail(reportId) {
-        try {
-            const response = await fetch(`/api/report/${reportId}`);
-            const data = await response.json();
-            if (response.ok) {
-                displayReportDetail(data);
-                new bootstrap.Modal(document.getElementById('reportDetailModal')).show();
-            } else {
-                alert('获取报告详情失败');
-            }
-        } catch (err) {
-            alert('网络错误');
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的报告 - 肺影智诊系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #165DFF; --primary-dark: #0E42D2; --secondary: #4E5969;
+            --success: #00B42A; --warning: #FF7D00; --danger: #F53F3F;
+            --border-color: #E5E6EB; --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
         }
-    }
+        body { font-family: 'Microsoft YaHei', sans-serif; color: #1D2129; background-color: #F7F8FA; margin: 0; padding: 0; }
+        .main-header { height: 70px; background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%); box-shadow: 0 4px 18px rgba(22, 93, 255, 0.25); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .header-container { display: flex; align-items: center; justify-content: space-between; height: 100%; max-width: 1500px; margin: 0 auto; padding: 0 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo i { font-size: 24px; color: #fff; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #fff; }
+        .main-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 10px; padding: 3px; }
+        .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: rgba(255,255,255,0.92); text-decoration: none; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,0.15); }
+        .nav-link.active { background-color: #fff; color: var(--primary); font-weight: 600; }
+        .user-info { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #fff, #dbe8ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.6); }
+        .user-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .main-container { display: flex; margin-top: 70px; min-height: calc(100vh - 70px); }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border-color); padding: 20px 0; height: calc(100vh - 70px); position: fixed; overflow-y: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu-title { padding: 0 20px 8px; font-size: 12px; color: #86909C; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-menu-item { margin-bottom: 2px; }
+        .sidebar-menu-link { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--secondary); text-decoration: none; transition: all 0.2s; }
+        .sidebar-menu-link:hover { color: var(--primary); background-color: rgba(22,93,255,0.05); }
+        .sidebar-menu-link.active { color: var(--primary); background-color: rgba(22,93,255,0.08); border-right: 3px solid var(--primary); }
+        .content { margin-left: 220px; padding: 24px; width: 100%; }
 
-    function displayReportDetail(report) {
-        const container = document.getElementById('reportDetailContent');
-        container.innerHTML = `
-            <div class="mb-3">
-                <strong>报告ID：</strong> #${report.report_id}<br>
-                <strong>医生：</strong> ${report.doctor_name || '未知'}<br>
-                <strong>创建时间：</strong> ${new Date(report.created_at).toLocaleString()}<br>
-                <strong>诊断状态：</strong> ${report.findings ? '<span class="badge bg-success">已完成</span>' : '<span class="badge bg-warning">待审核</span>'}<br>
-                ${report.lesion_area_ratio ? `<strong>支持主要结论的切片占比：</strong> ${(report.lesion_area_ratio*100).toFixed(1)}%<br>` : ''}
-                ${report.distribution_range ? `<strong>分布范围：</strong> ${report.distribution_range}<br>` : ''}
+        .stat-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+        .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .stat-icon.primary { background: rgba(22,93,255,0.1); color: #165DFF; }
+        .stat-icon.success { background: rgba(0,180,42,0.1); color: #00B42A; }
+        .stat-icon.warning { background: rgba(255,125,0,0.1); color: #FF7D00; }
+        .stat-icon.info    { background: rgba(134,144,156,0.1); color: #4E5969; }
+        .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
+        .stat-label { font-size: 13px; color: #86909C; }
+
+        .toolbar { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .view-toggle { display: flex; background: #F2F3F5; border-radius: 8px; padding: 3px; }
+        .view-toggle button { border: none; background: transparent; padding: 5px 12px; border-radius: 6px; color: #4E5969; }
+        .view-toggle button.active { background: #fff; color: #165DFF; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+        .report-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+        .report-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+        .primary-dx { font-weight: 700; font-size: 15px; }
+        .muted { color: #86909C; font-size: 12px; }
+        .empty-box { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 50px 20px; text-align: center; }
+        .empty-box i { font-size: 56px; color: #C9CDD4; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('patient_dashboard') }}" class="logo"><i class="bi bi-clipboard2-pulse-fill"></i><span class="logo-text">肺影智诊系统</span></a>
+            <nav class="main-nav">
+                <a href="{{ url_for('patient_dashboard') }}" class="nav-link"><i class="bi bi-house"></i> 患者首页</a>
+                <a href="{{ url_for('my_reports') }}" class="nav-link active"><i class="bi bi-file-medical"></i> 我的报告</a>
+                <a href="{{ url_for('patient_profile') }}" class="nav-link"><i class="bi bi-person-heart"></i> 健康档案</a>
+                <a href="{{ url_for('patient_appointment') }}" class="nav-link"><i class="bi bi-calendar-plus"></i> 预约挂号</a>
+                <a href="{{ url_for('patient_chat') }}" class="nav-link"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            </nav>
+            <a href="{{ url_for('profile') }}" class="user-info">
+                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '患' }}</div>
+                <div class="user-name">{{ current_user.full_name or '患者' }}</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_dashboard') }}" class="sidebar-menu-link"><i class="bi bi-speedometer2"></i><span>首页</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_profile') }}" class="sidebar-menu-link"><i class="bi bi-person-heart"></i><span>健康档案</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link active"><i class="bi bi-file-medical"></i><span>我的报告</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_trend') }}" class="sidebar-menu-link"><i class="bi bi-graph-up"></i><span>病灶趋势</span></a></li>
+                <li class="sidebar-menu-title">就诊服务</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_appointment') }}" class="sidebar-menu-link"><i class="bi bi-calendar-plus"></i><span>预约挂号</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
+                <li class="sidebar-menu-title">健康管理</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_health_log') }}" class="sidebar-menu-link"><i class="bi bi-journal-medical"></i><span>健康日志</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_followup') }}" class="sidebar-menu-link"><i class="bi bi-calendar-heart"></i><span>随访计划</span></a></li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+            </ul>
+        </aside>
+
+        <div class="content">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h1 class="h3 mb-0"><i class="bi bi-file-medical me-2"></i>我的报告</h1>
+                <a href="{{ url_for('patient_trend') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-graph-up"></i> 查看病灶趋势</a>
             </div>
-            <hr>
-            <h6>临床记录</h6>
-            <p>${report.clinical_notes || '无'}</p>
-            <h6>诊断结果</h6>
-            <p>${report.findings || '暂无'}</p>
-            ${report.predictions ? `<h6>疾病预测</h6><ul class="list-group">${report.predictions.map(p => `<li class="list-group-item d-flex justify-content-between">${p.disease_name}<span class="badge bg-primary">${(p.confidence*100).toFixed(1)}%</span></li>`).join('')}</ul>` : ''}
-        `;
-    }
 
-    function printReport(reportId) {
-        alert('打印功能：可调用浏览器打印当前报告卡片，或使用模态框打印');
-    }
+            <!-- 统计 -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon primary"><i class="bi bi-files"></i></div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">报告总数</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon warning"><i class="bi bi-clock-history"></i></div><div><div class="stat-value">{{ stats.pending }}</div><div class="stat-label">待复核</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon success"><i class="bi bi-check-circle"></i></div><div><div class="stat-value">{{ stats.completed }}</div><div class="stat-label">已完成</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon info"><i class="bi bi-patch-check"></i></div><div><div class="stat-value">{{ stats.reviewed }}</div><div class="stat-label">已审核</div></div></div></div>
+            </div>
 
-    function printModalReport() {
-        const content = document.getElementById('reportDetailContent').innerHTML;
-        const win = window.open('', '_blank');
-        win.document.write(`
-            <html><head><title>诊断报告</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-            </head><body><div class="container mt-4">${content}</div></body></html>
-        `);
-        win.print();
-    }
+            <!-- 工具栏 -->
+            <div class="toolbar mb-4">
+                <div class="input-group" style="max-width: 260px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索报告/医生/亚型..." onkeyup="filterReports()">
+                </div>
+                <select class="form-select" id="statusFilter" style="max-width: 140px;" onchange="filterReports()">
+                    <option value="all">全部状态</option>
+                    <option value="pending">待复核</option>
+                    <option value="completed">已完成</option>
+                    <option value="reviewed">已审核</option>
+                </select>
+                <div class="view-toggle ms-auto">
+                    <button class="active" id="viewCardBtn" onclick="setView('card')"><i class="bi bi-grid"></i> 卡片</button>
+                    <button id="viewTableBtn" onclick="setView('table')"><i class="bi bi-list-ul"></i> 列表</button>
+                </div>
+            </div>
 
-    document.addEventListener('DOMContentLoaded', updateStats);
-</script>
-{% endblock %}
+            {% if reports %}
+            <!-- 卡片视图 -->
+            <div class="row g-3" id="cardView">
+                {% for r in reports %}
+                <div class="col-md-6 col-xl-4 report-item" data-status="{{ r.status }}" data-kw="{{ r.doctor_name }} {{ r.report_id }} {% for p in r.predictions %}{{ p.disease_name }} {% endfor %}">
+                    <div class="report-card h-100" onclick="location.href='/patient/report/{{ r.report_id }}'">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="fw-bold">报告 #{{ r.report_id }}</div>
+                                <div class="muted">{{ r.created_at }}</div>
+                            </div>
+                            <span class="badge {% if r.status == 'reviewed' %}bg-info{% elif r.status == 'completed' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {% if r.status == 'reviewed' %}已审核{% elif r.status == 'completed' %}已完成{% else %}待复核{% endif %}
+                            </span>
+                        </div>
+                        {% if r.predictions %}
+                        <div class="primary-dx">{{ r.predictions[0].disease_name }}</div>
+                        <div class="d-flex align-items-center gap-2 mt-1">
+                            <div class="progress flex-grow-1" style="height:6px;">
+                                <div class="progress-bar" style="width:{{ r.predictions[0].confidence * 100 }}%; background:#165DFF;"></div>
+                            </div>
+                            <span class="small fw-bold">{{ '%.1f'|format(r.predictions[0].confidence * 100) }}%</span>
+                        </div>
+                        {% else %}
+                        <div class="primary-dx text-muted">暂无 AI 预测</div>
+                        {% endif %}
+                        <div class="muted mt-2">
+                            <i class="bi bi-person"></i> {{ r.doctor_name or '—' }}
+                            {% if r.lesion_area_ratio is not none %}　<i class="bi bi-percent"></i> 支持占比 {{ '%.1f'|format(r.lesion_area_ratio * 100) }}%{% endif %}
+                        </div>
+                        <div class="muted mt-1"><i class="bi bi-arrows-angle-expand"></i> {{ r.distribution_range or '—' }}</div>
+                        <div class="mt-3">
+                            <span class="btn btn-sm btn-primary"><i class="bi bi-eye"></i> 查看报告</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- 表格视图 -->
+            <div class="card shadow-sm border-0 d-none" id="tableView">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>报告ID</th><th>日期</th><th>医生</th><th>疑似亚型</th><th>置信度</th><th>状态</th><th>操作</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reports %}
+                            <tr class="report-item" data-status="{{ r.status }}" data-kw="{{ r.doctor_name }} {{ r.report_id }} {% for p in r.predictions %}{{ p.disease_name }} {% endfor %}">
+                                <td>#{{ r.report_id }}</td>
+                                <td class="text-muted small">{{ r.created_at }}</td>
+                                <td>{{ r.doctor_name or '—' }}</td>
+                                <td>{% if r.predictions %}{{ r.predictions[0].disease_name }}{% else %}—{% endif %}</td>
+                                <td>{% if r.predictions %}{{ '%.1f'|format(r.predictions[0].confidence * 100) }}%{% else %}—{% endif %}</td>
+                                <td><span class="badge {% if r.status == 'reviewed' %}bg-info{% elif r.status == 'completed' %}bg-success{% else %}bg-warning text-dark{% endif %}">{% if r.status == 'reviewed' %}已审核{% elif r.status == 'completed' %}已完成{% else %}待复核{% endif %}</span></td>
+                                <td><a class="btn btn-sm btn-outline-primary" href="/patient/report/{{ r.report_id }}"><i class="bi bi-eye"></i> 查看</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-box">
+                <i class="bi bi-file-earmark-medical"></i>
+                <h5 class="mt-3 text-muted">暂无诊断报告</h5>
+                <p class="text-muted">医生完成 AI 辅助诊断后，报告会自动出现在这里。</p>
+                <a href="{{ url_for('patient_appointment') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-calendar-plus"></i> 去预约就诊</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function filterReports() {
+            const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            document.querySelectorAll('.report-item').forEach(item => {
+                const kwOk = !kw || (item.dataset.kw || '').toLowerCase().includes(kw);
+                const statusOk = status === 'all' || item.dataset.status === status;
+                item.style.display = kwOk && statusOk ? '' : 'none';
+            });
+        }
+        function setView(view) {
+            document.getElementById('cardView').classList.toggle('d-none', view !== 'card');
+            document.getElementById('tableView').classList.toggle('d-none', view !== 'table');
+            document.getElementById('viewCardBtn').classList.toggle('active', view === 'card');
+            document.getElementById('viewTableBtn').classList.toggle('active', view === 'table');
+        }
+    </script>
+</body>
+</html>
