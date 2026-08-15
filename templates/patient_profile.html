@@ -4,9 +4,10 @@
 
 {% block content %}
 <div class="container-fluid px-4 py-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h1 class="h3 mb-0">
             <i class="bi bi-heart-pulse me-2"></i>我的健康档案
+            <span class="fs-6 text-muted fw-normal ms-2">Personal Health Record</span>
         </h1>
         <div>
             <button class="btn btn-outline-primary me-2" onclick="editHealthInfo()">
@@ -19,125 +20,224 @@
     </div>
 
     <div class="row g-4">
-        <!-- 左侧：个人信息和病史 -->
+        <!-- 左侧主内容 -->
         <div class="col-lg-8">
-            <!-- 个人信息卡片 -->
+            <!-- 基本信息 -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><i class="bi bi-person-heart me-2"></i>个人信息</h5>
+                    <h5 class="card-title mb-0"><i class="bi bi-person-vcard me-2 text-primary"></i>基本信息</h5>
                     <span class="badge bg-primary">患者ID: PT{{ patient.patient_id if patient else 'N/A' }}</span>
                 </div>
                 <div class="card-body">
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <div class="info-item">
-                                <label class="text-muted small mb-1">患者姓名</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-person me-2 text-primary"></i>
-                                    <span class="fw-bold">{{ patient.name if patient else user.full_name }}</span>
-                                </div>
+                                <label class="text-muted small mb-1">姓名</label>
+                                <div class="info-value"><i class="bi bi-person me-2 text-primary"></i><strong>{{ patient.name if patient else user.full_name }}</strong></div>
                             </div>
-                            <div class="info-item">
-                                <label class="text-muted small mb-1">年龄</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-calendar3 me-2 text-primary"></i>
-                                    <span>{{ patient.age if patient else '未填写' }} 岁</span>
-                                </div>
-                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <div class="info-item">
                                 <label class="text-muted small mb-1">性别</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-gender-ambiguous me-2 text-primary"></i>
-                                    <span>
-                                        {% if patient and patient.gender == 'male' %}男
-                                        {% elif patient and patient.gender == 'female' %}女
-                                        {% else %}未填写{% endif %}
-                                    </span>
+                                <div class="info-value"><i class="bi bi-gender-ambiguous me-2 text-primary"></i>
+                                    {% if patient and patient.gender == 'male' %}男
+                                    {% elif patient and patient.gender == 'female' %}女
+                                    {% else %}未填写{% endif %}
                                 </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">年龄</label>
+                                <div class="info-value"><i class="bi bi-calendar3 me-2 text-primary"></i>{{ patient.age if patient and patient.age else '未填写' }}{% if patient and patient.age %} 岁{% endif %}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">血型</label>
+                                <div class="info-value"><i class="bi bi-droplet me-2 text-danger"></i>{{ patient.blood_type or '未填写' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">职业</label>
+                                <div class="info-value"><i class="bi bi-briefcase me-2 text-primary"></i>{{ patient.occupation or '未填写' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">联系电话</label>
+                                <div class="info-value"><i class="bi bi-telephone me-2 text-primary"></i>{{ patient.contact_number or '未填写' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">常住地址</label>
+                                <div class="info-value"><i class="bi bi-geo-alt me-2 text-primary"></i>{{ patient.address or '未填写' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">档案创建</label>
+                                <div class="info-value"><i class="bi bi-clock me-2 text-primary"></i>{{ patient.created_at.strftime('%Y-%m-%d') if patient and patient.created_at else '未知' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 临床与诊断信息 -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-clipboard2-pulse me-2 text-primary"></i>临床与诊断信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                        <div class="info-chip">
+                            <span class="text-muted small me-2">诊断分型</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary fs-6 px-3 py-2">{{ patient.disease_type or '待明确' }}</span>
+                        </div>
+                        <div class="info-chip">
+                            <span class="text-muted small me-2">确诊日期</span>
+                            <strong>{{ patient.diagnosis_date or '未填写' }}</strong>
+                        </div>
+                        <div class="info-chip">
+                            <span class="text-muted small me-2">确诊医院</span>
+                            <strong>{{ patient.diagnosis_hospital or '未填写' }}</strong>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="block-item">
+                                <label class="text-muted small mb-1"><i class="bi bi-journal-text me-1 text-warning"></i>病史摘要</label>
+                                <p class="mb-0">{{ patient.medical_history or '未填写' }}</p>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="text-muted small mb-1">血型</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-droplet me-2 text-primary"></i>
-                                    <span>{{ patient.blood_type or '未填写' }}</span>
-                                </div>
+                            <div class="block-item">
+                                <label class="text-muted small mb-1"><i class="bi bi-people me-1 text-info"></i>家族史</label>
+                                <p class="mb-0">{{ patient.family_history or '未填写' }}</p>
                             </div>
-                            <div class="info-item">
-                                <label class="text-muted small mb-1">联系电话</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-telephone me-2 text-primary"></i>
-                                    <span>{{ patient.contact_number or '未填写' }}</span>
-                                </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="block-item">
+                                <label class="text-muted small mb-1"><i class="bi bi-exclamation-triangle me-1 text-danger"></i>过敏史</label>
+                                <p class="mb-0">{{ patient.allergies or '未填写' }}</p>
                             </div>
-                            <div class="info-item">
-                                <label class="text-muted small mb-1">档案创建</label>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-clock me-2 text-primary"></i>
-                                    <span>{{ patient.created_at.strftime('%Y-%m-%d') if patient and patient.created_at else '未知' }}</span>
-                                </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="block-item">
+                                <label class="text-muted small mb-1"><i class="bi bi-capsule me-1 text-success"></i>当前用药</label>
+                                <p class="mb-0">{{ patient.current_medications or '未填写' }}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 病史记录卡片 -->
-            {% if patient and patient.medical_history %}
+            <!-- 生活习惯与暴露史 -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-journal-text me-2"></i>病史记录</h5>
+                    <h5 class="card-title mb-0"><i class="bi bi-activity me-2 text-primary"></i>生活习惯与暴露史</h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-flex align-items-start">
-                        <i class="bi bi-clipboard-plus me-3 text-warning mt-1"></i>
-                        <div>
-                            <h6>病史摘要</h6>
-                            <p class="text-muted">{{ patient.medical_history }}</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">吸烟史</label>
+                                <div class="info-value"><i class="bi bi-moon-stars me-2 text-warning"></i>{{ patient.smoking_history or '未填写' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="info-item">
+                                <label class="text-muted small mb-1">职业粉尘 / 环境暴露</label>
+                                <div class="info-value"><i class="bi bi-cloud-haze me-2 text-secondary"></i>{{ patient.occupational_exposure or '未填写' }}</div>
+                            </div>
                         </div>
                     </div>
-                    {% if patient.allergies %}
-                    <div class="d-flex align-items-start mt-3">
-                        <i class="bi bi-exclamation-triangle me-3 text-danger mt-1"></i>
-                        <div>
-                            <h6>过敏史</h6>
-                            <p class="text-muted">{{ patient.allergies }}</p>
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
-            {% endif %}
 
-            <!-- 健康统计卡片（与医生端统计卡片样式一致） -->
+            <!-- 生命体征 -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-heart-pulse me-2 text-primary"></i>生命体征</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 text-center">
+                        <div class="col-md-3 col-6">
+                            <div class="vital-tile p-3 border rounded h-100">
+                                <div class="text-muted small mb-1">身高 / 体重</div>
+                                <div class="vital-value">{{ patient.height_cm or '--' }} cm<br><span class="fs-6">{{ patient.weight_kg or '--' }} kg</span></div>
+                                <div class="vital-sub">
+                                    {% if bmi %}BMI {{ bmi }}
+                                        {% if bmi < 18.5 %}（偏瘦）
+                                        {% elif bmi < 24 %}（正常）
+                                        {% elif bmi < 28 %}（超重）
+                                        {% else %}（肥胖）{% endif %}
+                                    {% else %}BMI --{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vital-tile p-3 border rounded h-100">
+                                <div class="text-muted small mb-1">血压</div>
+                                <div class="vital-value">{{ patient.blood_pressure or '--' }}</div>
+                                <div class="vital-sub">mmHg</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vital-tile p-3 border rounded h-100">
+                                <div class="text-muted small mb-1">静息心率</div>
+                                <div class="vital-value">{{ patient.heart_rate or '--' }}</div>
+                                <div class="vital-sub">次/分</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="vital-tile p-3 border rounded h-100">
+                                <div class="text-muted small mb-1">血氧饱和度</div>
+                                <div class="vital-value {% if patient and patient.spo2 is not none and patient.spo2 < 90 %}text-danger{% elif patient and patient.spo2 is not none and patient.spo2 < 95 %}text-warning{% endif %}">{{ patient.spo2 or '--' }}%</div>
+                                <div class="vital-sub">
+                                    {% if patient and patient.spo2 is not none %}
+                                        {% if patient.spo2 >= 95 %}正常
+                                        {% elif patient.spo2 >= 90 %}偏低，建议随访
+                                        {% else %}偏低，请及时就医{% endif %}
+                                    {% else %}SpO₂{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 健康统计 -->
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>健康统计</h5>
+                    <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>健康统计</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-3 text-center">
                         <div class="col-md-3 col-6">
                             <div class="stat-item p-3 border rounded">
-                                <div class="stat-value">{{ reports_count if reports_count else 0 }}</div>
+                                <div class="stat-value">{{ reports_count or 0 }}</div>
                                 <div class="stat-label">诊断报告</div>
                             </div>
                         </div>
                         <div class="col-md-3 col-6">
                             <div class="stat-item p-3 border rounded">
-                                <div class="stat-value">{{ appointments_count if appointments_count else 0 }}</div>
+                                <div class="stat-value">{{ appointments_count or 0 }}</div>
                                 <div class="stat-label">就诊记录</div>
                             </div>
                         </div>
                         <div class="col-md-3 col-6">
                             <div class="stat-item p-3 border rounded">
-                                <div class="stat-value">{{ prescriptions_count if prescriptions_count else 0 }}</div>
-                                <div class="stat-label">处方记录</div>
+                                <div class="stat-value">{{ images_count or 0 }}</div>
+                                <div class="stat-label">影像资料</div>
                             </div>
                         </div>
                         <div class="col-md-3 col-6">
                             <div class="stat-item p-3 border rounded">
-                                <div class="stat-value">{{ follow_up_count if follow_up_count else 0 }}</div>
+                                <div class="stat-value">{{ follow_up_count or 0 }}</div>
                                 <div class="stat-label">随访计划</div>
                             </div>
                         </div>
@@ -146,9 +246,9 @@
             </div>
         </div>
 
-        <!-- 右侧：健康状态和紧急联系 -->
+        <!-- 右侧 -->
         <div class="col-lg-4">
-            <!-- 健康状态卡片 -->
+            <!-- 健康状态 -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3">
                     <h5 class="card-title mb-0"><i class="bi bi-heart-pulse me-2"></i>健康状态</h5>
@@ -160,16 +260,17 @@
                                 <i class="bi bi-heart-fill text-primary fs-1"></i>
                             </div>
                             <div class="position-absolute top-0 start-100 translate-middle">
-                                <span class="badge bg-success">稳定</span>
+                                <span class="badge bg-success">随访中</span>
                             </div>
                         </div>
                     </div>
-                    <h5 class="text-primary">健康状况良好</h5>
-                    <p class="text-muted small">最后更新: {{ patient.updated_at.strftime('%Y-%m-%d') if patient and patient.updated_at else '未知' }}</p>
+                    <h5 class="text-primary">{{ patient.disease_type or '肺纤维化相关疾病' }}</h5>
+                    <p class="text-muted small mb-1">健康档案</p>
+                    <p class="text-muted small mb-0">最后更新: {{ patient.updated_at.strftime('%Y-%m-%d') if patient and patient.updated_at else '未知' }}</p>
                 </div>
             </div>
 
-            <!-- 紧急联系信息卡片 -->
+            <!-- 紧急联系 -->
             <div class="card shadow-sm border-0 mb-4 border-danger">
                 <div class="card-header bg-white py-3">
                     <h5 class="card-title mb-0 text-danger"><i class="bi bi-telephone-inbound me-2"></i>紧急联系</h5>
@@ -201,7 +302,7 @@
                 </div>
             </div>
 
-            <!-- 快速操作卡片 -->
+            <!-- 快速操作 -->
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-3">
                     <h5 class="card-title mb-0"><i class="bi bi-lightning me-2"></i>快速操作</h5>
@@ -214,8 +315,8 @@
                         <a href="{{ url_for('my_reports') }}" class="btn btn-outline-success btn-sm text-start">
                             <i class="bi bi-file-medical me-2"></i> 诊断报告
                         </a>
-                        <a href="{{ url_for('symptom_check') }}" class="btn btn-outline-info btn-sm text-start">
-                            <i class="bi bi-clipboard-check me-2"></i> 症状自查
+                        <a href="{{ url_for('patient_trend') }}" class="btn btn-outline-info btn-sm text-start">
+                            <i class="bi bi-graph-up me-2"></i> 病灶趋势
                         </a>
                         <a href="{{ url_for('patient_appointment') }}" class="btn btn-outline-warning btn-sm text-start">
                             <i class="bi bi-calendar-plus me-2"></i> 预约挂号
@@ -230,74 +331,208 @@
     </div>
 </div>
 
-<!-- 编辑健康信息模态框（优化样式） -->
+<!-- 编辑健康信息模态框 -->
 <div class="modal fade" id="editHealthModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> 编辑健康信息</h5>
+                <h5 class="modal-title"><i class="bi bi-pencil-square"></i> 编辑健康档案</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="editHealthForm">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">患者姓名</label>
-                                <input type="text" class="form-control" name="name" value="{{ patient.name if patient else user.full_name }}">
+                <form id="editHealthForm" novalidate>
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="bi bi-person-vcard me-1"></i>基本信息</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">姓名 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="name" value="{{ patient.name if patient else user.full_name }}" required>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">年龄</label>
-                                <input type="number" class="form-control" name="age" value="{{ patient.age if patient else '' }}">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">性别</label>
-                                <select class="form-select" name="gender">
+                            <div class="col-md-4">
+                                <label class="form-label">性别 <span class="text-danger">*</span></label>
+                                <select class="form-select" name="gender" required>
                                     <option value="">请选择</option>
                                     <option value="male" {% if patient and patient.gender == 'male' %}selected{% endif %}>男</option>
                                     <option value="female" {% if patient and patient.gender == 'female' %}selected{% endif %}>女</option>
+                                    <option value="other" {% if patient and patient.gender == 'other' %}selected{% endif %}>其他</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">年龄</label>
+                                <input type="number" class="form-control" name="age" min="0" max="120" value="{{ patient.age if patient and patient.age else '' }}">
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">血型</label>
                                 <select class="form-select" name="blood_type">
                                     <option value="">请选择</option>
-                                    <option value="A">A型</option>
-                                    <option value="B">B型</option>
-                                    <option value="AB">AB型</option>
-                                    <option value="O">O型</option>
+                                    {% for bt in ['A','B','AB','O'] %}
+                                    <option value="{{ bt }}" {% if patient and patient.blood_type == bt %}selected{% endif %}>{{ bt }}型</option>
+                                    {% endfor %}
                                 </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">职业</label>
+                                <input type="text" class="form-control" name="occupation" value="{{ patient.occupation or '' }}" placeholder="如：教师、矿工、农民等">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">联系电话</label>
+                                <input type="tel" class="form-control" name="contact_number" value="{{ patient.contact_number or '' }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">常住地址</label>
+                                <input type="text" class="form-control" name="address" value="{{ patient.address or '' }}" placeholder="省 / 市 / 区县 / 详细地址">
                             </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">联系电话</label>
-                        <input type="tel" class="form-control" name="contact_number" value="{{ patient.contact_number or '' }}">
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="bi bi-clipboard2-pulse me-1"></i>临床与诊断信息</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">诊断分型</label>
+                                <select class="form-select" name="disease_type">
+                                    <option value="">待明确</option>
+                                    {% for dt in ['特发性肺纤维化（IPF）','非特异性间质性肺炎（NSIP）','隐源性机化性肺炎（COP）','过敏性肺炎（HP）','结缔组织病相关ILD（CTD-ILD）','尘肺/职业性肺病','药物性肺纤维化','其他间质性肺病'] %}
+                                    <option value="{{ dt }}" {% if patient and patient.disease_type == dt %}selected{% endif %}>{{ dt }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">确诊日期</label>
+                                <input type="date" class="form-control" name="diagnosis_date" value="{{ patient.diagnosis_date or '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">确诊医院</label>
+                                <input type="text" class="form-control" name="diagnosis_hospital" value="{{ patient.diagnosis_hospital or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">病史摘要</label>
+                                <textarea class="form-control" rows="3" name="medical_history" placeholder="起病时间、主要症状、诊疗经过等">{{ patient.medical_history or '' }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">家族史</label>
+                                <textarea class="form-control" rows="3" name="family_history" placeholder="直系亲属中的肺纤维化、结缔组织病等病史">{{ patient.family_history or '' }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">过敏史</label>
+                                <textarea class="form-control" rows="3" name="allergies" placeholder="药物、食物等过敏情况">{{ patient.allergies or '' }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">当前用药</label>
+                                <textarea class="form-control" rows="3" name="current_medications" placeholder="如：吡非尼酮、尼达尼布、激素等">{{ patient.current_medications or '' }}</textarea>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">病史记录</label>
-                        <textarea class="form-control" rows="4" name="medical_history" placeholder="请详细描述您的病史...">{{ patient.medical_history or '' }}</textarea>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="bi bi-activity me-1"></i>生活习惯与暴露史</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">吸烟史</label>
+                                <select class="form-select" name="smoking_history">
+                                    <option value="">请选择</option>
+                                    {% for sh in ['从不吸烟','已戒烟','目前吸烟','不详'] %}
+                                    <option value="{{ sh }}" {% if patient and patient.smoking_history == sh %}selected{% endif %}>{{ sh }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">职业粉尘 / 环境暴露</label>
+                                <input type="text" class="form-control" name="occupational_exposure" value="{{ patient.occupational_exposure or '' }}" placeholder="如：煤矿/石棉/粉尘作业、长期接触化学气体等">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="bi bi-heart-pulse me-1"></i>生命体征</div>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">身高（cm）</label>
+                                <input type="number" class="form-control bmi-input" name="height_cm" step="0.1" min="80" max="250" value="{{ patient.height_cm or '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">体重（kg）</label>
+                                <input type="number" class="form-control bmi-input" name="weight_kg" step="0.1" min="20" max="300" value="{{ patient.weight_kg or '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">BMI（自动计算）</label>
+                                <input type="text" class="form-control" id="bmiPreview" readonly placeholder="--">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">血压（mmHg）</label>
+                                <input type="text" class="form-control" name="blood_pressure" value="{{ patient.blood_pressure or '' }}" placeholder="如：120/80">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">静息心率（次/分）</label>
+                                <input type="number" class="form-control" name="heart_rate" min="20" max="250" value="{{ patient.heart_rate or '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">血氧饱和度（%）</label>
+                                <input type="number" class="form-control" name="spo2" step="0.1" min="50" max="100" value="{{ patient.spo2 or '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="bi bi-telephone-inbound me-1"></i>紧急联系</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">紧急联系人</label>
+                                <input type="text" class="form-control" name="emergency_contact" value="{{ patient.emergency_contact or '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">紧急电话</label>
+                                <input type="tel" class="form-control" name="emergency_phone" value="{{ patient.emergency_phone or '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">急救信息 / 特殊说明</label>
+                                <input type="text" class="form-control" name="emergency_info" value="{{ patient.emergency_info or '' }}" placeholder="如：氧疗需求、长期用药等">
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveHealthInfo()">保存信息</button>
+                <button type="button" class="btn btn-primary" onclick="saveHealthInfo()"><i class="bi bi-check2-circle"></i> 保存信息</button>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    /* 与医生端一致的统计卡片样式 */
+    .info-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #E5E6EB;
+        height: 100%;
+    }
+    .info-value {
+        color: #1D2129;
+    }
+    .block-item {
+        background: #F7F8FA;
+        border-radius: 10px;
+        padding: 12px 14px;
+        height: 100%;
+    }
+    .info-chip {
+        background: #F7F8FA;
+        border-radius: 10px;
+        padding: 8px 14px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .vital-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1D2129;
+        line-height: 1.4;
+    }
+    .vital-sub {
+        font-size: 12px;
+        color: #86909C;
+        margin-top: 4px;
+    }
     .stat-item {
         background: #F7F8FA;
         border-radius: 8px;
@@ -313,13 +548,6 @@
         font-size: 14px;
         color: #4E5969;
     }
-    .info-item {
-        padding: 12px 0;
-        border-bottom: 1px solid #E5E6EB;
-    }
-    .info-item:last-child {
-        border-bottom: none;
-    }
     .bg-opacity-10 {
         background-color: rgba(22, 93, 255, 0.1);
     }
@@ -328,8 +556,19 @@
         padding: 1rem;
         border-radius: 12px;
     }
-    .btn-outline-primary, .btn-outline-success, .btn-outline-info, .btn-outline-warning, .btn-outline-danger {
-        border-radius: 6px;
+    .form-section {
+        border: 1px solid #E5E6EB;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        background: #FCFCFD;
+    }
+    .form-section-title {
+        font-weight: 600;
+        color: #165DFF;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #E5E6EB;
     }
 </style>
 
@@ -337,6 +576,7 @@
     function editHealthInfo() {
         const modal = new bootstrap.Modal(document.getElementById('editHealthModal'));
         modal.show();
+        updateBmi();
     }
 
     function downloadHealthRecord() {
@@ -347,9 +587,33 @@
         alert('紧急求助：如需紧急医疗帮助，请立即拨打急救电话 120');
     }
 
+    function updateBmi() {
+        const h = parseFloat(document.querySelector('input[name="height_cm"]').value);
+        const w = parseFloat(document.querySelector('input[name="weight_kg"]').value);
+        const box = document.getElementById('bmiPreview');
+        if (h > 0 && w > 0) {
+            const hm = h / 100;
+            const bmi = w / (hm * hm);
+            box.value = bmi.toFixed(1);
+        } else {
+            box.value = '';
+        }
+    }
+    document.querySelectorAll('.bmi-input').forEach(el => {
+        el.addEventListener('input', updateBmi);
+    });
+
     function saveHealthInfo() {
         const form = document.getElementById('editHealthForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
         const formData = new FormData(form);
+        const btn = document.querySelector('#editHealthModal .btn-primary');
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
         fetch('/update_patient_profile', {
             method: 'POST',
             body: formData
@@ -357,13 +621,17 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('信息更新成功');
+                alert('健康档案更新成功');
                 location.reload();
             } else {
                 alert('更新失败: ' + data.message);
             }
         })
-        .catch(error => alert('网络错误: ' + error));
+        .catch(error => alert('网络错误: ' + error))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        });
     }
 </script>
 {% endblock %}

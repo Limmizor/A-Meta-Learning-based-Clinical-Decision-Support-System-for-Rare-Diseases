@@ -59,6 +59,31 @@ def run_migrations():
                 (name, icd, desc, symptoms, treatment))
             applied.append(f"diseases:{name}")
 
+    # 3. patients 表扩充：患者健康档案字段（幂等）
+    patient_columns = [
+        ('blood_type', "VARCHAR(10) NULL COMMENT '血型'"),
+        ('allergies', "TEXT NULL COMMENT '过敏史'"),
+        ('emergency_phone', "VARCHAR(20) NULL COMMENT '紧急联系电话'"),
+        ('emergency_info', "TEXT NULL COMMENT '急救信息/特殊说明'"),
+        ('occupation', "VARCHAR(100) NULL COMMENT '职业'"),
+        ('address', "VARCHAR(200) NULL COMMENT '常住地址'"),
+        ('diagnosis_date', "DATE NULL COMMENT '确诊日期'"),
+        ('disease_type', "VARCHAR(50) NULL COMMENT '肺纤维化分型'"),
+        ('diagnosis_hospital', "VARCHAR(100) NULL COMMENT '确诊医院'"),
+        ('smoking_history', "VARCHAR(100) NULL COMMENT '吸烟史'"),
+        ('occupational_exposure', "TEXT NULL COMMENT '职业粉尘/环境暴露史'"),
+        ('current_medications', "TEXT NULL COMMENT '当前用药'"),
+        ('height_cm', "DECIMAL(5,1) NULL COMMENT '身高(cm)'"),
+        ('weight_kg', "DECIMAL(5,1) NULL COMMENT '体重(kg)'"),
+        ('blood_pressure', "VARCHAR(20) NULL COMMENT '血压(mmHg)'"),
+        ('heart_rate', "INT NULL COMMENT '静息心率(次/分)'"),
+        ('spo2', "DECIMAL(4,1) NULL COMMENT '血氧饱和度(%)'"),
+    ]
+    for col, ddl in patient_columns:
+        if not column_exists(cursor, 'patients', col):
+            cursor.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
+            applied.append(f"patients.{col}")
+
     if applied:
         conn.commit()
         print("已应用的迁移:", ", ".join(applied))

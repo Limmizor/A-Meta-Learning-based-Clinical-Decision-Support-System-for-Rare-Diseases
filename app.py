@@ -763,19 +763,40 @@ def patient_profile():
     
     patient_data = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
     reports_count = 0
+    bmi = None
+    follow_up_count = 0
+    appointments_count = 0
+    images_count = 0
     if patient_data:
         patient_id = patient_data[0]['patient_id']
         reports = db.get_diagnosis_reports(patient_id)
         reports_count = len(reports) if reports else 0
+        follow_ups = db.get_followup_plans(patient_id)
+        follow_up_count = len(follow_ups) if follow_ups else 0
+        appt = db.execute_query(
+            "SELECT COUNT(*) AS c FROM appointments WHERE patient_id = %s", (patient_id,))
+        appointments_count = appt[0]['c'] if appt else 0
+        imgs = db.execute_query(
+            "SELECT COUNT(*) AS c FROM medical_images WHERE patient_id = %s", (patient_id,))
+        images_count = imgs[0]['c'] if imgs else 0
+        h = patient_data[0].get('height_cm')
+        w = patient_data[0].get('weight_kg')
+        if h and w:
+            try:
+                hm = float(h) / 100.0
+                bmi = round(float(w) / (hm * hm), 1)
+            except (TypeError, ValueError, ZeroDivisionError):
+                bmi = None
     db.disconnect()
-    
-    return render_template('patient_profile.html', 
+
+    return render_template('patient_profile.html',
                          patient=patient_data[0] if patient_data else None,
                          user=current_user,
                          reports_count=reports_count,
-                         appointments_count=0,
-                         prescriptions_count=0,
-                         follow_up_count=0)
+                         appointments_count=appointments_count,
+                         images_count=images_count,
+                         follow_up_count=follow_up_count,
+                         bmi=bmi)
 
 # 删除患者（软删除：标记 is_deleted，可恢复；彻底删除请使用回收站）
 @app.route('/delete_patient/<int:patient_id>', methods=['DELETE'])
@@ -1754,34 +1775,64 @@ def change_password():
 def update_patient_profile():
     if current_user.user_type != 'patient':
         return jsonify({'success': False, 'message': '无权操作'})
-    
+
     db = Database()
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'})
-    
-    # 获取患者记录
-    patient_data = db.execute_query("SELECT * FROM patients WHERE user_id=%s", (current_user.id,))
+
+    patient_data = db.execute_query("SELECT patient_id FROM patients WHERE user_id=%s", (current_user.id,))
     if not patient_data:
         db.disconnect()
         return jsonify({'success': False, 'message': '未找到患者信息'})
-    
+
     patient_id = patient_data[0]['patient_id']
-    name = request.form.get('name')
-    age = request.form.get('age')
-    gender = request.form.get('gender')
-    contact_number = request.form.get('contact_number')
-    medical_history = request.form.get('medical_history')
-    # 可选：血型、紧急联系人等（如果表中有相应字段）
-    
-    update_query = """
-        UPDATE patients SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s
-        WHERE patient_id=%s
-    """
-    db.execute_insert(update_query, (name, age, gender, contact_number, medical_history, patient_id))
-    
-    # 同时更新 users 表的 full_name（与患者姓名同步）
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        db.disconnect()
+        return jsonify({'success': False, 'message': '姓名不能为空'})
+
+    def _num(key, cast=float):
+        v = (request.form.get(key) or '').strip()
+        if not v:
+            return None
+        try:
+            return cast(v)
+        except (TypeError, ValueError):
+            return None
+
+    age = _num('age', int)
+    height_cm = _num('height_cm')
+    weight_kg = _num('weight_kg')
+    heart_rate = _num('heart_rate', int)
+    spo2 = _num('spo2')
+
+    db.execute_insert(
+        """UPDATE patients SET
+             name=%s, age=%s, gender=%s, contact_number=%s,
+             emergency_contact=%s, emergency_phone=%s, emergency_info=%s,
+             blood_type=%s, occupation=%s, address=%s,
+             medical_history=%s, family_history=%s, allergies=%s,
+             current_medications=%s,
+             diagnosis_date=%s, disease_type=%s, diagnosis_hospital=%s,
+             smoking_history=%s, occupational_exposure=%s,
+             height_cm=%s, weight_kg=%s, blood_pressure=%s, heart_rate=%s, spo2=%s,
+             updated_at=NOW()
+           WHERE patient_id=%s""",
+        (name, age, request.form.get('gender'), request.form.get('contact_number'),
+         request.form.get('emergency_contact'), request.form.get('emergency_phone'),
+         request.form.get('emergency_info'), request.form.get('blood_type'),
+         request.form.get('occupation'), request.form.get('address'),
+         request.form.get('medical_history'), request.form.get('family_history'),
+         request.form.get('allergies'), request.form.get('current_medications'),
+         request.form.get('diagnosis_date') or None, request.form.get('disease_type'),
+         request.form.get('diagnosis_hospital'), request.form.get('smoking_history'),
+         request.form.get('occupational_exposure'),
+         height_cm, weight_kg, request.form.get('blood_pressure'), heart_rate, spo2,
+         patient_id))
+
+    # 与 users 表 full_name 保持同步
     db.execute_insert("UPDATE users SET full_name=%s WHERE user_id=%s", (name, current_user.id))
-    
+
     db.disconnect()
     return jsonify({'success': True, 'message': '资料更新成功'})
 
