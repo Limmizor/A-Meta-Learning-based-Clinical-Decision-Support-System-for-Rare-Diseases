@@ -349,7 +349,13 @@ def patient_trend():
     if current_user.user_type != 'patient':
         flash('无权访问此页面', 'danger')
         return redirect(url_for('doctor_dashboard'))
-    return render_template('patient_trend.html')
+    db = Database()
+    patient = None
+    if db.connect():
+        rows = db.execute_query("SELECT * FROM patients WHERE user_id = %s", (current_user.id,))
+        patient = rows[0] if rows else None
+        db.disconnect()
+    return render_template('patient_trend.html', patient=patient)
 
 @app.route('/patient/followup')
 @login_required
