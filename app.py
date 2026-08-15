@@ -1597,6 +1597,27 @@ def api_ai_diagnose():
             pf_service.predict_from_paths(saved_paths, patient_id)
         time_cost = round(time.time() - t0, 1)
 
+        # 保存诊断报告：患者端「我的报告/病灶趋势」、医生端「报告复核」均依赖此记录，
+        # 避免诊断结果仅在页面停留、退出后消失
+        report_id = None
+        try:
+            rdb = Database()
+            if rdb.connect():
+                disease_id = pf_service._resolve_catalog_disease_id()
+                report_id = rdb.add_diagnosis_report(
+                    patient_id, current_user.id, '',
+                    findings or 'AI辅助诊断结果',
+                    lesion_area_ratio=lesion_ratio,
+                    distribution_range=distribution)
+                if report_id and predictions:
+                    for pred in predictions:
+                        rdb.add_disease_prediction(
+                            report_id, disease_id,
+                            pred.get('confidence', 0), pred.get('rank', 1))
+                rdb.disconnect()
+        except Exception as e:
+            print(f"保存诊断报告失败: {e}")
+
         # 通知患者：AI 诊断已完成
         try:
             ndb = Database()
@@ -1616,6 +1637,7 @@ def api_ai_diagnose():
 
         return jsonify({
             'success': True,
+            'report_id': report_id,
             'predictions': predictions,
             'primary_diagnosis': diagnosis_view.get('primary_diagnosis'),
             'icd_code': diagnosis_view.get('icd_code'),
