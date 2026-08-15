@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>用户与账号管理</h1>
+        <button class="btn btn-primary" onclick="showCreateUser()">
+            <i class="bi bi-person-plus"></i> 新建账号
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="card-title mb-0"><i class="bi bi-table me-2"></i>账号列表（{{ users|length }}）</h5>
+            <div class="input-group" style="width: 260px;">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索用户名/姓名..." onkeyup="filterUsers()">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="userTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 70px">ID</th>
+                            <th>用户名</th>
+                            <th>姓名</th>
+                            <th>角色</th>
+                            <th>关联患者</th>
+                            <th style="width: 160px">最近登录</th>
+                            <th style="width: 200px">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr class="user-row">
+                            <td><span class="text-muted">#{{ u.user_id }}</span></td>
+                            <td><strong>{{ u.username }}</strong></td>
+                            <td>{{ u.full_name or '—' }}</td>
+                            <td>
+                                {% if u.role == 'admin' %}
+                                <span class="badge bg-dark">管理员</span>
+                                {% elif u.role == 'doctor' %}
+                                <span class="badge bg-primary">医生</span>
+                                {% else %}
+                                <span class="badge bg-success">患者</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ u.patient_name or '—' }}</td>
+                            <td class="text-muted small">{{ u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else '从未登录' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-warning" onclick="showResetPwd('{{ u.user_id }}', '{{ u.username }}')">
+                                    <i class="bi bi-key"></i> 重置密码
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="text-center text-muted py-4">暂无账号</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建账号模态框 -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> 新建账号</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createUserForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">初始密码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="password" required minlength="6" placeholder="至少6位">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">邮箱</label>
+                        <input type="email" class="form-control" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="role" required>
+                            <option value="doctor">医生</option>
+                            <option value="patient">患者</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createUser()">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 重置密码模态框 -->
+<div class="modal fade" id="resetPwdModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-key"></i> 重置密码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">为账号 <strong id="resetPwdUser"></strong> 设置新密码：</p>
+                <input type="password" class="form-control" id="resetPwdInput" placeholder="新密码（至少6位）">
+                <input type="hidden" id="resetPwdId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="resetPwd()">确认重置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function filterUsers() {
+        const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+        document.querySelectorAll('.user-row').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = (!kw || text.includes(kw)) ? '' : 'none';
+        });
+    }
+
+    function showCreateUser() {
+        document.getElementById('createUserForm').reset();
+        new bootstrap.Modal(document.getElementById('createUserModal')).show();
+    }
+
+    function createUser() {
+        const form = document.getElementById('createUserForm');
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        const formData = new FormData(form);
+        fetch('/admin/users/create', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) location.reload();
+            })
+            .catch(() => alert('网络错误'));
+    }
+
+    function showResetPwd(id, username) {
+        document.getElementById('resetPwdId').value = id;
+        document.getElementById('resetPwdUser').textContent = username;
+        document.getElementById('resetPwdInput').value = '';
+        new bootstrap.Modal(document.getElementById('resetPwdModal')).show();
+    }
+
+    function resetPwd() {
+        const id = document.getElementById('resetPwdId').value;
+        const pwd = document.getElementById('resetPwdInput').value;
+        if (pwd.length < 6) { alert('密码至少6位'); return; }
+        const fd = new FormData();
+        fd.append('password', pwd);
+        fetch(`/admin/users/${id}/reset_password`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) bootstrap.Modal.getInstance(document.getElementById('resetPwdModal')).hide();
+            })
+            .catch(() => alert('网络错误'));
+    }
+</script>
+{% endblock %}

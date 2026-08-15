@@ -11,6 +11,7 @@ from database import Database
 from pf_diagnosis_service import PFDianosisService
 import datetime
 import time
+from functools import wraps
 import pydicom
 from PIL import Image
 import numpy as np
@@ -25,6 +26,17 @@ app.config['SECRET_KEY'] = '4a55ca79078c8fcd2435348e794f8d86d9fd64c6feef9c752ec2
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+
+def admin_required(f):
+    """管理员权限装饰器：仅 users.role = 'admin' 可访问"""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if current_user.user_type != 'admin':
+            flash('无权访问此页面', 'danger')
+            return redirect(url_for('doctor_dashboard'))
+        return f(*args, **kwargs)
+    return wrapper
 
 # 用户类
 class User(UserMixin):
@@ -86,8 +98,10 @@ def login():
         db.execute_insert("UPDATE users SET last_login = NOW() WHERE user_id = %s", (user['user_id'],))
         db.disconnect()
 
-        # 跳转
-        if user['role'] == 'doctor':
+        # 跳转：管理员 / 医生 / 患者 分流
+        if user['role'] == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        elif user['role'] == 'doctor':
             return redirect(url_for('doctor_dashboard'))
         else:
             return redirect(url_for('patient_dashboard'))
@@ -351,7 +365,9 @@ def patient_followup():
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        if current_user.user_type == 'doctor':
+        if current_user.user_type == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        elif current_user.user_type == 'doctor':
             return redirect(url_for('doctor_dashboard'))
         else:
             return redirect(url_for('patient_dashboard'))
@@ -689,7 +705,9 @@ def api_patients():
 @app.route('/profile')
 @login_required
 def profile():
-    if current_user.user_type == 'doctor':
+    if current_user.user_type == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    elif current_user.user_type == 'doctor':
         return redirect(url_for('doctor_profile'))
     else:
         return redirect(url_for('patient_profile'))
@@ -837,7 +855,7 @@ def delete_patient(patient_id):
 @app.route('/api/patients/deleted')
 @login_required
 def api_deleted_patients():
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'error': '权限不足'}), 403
     db = Database()
     if not db.connect():
@@ -864,7 +882,7 @@ def api_deleted_patients():
 @app.route('/api/patients/<int:patient_id>/restore', methods=['POST'])
 @login_required
 def api_restore_patient(patient_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '无权操作'}), 403
     db = Database()
     if not db.connect():
@@ -884,7 +902,7 @@ def api_restore_patient(patient_id):
 @app.route('/api/patients/<int:patient_id>/purge', methods=['DELETE'])
 @login_required
 def api_purge_patient(patient_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '无权操作'}), 403
     db = Database()
     if not db.connect():
@@ -934,7 +952,7 @@ def api_disease_detail(disease_id):
 @app.route('/api/diseases', methods=['POST'])
 @login_required
 def api_create_disease():
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '权限不足'}), 403
     data = request.json
     name = data.get('name')
@@ -962,7 +980,7 @@ def api_create_disease():
 @app.route('/api/diseases/<int:disease_id>', methods=['PUT'])
 @login_required
 def api_update_disease(disease_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '权限不足'}), 403
     data = request.json
     db = Database()
@@ -988,7 +1006,7 @@ def api_update_disease(disease_id):
 @app.route('/api/diseases/<int:disease_id>', methods=['DELETE'])
 @login_required
 def api_delete_disease(disease_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '权限不足'}), 403
     db = Database()
     if not db.connect():
@@ -1006,9 +1024,9 @@ def api_delete_disease(disease_id):
 @app.route('/disease_management', methods=['GET', 'POST'])
 @login_required
 def disease_management():
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         flash('无权访问此页面', 'danger')
-        return redirect(url_for('patient_dashboard'))
+        return redirect(url_for('doctor_dashboard'))
     db = Database()
     if not db.connect():
         flash('数据库连接失败', 'danger')
@@ -1043,9 +1061,9 @@ def disease_management():
 @app.route('/system_logs')
 @login_required
 def system_logs():
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         flash('无权访问此页面', 'danger')
-        return redirect(url_for('patient_dashboard'))
+        return redirect(url_for('doctor_dashboard'))
     db = Database()
     if not db.connect():
         flash('数据库连接失败', 'danger')
@@ -1056,6 +1074,104 @@ def system_logs():
     if logs is None:
         logs = []
     return render_template('system_logs.html', logs=logs)
+
+
+# ==================== 管理员端 ====================
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    db = Database()
+    if not db.connect():
+        return render_template('admin_dashboard.html', stats={}, recent_logs=[])
+
+    def count(sql, args=None):
+        r = db.execute_query(sql, args or ())
+        return r[0]['c'] if r else 0
+
+    stats = {
+        'users': count("SELECT COUNT(*) AS c FROM users"),
+        'doctors': count("SELECT COUNT(*) AS c FROM users WHERE role='doctor'"),
+        'patients': count("SELECT COUNT(*) AS c FROM users WHERE role='patient'"),
+        'admins': count("SELECT COUNT(*) AS c FROM users WHERE role='admin'"),
+        'patient_records': count("SELECT COUNT(*) AS c FROM patients WHERE is_deleted=0"),
+        'reports': count("SELECT COUNT(*) AS c FROM diagnosis_reports"),
+        'images': count("SELECT COUNT(*) AS c FROM medical_images"),
+        'diseases': count("SELECT COUNT(*) AS c FROM diseases"),
+        'logs': count("SELECT COUNT(*) AS c FROM system_logs"),
+    }
+    recent_logs = db.get_system_logs(limit=10) or []
+    db.disconnect()
+    return render_template('admin_dashboard.html', stats=stats, recent_logs=recent_logs)
+
+
+@app.route('/admin/users')
+@login_required
+@admin_required
+def admin_users():
+    db = Database()
+    if not db.connect():
+        return render_template('admin_users.html', users=[])
+    users = db.execute_query(
+        """SELECT u.*, (SELECT p.name FROM patients p WHERE p.user_id = u.user_id LIMIT 1) AS patient_name
+           FROM users u ORDER BY u.user_id""") or []
+    db.disconnect()
+    return render_template('admin_users.html', users=users)
+
+
+@app.route('/admin/users/create', methods=['POST'])
+@login_required
+@admin_required
+def admin_create_user():
+    username = (request.form.get('username') or '').strip()
+    password = request.form.get('password') or ''
+    full_name = (request.form.get('full_name') or '').strip()
+    email = (request.form.get('email') or '').strip()
+    role = request.form.get('role')
+    if not username or not password or not full_name:
+        return jsonify({'success': False, 'message': '用户名、密码、姓名不能为空'})
+    if role not in ('doctor', 'patient'):
+        return jsonify({'success': False, 'message': '角色无效'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    if db.execute_query("SELECT user_id FROM users WHERE username=%s", (username,)):
+        db.disconnect()
+        return jsonify({'success': False, 'message': '用户名已存在'})
+    user_id = db.execute_insert(
+        "INSERT INTO users (username, password_hash, email, full_name, role) VALUES (%s,%s,%s,%s,%s)",
+        (username, generate_password_hash(password), email, full_name, role))
+    if role == 'patient' and user_id:
+        db.execute_insert("INSERT INTO patients (name, user_id) VALUES (%s,%s)", (full_name, user_id))
+    db.add_system_log(current_user.id, 'CREATE_USER', f'创建账号: {username}（{role}）')
+    db.disconnect()
+    return jsonify({'success': bool(user_id), 'message': '账号创建成功' if user_id else '创建失败'})
+
+
+@app.route('/admin/users/<int:user_id>/reset_password', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_password(user_id):
+    new_pwd = request.form.get('password') or ''
+    if len(new_pwd) < 6:
+        return jsonify({'success': False, 'message': '密码至少6位'})
+    db = Database()
+    if not db.connect():
+        return jsonify({'success': False, 'message': '数据库连接失败'})
+    result = db.execute_insert(
+        "UPDATE users SET password_hash=%s WHERE user_id=%s",
+        (generate_password_hash(new_pwd), user_id))
+    if result is not None:
+        db.add_system_log(current_user.id, 'RESET_PASSWORD', f'重置账号密码: user_id={user_id}')
+    db.disconnect()
+    return jsonify({'success': result is not None, 'message': '密码已重置' if result is not None else '重置失败'})
+
+
+@app.route('/admin/recycle_bin')
+@login_required
+@admin_required
+def admin_recycle_bin():
+    return render_template('admin_recycle_bin.html')
 
 
 # API: 添加系统日志
@@ -1121,7 +1237,7 @@ def analyze_symptoms(symptoms, details, age, gender, history):
 @app.route('/delete_disease/<int:disease_id>', methods=['DELETE'])
 @login_required
 def delete_disease(disease_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type != 'admin':
         return jsonify({'success': False, 'message': '无权操作'})
     db = Database()
     if not db.connect():

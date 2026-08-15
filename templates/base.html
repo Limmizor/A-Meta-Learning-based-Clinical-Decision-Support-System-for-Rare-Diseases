@@ -236,7 +236,23 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
-                        {% if current_user.user_type == 'doctor' %}
+                        {% if current_user.user_type == 'admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>管理面板</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}"><i class="bi bi-people me-1"></i>用户管理</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'system_logs' %}active{% endif %}" href="{{ url_for('system_logs') }}"><i class="bi bi-file-text me-1"></i>系统日志</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'disease_management' %}active{% endif %}" href="{{ url_for('disease_management') }}"><i class="bi bi-capsule me-1"></i>疾病管理</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'admin_recycle_bin' %}active{% endif %}" href="{{ url_for('admin_recycle_bin') }}"><i class="bi bi-trash me-1"></i>回收站</a>
+                            </li>
+                        {% elif current_user.user_type == 'doctor' %}
                             <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'doctor_dashboard' %}active{% endif %}" href="{{ url_for('doctor_dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>医生面板</a>
                             </li>
@@ -250,13 +266,7 @@
                                 <a class="nav-link {% if request.endpoint == 'doctor_followup' %}active{% endif %}" href="{{ url_for('doctor_followup') }}"><i class="bi bi-calendar-heart me-1"></i>随访管理</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint in ['disease_management','disease_query'] %}active{% endif %}" href="{{ url_for('disease_management') }}"><i class="bi bi-capsule me-1"></i>疾病管理</a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'doctor_chat' %}active{% endif %}" href="{{ url_for('doctor_chat') }}"><i class="bi bi-chat-dots me-1"></i>在线咨询</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint == 'system_logs' %}active{% endif %}" href="{{ url_for('system_logs') }}"><i class="bi bi-file-text me-1"></i>系统日志</a>
                             </li>
                         {% else %}
                             <li class="nav-item">

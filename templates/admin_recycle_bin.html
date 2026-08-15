@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}患者回收站 - 肺影智诊系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0"><i class="bi bi-trash me-2"></i>患者回收站</h1>
+        <button class="btn btn-outline-primary" onclick="loadDeletedPatients()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新
+        </button>
+    </div>
+
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle me-1"></i>
+        医生删除患者时仅移入回收站（可恢复）；此处可恢复或彻底删除。彻底删除后相关诊断报告、影像、随访、预约、健康日志将一并清除且<strong>不可恢复</strong>。
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0"><i class="bi bi-inbox me-2"></i>已删除患者</h5>
+        </div>
+        <div class="card-body" id="deletedPatientList">
+            <div class="text-center py-4 text-muted">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function loadDeletedPatients() {
+        const container = document.getElementById('deletedPatientList');
+        container.innerHTML = '<div class="text-center py-4 text-muted">加载中...</div>';
+        fetch('/api/patients/deleted')
+            .then(res => res.json())
+            .then(patients => {
+                if (!patients.length) {
+                    container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox display-4 d-block mb-2"></i>回收站为空</div>';
+                    return;
+                }
+                container.innerHTML = patients.map(p => {
+                    const stats = p._stats || {};
+                    const gender = p.gender === 'male' ? '男' : (p.gender === 'female' ? '女' : '其他');
+                    return `
+                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <h6 class="mb-1">${escapeHtml(p.name)}
+                                <span class="badge bg-secondary ms-1">PT${p.patient_id}</span>
+                                <span class="text-muted small fw-normal">${p.age ? p.age + '岁' : ''} · ${gender}</span>
+                            </h6>
+                            <small class="text-muted">
+                                关联数据：报告 ${stats.reports || 0}、影像 ${stats.images || 0}、随访 ${stats.followups || 0}、预约 ${stats.appointments || 0}、健康日志 ${stats.health_logs || 0}
+                            </small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-success" onclick="restorePatient(${p.patient_id})">
+                                <i class="bi bi-arrow-counterclockwise"></i> 恢复
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="purgePatient(${p.patient_id})">
+                                <i class="bi bi-trash-fill"></i> 彻底删除
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            })
+            .catch(() => {
+                container.innerHTML = '<div class="text-center py-4 text-danger">加载失败，请稍后重试</div>';
+            });
+    }
+
+    function restorePatient(patientId) {
+        if (!confirm('确定要恢复该患者吗？其关联的诊断报告、影像等数据将一并恢复可见。')) return;
+        fetch(`/api/patients/${patientId}/restore`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.success ? '患者已恢复' : '恢复失败: ' + data.message);
+                if (data.success) loadDeletedPatients();
+            })
+            .catch(err => alert('网络错误: ' + err));
+    }
+
+    function purgePatient(patientId) {
+        if (!confirm('彻底删除将清除该患者及其全部关联数据（报告/影像/随访/预约/健康日志），且不可恢复！确定继续吗？')) return;
+        if (!confirm('再次确认：此操作不可撤销，确定彻底删除该患者吗？')) return;
+        fetch(`/api/patients/${patientId}/purge`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.success ? '患者已彻底删除' : '删除失败: ' + data.message);
+                if (data.success) loadDeletedPatients();
+            })
+            .catch(err => alert('网络错误: ' + err));
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDeletedPatients);
+</script>
+{% endblock %}
