@@ -583,7 +583,9 @@ def upload_image():
         file.save(filepath)
         
         patient_id = request.form.get('patient_id')
-        image_type = request.form.get('image_type')
+        image_type = request.form.get('image_type') or 'CT'
+        if image_type not in ('X-ray', 'CT', 'MRI', 'Ultrasound', 'Dermatology'):
+            image_type = 'CT'
         description = request.form.get('description')
         
         db = Database()

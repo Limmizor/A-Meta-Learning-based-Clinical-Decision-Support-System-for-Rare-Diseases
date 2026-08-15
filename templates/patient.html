@@ -542,8 +542,18 @@ function toggleReport(head) {
 }
 
 // 上传医学影像
-function uploadImage() {
-    const formData = new FormData(document.getElementById('uploadImageForm'));
+    function uploadImage() {
+        const fileInputEl = document.getElementById('imageFile');
+        const typeSelect = document.getElementById('imageType');
+        if (!fileInputEl || !fileInputEl.files || !fileInputEl.files.length) {
+            alert('请先选择要上传的影像文件');
+            return;
+        }
+        if (!typeSelect || !typeSelect.value) {
+            alert('请选择影像类型（如 CT）');
+            return;
+        }
+        const formData = new FormData(document.getElementById('uploadImageForm'));
     const btn = document.querySelector('#uploadImageModal .btn-primary');
     const original = btn.textContent;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 上传中...';
