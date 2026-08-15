@@ -1496,7 +1496,7 @@ def patient_appointment():
         flash('数据库连接失败', 'danger')
         return render_template('patient_appointment.html', doctors=[], appointments=[])
     doctors = db.execute_query(
-        """SELECT user_id, full_name, specialization, hospital_affiliation 
+        """SELECT user_id, full_name, specialization, hospital_affiliation, license_number
            FROM users WHERE role = 'doctor'"""
     ) or []
     # 兼容旧模板字段名：specialty -> specialization, department -> hospital_affiliation, title -> 默认职称
@@ -1510,15 +1510,91 @@ def patient_appointment():
         patient_id = patient_data[0]['patient_id']
         appointments = db.execute_query(
             """SELECT a.*, u.full_name as doctor_name, u.specialization as specialty, 
-                      u.hospital_affiliation as department 
+                      u.hospital_affiliation as department, u.license_number
                FROM appointments a 
                JOIN users u ON a.doctor_id = u.user_id 
                WHERE a.patient_id = %s 
                ORDER BY a.appointment_date DESC, a.appointment_time DESC""",
             (patient_id,)
         ) or []
+        # 格式化日期/时间（TIME 类型读回为 timedelta）
+        for a in appointments:
+            if hasattr(a.get('appointment_date'), 'strftime'):
+                a['appointment_date'] = a['appointment_date'].strftime('%Y-%m-%d')
+            if isinstance(a.get('appointment_time'), datetime.timedelta):
+                total_seconds = int(a['appointment_time'].total_seconds())
+                a['appointment_time'] = f'{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}'
+    stats = {'pending': 0, 'confirmed': 0, 'completed': 0, 'cancelled': 0}
+    for a in appointments:
+        s = a.get('status')
+        if s in stats:
+            stats[s] += 1
     db.disconnect()
-    return render_template('patient_appointment.html', doctors=doctors, appointments=appointments)
+    return render_template('patient_appointment.html', doctors=doctors, appointments=appointments,
+                           stats=stats, today=datetime.date.today().strftime('%Y-%m-%d'))
+
+
+# API: 查询某医生某日已约时段（用于前端禁用已满时段）
+@app.route('/api/appointments/slots')
+@login_required
+def api_appointment_slots():
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '权限不足'}), 403
+    doctor_id = request.args.get('doctor_id')
+    date = request.args.get('date')
+    if not doctor_id or not date:
+        return jsonify({'error': '缺少参数'}), 400
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    rows = db.execute_query(
+        """SELECT appointment_time FROM appointments
+           WHERE doctor_id=%s AND appointment_date=%s AND status != 'cancelled'""",
+        (doctor_id, date)) or []
+    occupied = []
+    for r in rows:
+        t = r.get('appointment_time')
+        if isinstance(t, datetime.timedelta):
+            total_seconds = int(t.total_seconds())
+            t = f'{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}'
+        occupied.append(str(t))
+    db.disconnect()
+    return jsonify({'occupied': occupied})
+
+
+# API: 预约详情（真实数据，替换原写死假数据）
+@app.route('/api/appointments/<int:appointment_id>')
+@login_required
+def api_appointment_detail(appointment_id):
+    if current_user.user_type != 'patient':
+        return jsonify({'error': '权限不足'}), 403
+    db = Database()
+    if not db.connect():
+        return jsonify({'error': '数据库连接失败'}), 500
+    p = db.execute_query("SELECT patient_id FROM patients WHERE user_id=%s", (current_user.id,))
+    if not p:
+        db.disconnect()
+        return jsonify({'error': '未找到患者信息'}), 404
+    rows = db.execute_query(
+        """SELECT a.*, u.full_name AS doctor_name, u.specialization, u.hospital_affiliation,
+                  u.license_number
+           FROM appointments a JOIN users u ON a.doctor_id=u.user_id
+           WHERE a.appointment_id=%s AND a.patient_id=%s""",
+        (appointment_id, p[0]['patient_id'])) or []
+    if not rows:
+        db.disconnect()
+        return jsonify({'error': '预约不存在'}), 404
+    a = rows[0]
+    if hasattr(a.get('appointment_date'), 'strftime'):
+        a['appointment_date'] = a['appointment_date'].strftime('%Y-%m-%d')
+    if isinstance(a.get('appointment_time'), datetime.timedelta):
+        total_seconds = int(a['appointment_time'].total_seconds())
+        a['appointment_time'] = f'{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}'
+    for f in ('created_at', 'updated_at'):
+        if hasattr(a.get(f), 'strftime'):
+            a[f] = a[f].strftime('%Y-%m-%d %H:%M')
+    db.disconnect()
+    return jsonify(a)
 
 # 创建预约
 @app.route('/make_appointment', methods=['POST'])
@@ -1603,6 +1679,9 @@ def cancel_appointment(appointment_id):
     if not appointment_data:
         db.disconnect()
         return jsonify({'success': False, 'message': '未找到预约记录'})
+    if appointment_data[0].get('status') in ('cancelled', 'completed'):
+        db.disconnect()
+        return jsonify({'success': False, 'message': '该预约当前状态不可取消'})
     result = db.execute_update(
         "UPDATE appointments SET status = 'cancelled', updated_at = %s WHERE appointment_id = %s",
         (datetime.datetime.now(), appointment_id)
