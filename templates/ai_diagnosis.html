@@ -37,6 +37,20 @@
         .heatmap-img { max-width: 100%; border-radius: 18px; margin-top: 12px; border: 1px solid #dee2e6; background: #f8f9fa; }
         .btn-export { background: #198754; color: white; width: 100%; padding: 10px; border-radius: 40px; font-weight: 600; margin-top: 12px; border: none; }
         .btn-export:hover { background: #157347; }
+        .btn-save { background: #198754; color: white; width: 100%; padding: 10px; border-radius: 40px; font-weight: 600; margin-top: 12px; border: none; }
+        .btn-save:hover { background: #157347; }
+        .btn-reset { background: #6c757d; color: white; width: 100%; padding: 10px; border-radius: 40px; font-weight: 600; margin-top: 12px; border: none; }
+        .btn-reset:hover { background: #5c636a; }
+        .step-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #86909C; font-weight: 600; }
+        .step .step-num { width: 22px; height: 22px; border-radius: 50%; background: #E5E6EB; color: #86909C; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+        .step.active { color: #165DFF; }
+        .step.active .step-num { background: #165DFF; color: #fff; }
+        .step.done { color: #00B42A; }
+        .step.done .step-num { background: #00B42A; color: #fff; }
+        .step-line { flex: 1; height: 2px; background: #E5E6EB; border-radius: 2px; }
+        .step-line.done { background: #00B42A; }
+        .step-line.active { background: #165DFF; }
         .status-badge { font-size: 0.75rem; padding: 4px 12px; border-radius: 50px; }
         .progress-sm { height: 5px; }
         .disease-item { margin-bottom: 1rem; }
@@ -106,6 +120,13 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="step-bar mb-2">
+                <div class="step active" id="step1"><span class="step-num">1</span>上传影像</div>
+                <div class="step-line" id="line1"></div>
+                <div class="step" id="step2"><span class="step-num">2</span>AI判读</div>
+                <div class="step-line" id="line2"></div>
+                <div class="step" id="step3"><span class="step-num">3</span>保存完成</div>
+            </div>
             <div id="dropzone" class="dropzone">
                 <i class="fas fa-dicom fa-3x mb-2" style="color:#6c86a3;"></i>
                 <p class="mb-1">拖拽或点击选择 DICOM / CT 切片</p>
@@ -121,6 +142,10 @@
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
             </div>
             <div id="thumbnailContainer" class="thumbnail-scroll"></div>
+            <div class="d-flex gap-2 mt-2">
+                <button id="btnUploadImages" class="btn btn-sm btn-primary flex-fill" onclick="uploadImages()"><i class="fas fa-cloud-upload-alt"></i> 上传影像</button>
+                <button id="btnConfirmDiagnose" class="btn btn-sm btn-success flex-fill" disabled onclick="confirmDiagnose()"><i class="fas fa-microscope"></i> 确认调用AI</button>
+            </div>
         </div>
 
         <!-- 切片浏览与标注区 -->
@@ -166,7 +191,11 @@
             <div class="d-flex justify-content-between mt-1"><span>切片一致性：</span><strong id="distributionRange">--</strong></div>
         </div>
         <div class="report-section"><h6><i class="fas fa-fire"></i> Grad-CAM 热力图（叠加原始CT）</h6><img id="heatmapImage" class="heatmap-img" src="" alt="热力图将在此显示"></div>
-        <div class="report-section"><h6><i class="fas fa-clinic-medical"></i> 检查建议</h6><p id="suggestions" class="small">--</p><button id="exportPdfBtn" class="btn-export"><i class="fas fa-file-pdf"></i> 导出PDF报告</button></div>
+        <div class="report-section"><h6><i class="fas fa-clinic-medical"></i> 检查建议</h6><p id="suggestions" class="small">--</p>
+            <button id="btnSaveReport" class="btn-save" style="display:none;" onclick="saveReport()"><i class="fas fa-save"></i> 保存报告</button>
+            <button id="exportPdfBtn" class="btn-export"><i class="fas fa-file-pdf"></i> 导出PDF报告</button>
+            <button id="btnResetFlow" class="btn-reset" style="display:none;" onclick="resetFlow()"><i class="fas fa-redo"></i> 重新上传</button>
+        </div>
     </div>
 </div>
 
@@ -181,6 +210,8 @@
     const exportBtn = document.getElementById('exportPdfBtn');
 
     let uploadedFiles = [];       // 存储上传的文件对象 { file, url }
+    let pendingFiles = [];        // 待上传的本地文件
+    let uploadIds = [];           // 已上传影像的数据库记录ID
     let currentImageIndex = 0;
     let currentScale = 1;
     let lastResult = null;        // 最近一次诊断结果（用于导出PDF）
@@ -200,12 +231,10 @@
         dropzone.classList.remove('dragover');
         const files = e.dataTransfer.files;
         if(files.length) {
-            if (validateFiles(files)) {
-                handleFiles(files);
-            }
+            queueFiles(files);
         }
     });
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    fileInput.addEventListener('change', (e) => queueFiles(e.target.files));
 
     // 文件类型验证
     function validateFiles(files) {
@@ -232,53 +261,187 @@
         return hasValidFile && !hasInvalidFile;
     }
 
-    // 处理上传 & 诊断
-    async function handleFiles(files) {
-        if(!patientSelect.value) {
-            alert('请先选择患者');
-            return;
+    // 步骤条状态
+    function setStep(n, done) {
+        for (let i = 1; i <= 3; i++) {
+            const el = document.getElementById('step' + i);
+            el.classList.toggle('active', i === n && !done);
+            el.classList.toggle('done', done && i < n);
         }
-        if(!files.length) return;
+        const l1 = document.getElementById('line1');
+        const l2 = document.getElementById('line2');
+        if (l1) l1.className = 'step-line' + (done && n > 1 ? ' done' : '');
+        if (l2) l2.className = 'step-line' + (done && n > 2 ? ' done' : '');
+    }
 
+    // 第一步：选择文件（仅暂存，不上传）
+    function queueFiles(files) {
+        if (!patientSelect.value) { alert('请先选择患者'); return; }
+        if (!validateFiles(files)) return;
+        pendingFiles = Array.from(files);
+        thumbnailContainer.innerHTML = '';
+        document.getElementById('imageIndex').innerText = `0 / ${pendingFiles.length}`;
+        pendingFiles.forEach((f, idx) => {
+            const thumb = document.createElement('img');
+            thumb.src = URL.createObjectURL(f);
+            thumb.classList.add('thumbnail');
+            thumb.dataset.index = idx;
+            thumbnailContainer.appendChild(thumb);
+        });
+        document.getElementById('btnUploadImages').disabled = false;
+        document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-info">待上传</span>';
+        setStep(1, false);
+    }
+
+    // 第一步确认：上传影像（不调用模型）
+    async function uploadImages() {
+        if (!patientSelect.value) { alert('请先选择患者'); return; }
+        if (!pendingFiles.length) { alert('请先选择要上传的影像文件'); return; }
+        const btn = document.getElementById('btnUploadImages');
         const progressBar = document.querySelector('#uploadProgress .progress-bar');
         const progressDiv = document.getElementById('uploadProgress');
         progressDiv.classList.remove('d-none');
-        progressBar.style.width = '30%';
-
+        progressBar.style.width = '40%';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 上传中...';
         const formData = new FormData();
-        for(let file of files) {
-            formData.append('images', file);
-        }
+        pendingFiles.forEach(f => formData.append('images', f));
         formData.append('patient_id', patientSelect.value);
-
         try {
-            const response = await fetch('/api/ai_diagnose', {
-                method: 'POST',
-                body: formData
-            });
+            const response = await fetch('/api/ai_upload', { method: 'POST', body: formData });
             const result = await response.json();
             progressBar.style.width = '100%';
             setTimeout(() => progressDiv.classList.add('d-none'), 800);
-
-            if(result.success) {
-                lastResult = result;
-                // 使用后端返回的缩略图和预览图构建界面
-                if (result.thumbnails && result.thumbnails.length) {
-                    buildThumbnailsFromUrls(result.thumbnails, result.previews);
-                }
-                updateReportPanel(result);
+            if (result.success) {
+                uploadIds = result.upload_ids || [];
+                buildThumbnailsFromUrls(result.thumbnails || [], result.previews || []);
+                document.getElementById('btnConfirmDiagnose').disabled = false;
                 document.getElementById('caseInfo').innerText = `患者ID: ${patientSelect.value}`;
-                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-success">已完成</span>';
-                document.getElementById('timeCost').innerHTML = `<i class="far fa-clock"></i> 诊断耗时：${result.time_cost != null ? result.time_cost : '--'} 秒`;
+                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-info">影像已上传，等待确认</span>';
+                setStep(2, true);
+                pendingFiles = [];
             } else {
-                alert('诊断失败: ' + result.message);
-                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-danger">失败</span>';
+                alert('上传失败: ' + result.message);
             }
-        } catch(err) {
+        } catch (err) {
             console.error(err);
             alert('网络或服务器错误');
             progressDiv.classList.add('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> 上传影像';
         }
+    }
+
+    // 第二步：确认调用AI判读
+    async function confirmDiagnose() {
+        if (!uploadIds.length) { alert('请先上传影像'); return; }
+        const btn = document.getElementById('btnConfirmDiagnose');
+        const progressBar = document.querySelector('#uploadProgress .progress-bar');
+        const progressDiv = document.getElementById('uploadProgress');
+        progressDiv.classList.remove('d-none');
+        progressBar.style.width = '60%';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI判读中...';
+        document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-warning text-dark">AI判读中...</span>';
+        const formData = new FormData();
+        formData.append('patient_id', patientSelect.value);
+        formData.append('image_ids', uploadIds.join(','));
+        try {
+            const response = await fetch('/api/ai_diagnose', { method: 'POST', body: formData });
+            const result = await response.json();
+            progressBar.style.width = '100%';
+            setTimeout(() => progressDiv.classList.add('d-none'), 800);
+            if (result.success) {
+                lastResult = result;
+                updateReportPanel(result);
+                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-success">判读完成</span>';
+                document.getElementById('timeCost').innerHTML = `<i class="far fa-clock"></i> 诊断耗时：${result.time_cost != null ? result.time_cost : '--'} 秒`;
+                document.getElementById('btnSaveReport').style.display = '';
+                document.getElementById('btnResetFlow').style.display = '';
+                setStep(3, true);
+            } else {
+                alert('判读失败: ' + result.message);
+                document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-danger">失败</span>';
+            }
+        } catch (err) {
+            console.error(err);
+            alert('网络或服务器错误');
+            progressDiv.classList.add('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-microscope"></i> 确认调用AI';
+        }
+    }
+
+    // 第三步：保存报告
+    async function saveReport() {
+        if (!lastResult) { alert('请先完成AI判读'); return; }
+        const btn = document.getElementById('btnSaveReport');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
+        const payload = {
+            patient_id: patientSelect.value,
+            predictions: lastResult.predictions,
+            imaging_findings: lastResult.imaging_findings,
+            lesion_area_ratio: lastResult.lesion_area_ratio,
+            distribution_range: lastResult.distribution_range,
+            suggestions_list: lastResult.suggestions_list,
+            differentials: lastResult.differentials,
+            conclusion_text: lastResult.conclusion_text
+        };
+        try {
+            const response = await fetch('/api/ai_save_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert(`报告已保存（报告ID: ${data.report_id}），患者可在「我的报告」中查看。`);
+                document.getElementById('diagnosisStatus').innerHTML = `<span class="badge bg-success">已保存 #${data.report_id}</span>`;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-check"></i> 已保存';
+            } else {
+                alert('保存失败: ' + (data.message || '未知错误'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> 保存报告';
+            }
+        } catch (err) {
+            console.error(err);
+            alert('网络错误，保存失败');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> 保存报告';
+        }
+    }
+
+    // 重新上传：清空当前流程
+    function resetFlow() {
+        pendingFiles = [];
+        uploadIds = [];
+        lastResult = null;
+        thumbnailContainer.innerHTML = '';
+        mainImage.src = '';
+        document.getElementById('imageIndex').innerText = '0 / 0';
+        document.getElementById('uploadProgress').classList.add('d-none');
+        document.getElementById('btnUploadImages').disabled = false;
+        document.getElementById('btnConfirmDiagnose').disabled = true;
+        document.getElementById('btnSaveReport').style.display = 'none';
+        document.getElementById('btnSaveReport').disabled = false;
+        document.getElementById('btnSaveReport').innerHTML = '<i class="fas fa-save"></i> 保存报告';
+        document.getElementById('btnResetFlow').style.display = 'none';
+        document.getElementById('primaryDiagnosis').innerHTML = '--';
+        document.getElementById('conclusionText').innerText = '';
+        document.getElementById('differentialList').innerHTML = '';
+        document.getElementById('imagingFindings').innerHTML = '--';
+        document.getElementById('lesionRatio').innerHTML = '--';
+        document.getElementById('distributionRange').innerText = '--';
+        document.getElementById('suggestions').innerHTML = '--';
+        document.getElementById('heatmapImage').src = '';
+        document.getElementById('diagnosisStatus').innerHTML = '<span class="badge bg-secondary">待诊断</span>';
+        document.getElementById('timeCost').innerText = '';
+        fileInput.value = '';
+        setStep(1, false);
     }
 
     // 构建缩略图（预览核心）

@@ -670,6 +670,10 @@ def doctor_reports():
             r['reviewed_at'] = r['reviewed_at'].strftime('%Y-%m-%d %H:%M')
         if isinstance(r.get('lesion_area_ratio'), Decimal):
             r['lesion_area_ratio'] = float(r['lesion_area_ratio'])
+        r['predictions'] = db.get_disease_predictions(r['report_id']) or []
+        for p in r['predictions']:
+            p['confidence'] = float(p.get('confidence') or 0)
+            p['is_confirmed'] = bool(p.get('is_confirmed'))
     counts = {
         'total': len(reports),
         'pending': sum(1 for r in reports if r.get('status') == 'pending'),
@@ -1839,126 +1843,116 @@ def doctor_ai_diagnosis():
         db.disconnect()
     return render_template('ai_diagnosis.html', patients=patients)
 
-@app.route('/api/ai_diagnose', methods=['POST'])
+def _save_uploaded_images(patient_id, files):
+    """保存上传影像并生成预览/缩略图，返回 (saved_paths, previews, thumbnails)"""
+    upload_dir = app.config['UPLOAD_FOLDER']
+    thumb_dir = os.path.join('static', 'thumbnails')
+    preview_dir = os.path.join('static', 'previews')
+    os.makedirs(thumb_dir, exist_ok=True)
+    os.makedirs(preview_dir, exist_ok=True)
+    saved_paths, previews, thumbnails = [], [], []
+    for file in files:
+        if not (file and allowed_file(file.filename)):
+            continue
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        filepath = os.path.join(upload_dir, unique_filename)
+        file.save(filepath)
+        ext = os.path.splitext(unique_filename)[1].lower()
+        if ext == '.dcm':
+            dcm = pydicom.dcmread(filepath)
+            img = dcm.pixel_array.astype(np.float32)
+            img = (img - img.min()) / (img.max() - img.min() + 1e-8)
+            img = (img * 255).astype(np.uint8)
+            img_pil = Image.fromarray(img).convert('RGB')
+        else:
+            img_pil = Image.open(filepath).convert('RGB')
+        preview_img = img_pil.copy()
+        preview_img.thumbnail((800, 800))
+        preview_filename = f"preview_{unique_filename}.png"
+        preview_img.save(os.path.join(preview_dir, preview_filename))
+        previews.append(f'/static/previews/{preview_filename}')
+        thumb_img = img_pil.copy()
+        thumb_img.thumbnail((150, 150))
+        thumb_filename = f"thumb_{unique_filename}.png"
+        thumb_img.save(os.path.join(thumb_dir, thumb_filename))
+        thumbnails.append(f'/static/thumbnails/{thumb_filename}')
+        saved_paths.append(filepath)
+    return saved_paths, previews, thumbnails
+
+
+@app.route('/api/ai_upload', methods=['POST'])
 @login_required
-def api_ai_diagnose():
+def api_ai_upload():
+    """第一步：仅上传影像并入库（不调用模型），返回缩略图/预览图与上传记录ID"""
     try:
         patient_id = request.form.get('patient_id')
         if not patient_id:
             return jsonify({'success': False, 'message': '请选择患者'})
         files = request.files.getlist('images')
         if not files:
-            return jsonify({'success': False, 'message': '请至少上传一张CT切片'})
+            return jsonify({'success': False, 'message': '请至少选择一张CT切片'})
+        db = Database()
+        if not db.connect():
+            return jsonify({'success': False, 'message': '数据库连接失败'})
+        saved_paths, previews, thumbnails = _save_uploaded_images(patient_id, files)
+        upload_ids = []
+        for p in saved_paths:
+            uid = db.add_medical_image(patient_id, os.path.basename(p), 'CT', 'AI诊断上传')
+            if uid:
+                upload_ids.append(uid)
+        db.disconnect()
+        if not saved_paths:
+            return jsonify({'success': False, 'message': '文件类型不允许或上传失败'})
+        return jsonify({'success': True, 'upload_ids': upload_ids,
+                        'previews': previews, 'thumbnails': thumbnails,
+                        'n_slices': len(saved_paths)})
+    except Exception as e:
+        print(f"AI影像上传错误: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': '影像上传失败，请稍后重试'})
 
+
+@app.route('/api/ai_diagnose', methods=['POST'])
+@login_required
+def api_ai_diagnose():
+    """第二步：对已上传影像（image_ids）调用AI判读；兼容直接上传文件。不自动保存报告。"""
+    try:
+        patient_id = request.form.get('patient_id')
+        if not patient_id:
+            return jsonify({'success': False, 'message': '请选择患者'})
         db = Database()
         if not db.connect():
             return jsonify({'success': False, 'message': '数据库连接失败'})
 
         saved_paths = []
-        thumbnails = []      # 缩略图 URL 列表（150x150）
-        previews = []        # 预览图 URL 列表（800宽）
-        
-        # 确保目录存在
-        upload_dir = app.config['UPLOAD_FOLDER']
-        thumb_dir = os.path.join('static', 'thumbnails')
-        preview_dir = os.path.join('static', 'previews')
-        os.makedirs(thumb_dir, exist_ok=True)
-        os.makedirs(preview_dir, exist_ok=True)
-
-        for file in files:
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                filepath = os.path.join(upload_dir, unique_filename)
-                file.save(filepath)
-
-                # 读取图像（DICOM 或普通图片）
-                ext = os.path.splitext(unique_filename)[1].lower()
-                if ext == '.dcm':
-                    dcm = pydicom.dcmread(filepath)
-                    img = dcm.pixel_array.astype(np.float32)
-                    img = (img - img.min()) / (img.max() - img.min() + 1e-8)
-                    img = (img * 255).astype(np.uint8)
-                    img_pil = Image.fromarray(img).convert('RGB')
-                else:
-                    img_pil = Image.open(filepath).convert('RGB')
-
-                # 生成预览图（宽度 800，高度等比）
-                preview_img = img_pil.copy()
-                preview_img.thumbnail((800, 800))
-                preview_filename = f"preview_{unique_filename}.png"
-                preview_path = os.path.join(preview_dir, preview_filename)
-                preview_img.save(preview_path)
-                preview_url = f'/static/previews/{preview_filename}'
-                previews.append(preview_url)
-
-                # 生成缩略图（150x150）
-                thumb_img = img_pil.copy()
-                thumb_img.thumbnail((150, 150))
-                thumb_filename = f"thumb_{unique_filename}.png"
-                thumb_path = os.path.join(thumb_dir, thumb_filename)
-                thumb_img.save(thumb_path)
-                thumbnail_url = f'/static/thumbnails/{thumb_filename}'
-                thumbnails.append(thumbnail_url)
-
-                # 保存记录到数据库（存储原始文件名）
-                db.add_medical_image(patient_id, unique_filename, 'CT', 'AI诊断上传')
-                saved_paths.append(filepath)
-
+        previews, thumbnails = [], []
+        image_ids = [x for x in (request.form.get('image_ids') or '').replace('，', ',').split(',') if x]
+        if image_ids:
+            for iid in image_ids:
+                rows = db.execute_query(
+                    "SELECT image_path FROM medical_images WHERE image_id=%s AND patient_id=%s",
+                    (iid, patient_id))
+                if rows:
+                    saved_paths.append(os.path.join('static', 'uploads', rows[0]['image_path']))
+        else:
+            files = request.files.getlist('images')
+            if files:
+                saved_paths, previews, thumbnails = _save_uploaded_images(patient_id, files)
+                for p in saved_paths:
+                    db.add_medical_image(patient_id, os.path.basename(p), 'CT', 'AI诊断上传')
         db.disconnect()
         if not saved_paths:
-            return jsonify({'success': False, 'message': '文件上传失败'})
+            return jsonify({'success': False, 'message': '请先上传影像'})
 
-        # 调用诊断服务（返回预测、热力图、量化指标等），诊断耗时取真实计时
         t0 = time.time()
         predictions, heatmap_url, lesion_ratio, distribution, findings, suggestions, diagnosis_view = \
             pf_service.predict_from_paths(saved_paths, patient_id)
         time_cost = round(time.time() - t0, 1)
 
-        # 保存诊断报告：患者端「我的报告/病灶趋势」、医生端「报告复核」均依赖此记录，
-        # 避免诊断结果仅在页面停留、退出后消失
-        report_id = None
-        try:
-            rdb = Database()
-            if rdb.connect():
-                disease_id = pf_service._resolve_catalog_disease_id()
-                report_id = rdb.add_diagnosis_report(
-                    patient_id, current_user.id, '',
-                    findings or 'AI辅助诊断结果',
-                    lesion_area_ratio=lesion_ratio,
-                    distribution_range=distribution,
-                    suggestions='\n'.join(diagnosis_view.get('suggestions') or []),
-                    differentials=json.dumps(diagnosis_view.get('differentials') or [], ensure_ascii=False),
-                    conclusion_text=diagnosis_view.get('conclusion_text'))
-                if report_id and predictions:
-                    for pred in predictions:
-                        rdb.add_disease_prediction(
-                            report_id, disease_id,
-                            pred.get('confidence', 0), pred.get('rank', 1))
-                rdb.disconnect()
-        except Exception as e:
-            print(f"保存诊断报告失败: {e}")
-
-        # 通知患者：AI 诊断已完成
-        try:
-            ndb = Database()
-            if ndb.connect():
-                patient_row = ndb.execute_query("SELECT user_id FROM patients WHERE patient_id = %s", (patient_id,))
-                if patient_row:
-                    ndb.add_notification(
-                        patient_row[0]['user_id'],
-                        'AI诊断报告已生成',
-                        f'您的AI辅助诊断已完成，可前往「我的报告」查看详细结果。',
-                        'diagnosis',
-                        '/my_reports'
-                    )
-                ndb.disconnect()
-        except Exception:
-            pass
-
         return jsonify({
             'success': True,
-            'report_id': report_id,
             'predictions': predictions,
             'primary_diagnosis': diagnosis_view.get('primary_diagnosis'),
             'icd_code': diagnosis_view.get('icd_code'),
@@ -1974,14 +1968,66 @@ def api_ai_diagnose():
             'time_cost': time_cost,
             'n_slices': int(distribution.split('/')[0]) if '/' in str(distribution) else len(saved_paths),
             'model_version': os.path.basename(MODEL_PATH),
-            'thumbnails': thumbnails,     # 缩略图列表（用于缩略图栏）
-            'previews': previews          # 预览图列表（用于主图显示）
+            'thumbnails': thumbnails,
+            'previews': previews,
+            'upload_ids': image_ids
         })
     except Exception as e:
         print(f"AI诊断错误: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': 'AI诊断服务暂时不可用，请稍后重试'})
+
+
+@app.route('/api/ai_save_report', methods=['POST'])
+@login_required
+def api_ai_save_report():
+    """第三步：医生确认后显式保存AI诊断报告"""
+    if current_user.user_type != 'doctor':
+        return jsonify({'success': False, 'message': '无权操作'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        patient_id = data.get('patient_id')
+        if not patient_id:
+            return jsonify({'success': False, 'message': '缺少患者ID'}), 400
+        findings = data.get('imaging_findings') or 'AI辅助诊断结果'
+        lesion_ratio = data.get('lesion_area_ratio')
+        distribution = data.get('distribution_range')
+        suggestions = data.get('suggestions_list') or []
+        differentials = data.get('differentials') or []
+        conclusion = data.get('conclusion_text')
+        predictions = data.get('predictions') or []
+
+        db = Database()
+        if not db.connect():
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        disease_id = pf_service._resolve_catalog_disease_id()
+        report_id = db.add_diagnosis_report(
+            patient_id, current_user.id, '', findings,
+            lesion_area_ratio=lesion_ratio,
+            distribution_range=distribution,
+            suggestions='\n'.join(suggestions),
+            differentials=json.dumps(differentials, ensure_ascii=False),
+            conclusion_text=conclusion)
+        if report_id:
+            for p in predictions:
+                db.add_disease_prediction(report_id, disease_id,
+                                          p.get('confidence', 0), p.get('rank', 1))
+            patient_row = db.execute_query(
+                "SELECT user_id FROM patients WHERE patient_id=%s", (patient_id,))
+            if patient_row and patient_row[0].get('user_id'):
+                db.add_notification(patient_row[0]['user_id'], 'AI诊断报告已生成',
+                                    '您的AI辅助诊断已完成，可前往「我的报告」查看详细结果。',
+                                    'diagnosis', '/my_reports')
+            db.add_system_log(current_user.id, 'SAVE_AI_REPORT', f'保存AI诊断报告，报告ID: {report_id}')
+        db.disconnect()
+        return jsonify({'success': bool(report_id), 'report_id': report_id,
+                        'message': '报告已保存' if report_id else '保存失败'})
+    except Exception as e:
+        print(f"保存AI报告错误: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': '保存失败，请稍后重试'}), 500
 
 
 @app.route('/api/export_report', methods=['POST'])
