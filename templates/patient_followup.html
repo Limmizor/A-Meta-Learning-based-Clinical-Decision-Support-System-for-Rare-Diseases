@@ -1,344 +1,297 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随访计划 - 肺影智诊系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #165DFF; --primary-dark: #0E42D2; --secondary: #4E5969;
+            --success: #00B42A; --warning: #FF7D00; --danger: #F53F3F;
+            --border-color: #E5E6EB; --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+        body { font-family: 'Microsoft YaHei', sans-serif; color: #1D2129; background-color: #F7F8FA; margin: 0; padding: 0; }
+        .main-header { height: 70px; background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%); box-shadow: 0 4px 18px rgba(22,93,255,0.25); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .header-container { display: flex; align-items: center; justify-content: space-between; height: 100%; max-width: 1500px; margin: 0 auto; padding: 0 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo i { font-size: 24px; color: #fff; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #fff; }
+        .main-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 10px; padding: 3px; }
+        .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: rgba(255,255,255,0.92); text-decoration: none; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,0.15); }
+        .nav-link.active { background-color: #fff; color: var(--primary); font-weight: 600; }
+        .user-info { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #fff, #dbe8ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.6); }
+        .user-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .main-container { display: flex; margin-top: 70px; min-height: calc(100vh - 70px); }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border-color); padding: 20px 0; height: calc(100vh - 70px); position: fixed; overflow-y: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu-title { padding: 0 20px 8px; font-size: 12px; color: #86909C; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-menu-item { margin-bottom: 2px; }
+        .sidebar-menu-link { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--secondary); text-decoration: none; transition: all 0.2s; }
+        .sidebar-menu-link:hover { color: var(--primary); background-color: rgba(22,93,255,0.05); }
+        .sidebar-menu-link.active { color: var(--primary); background-color: rgba(22,93,255,0.08); border-right: 3px solid var(--primary); }
+        .content { margin-left: 220px; padding: 24px; width: 100%; }
 
-{% block title %}随访计划 - 肺影智诊系统{% endblock %}
+        .stat-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+        .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .stat-icon.primary { background: rgba(22,93,255,0.1); color: #165DFF; }
+        .stat-icon.success { background: rgba(0,180,42,0.1); color: #00B42A; }
+        .stat-icon.warning { background: rgba(255,125,0,0.1); color: #FF7D00; }
+        .stat-icon.info    { background: rgba(134,144,156,0.1); color: #4E5969; }
+        .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
+        .stat-label { font-size: 13px; color: #86909C; }
 
-{% block content %}
-<div class="container-fluid px-4 py-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">
-            <i class="bi bi-calendar-heart me-2"></i>随访计划管理
-        </h1>
-        <button class="btn btn-primary" onclick="showCreatePlanModal()">
-            <i class="bi bi-plus-circle"></i> 新建随访计划
-        </button>
-    </div>
+        .plan-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; transition: transform 0.15s; }
+        .plan-card:hover { transform: translateY(-1px); }
+        .date-box { width: 64px; height: 64px; border-radius: 12px; background: linear-gradient(135deg, #165DFF, #4080FF); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+        .date-box .d { font-size: 20px; font-weight: 700; line-height: 1; }
+        .date-box .m { font-size: 11px; opacity: 0.9; }
+        .date-box.done { background: linear-gradient(135deg, #00B42A, #4CD263); }
+        .date-box.overdue { background: linear-gradient(135deg, #F53F3F, #FF7878); }
+        .quick-chip { border: 1px solid var(--border-color); background: #fff; color: var(--secondary); border-radius: 20px; padding: 3px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+        .quick-chip:hover { border-color: var(--primary); color: var(--primary); background: rgba(22,93,255,0.04); }
+        .empty-box { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 50px 20px; text-align: center; }
+        .empty-box i { font-size: 56px; color: #C9CDD4; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('patient_dashboard') }}" class="logo"><i class="bi bi-clipboard2-pulse-fill"></i><span class="logo-text">肺影智诊系统</span></a>
+            <nav class="main-nav">
+                <a href="{{ url_for('patient_dashboard') }}" class="nav-link"><i class="bi bi-house"></i> 患者首页</a>
+                <a href="{{ url_for('my_reports') }}" class="nav-link"><i class="bi bi-file-medical"></i> 我的报告</a>
+                <a href="{{ url_for('patient_profile') }}" class="nav-link"><i class="bi bi-person-heart"></i> 健康档案</a>
+                <a href="{{ url_for('patient_appointment') }}" class="nav-link"><i class="bi bi-calendar-plus"></i> 预约挂号</a>
+                <a href="{{ url_for('patient_chat') }}" class="nav-link"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            </nav>
+            <a href="{{ url_for('profile') }}" class="user-info">
+                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '患' }}</div>
+                <div class="user-name">{{ current_user.full_name or '患者' }}</div>
+            </a>
+        </div>
+    </header>
 
-    <!-- 统计卡片（与医生工作台风格一致） -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon primary me-3">
-                        <i class="bi bi-clock-history"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="pendingCount">0</div>
-                        <div class="stat-label">待执行</div>
-                        <div class="stat-trend">需按时复查</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon success me-3">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="completedCount">0</div>
-                        <div class="stat-label">已完成</div>
-                        <div class="stat-trend">历史记录</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon warning me-3">
-                        <i class="bi bi-calendar-week"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="upcomingCount">0</div>
-                        <div class="stat-label">即将到期</div>
-                        <div class="stat-trend">7天内</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon info me-3">
-                        <i class="bi bi-calendar-range"></i>
-                    </div>
-                    <div>
-                        <div class="stat-value" id="totalCount">0</div>
-                        <div class="stat-label">总计计划</div>
-                        <div class="stat-trend">全部</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_dashboard') }}" class="sidebar-menu-link"><i class="bi bi-speedometer2"></i><span>首页</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_profile') }}" class="sidebar-menu-link"><i class="bi bi-person-heart"></i><span>健康档案</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('my_reports') }}" class="sidebar-menu-link"><i class="bi bi-file-medical"></i><span>我的报告</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_trend') }}" class="sidebar-menu-link"><i class="bi bi-graph-up"></i><span>病灶趋势</span></a></li>
+                <li class="sidebar-menu-title">健康管理</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_health_log') }}" class="sidebar-menu-link"><i class="bi bi-journal-medical"></i><span>健康日志</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_followup') }}" class="sidebar-menu-link active"><i class="bi bi-calendar-heart"></i><span>随访计划</span></a></li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+            </ul>
+        </aside>
 
-    <!-- 计划列表卡片 -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0"><i class="bi bi-list-check me-2"></i>我的随访计划</h5>
-        </div>
-        <div class="card-body p-0">
-            <div id="planList" class="list-group list-group-flush">
+        <div class="content">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h1 class="h3 mb-0"><i class="bi bi-calendar-heart me-2"></i>我的随访计划</h1>
+                <button class="btn btn-primary btn-sm" onclick="showCreatePlanModal()"><i class="bi bi-plus-circle"></i> 新建随访计划</button>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon primary"><i class="bi bi-clock-history"></i></div><div><div class="stat-value" id="pendingCount">0</div><div class="stat-label">待执行</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon warning"><i class="bi bi-calendar-week"></i></div><div><div class="stat-value" id="upcomingCount">0</div><div class="stat-label">7天内到期</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon danger"><i class="bi bi-exclamation-triangle"></i></div><div><div class="stat-value" id="overdueCount">0</div><div class="stat-label">已逾期</div></div></div></div>
+                <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-icon success"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="completedCount">0</div><div class="stat-label">已完成</div></div></div></div>
+            </div>
+
+            <div id="planList">
                 <div class="text-center py-5 text-muted">加载中...</div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 新建/编辑模态框 -->
-<div class="modal fade" id="planModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="planModalTitle">新建随访计划</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="planForm">
-                    <input type="hidden" id="planId">
-                    <div class="mb-3">
-                        <label class="form-label">建议复查日期 <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="suggestedDate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">备注</label>
-                        <textarea class="form-control" id="planNotes" rows="3" placeholder="可选，例如：需带CT影像、空腹等"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger" id="deletePlanBtn" style="display:none" onclick="deletePlan()">删除</button>
-                <button type="button" class="btn btn-primary" onclick="savePlan()">保存</button>
+    <!-- 新建/编辑模态框 -->
+    <div class="modal fade" id="planModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="planModalTitle"><i class="bi bi-calendar-plus"></i> 新建随访计划</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="planForm">
+                        <input type="hidden" id="planId">
+                        <div class="mb-3">
+                            <label class="form-label">建议复查日期 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="suggestedDate" required>
+                            <div class="form-text">请选择计划复查的日期（不能早于今天）</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">随访说明</label>
+                            <textarea class="form-control" id="planNotes" rows="3" placeholder="例如：复查CT影像、空腹抽血、评估用药效果等"></textarea>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <span class="quick-chip" onclick="appendPlanNote('复查CT影像，评估病灶变化')">复查CT</span>
+                                <span class="quick-chip" onclick="appendPlanNote('复查肺功能（FVC%）')">复查肺功能</span>
+                                <span class="quick-chip" onclick="appendPlanNote('复诊开药，空腹前往')">复诊开药</span>
+                                <span class="quick-chip" onclick="appendPlanNote('携带既往检查报告')">携带报告</span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="deletePlanBtn" style="display:none" onclick="deletePlan(currentEditId)"><i class="bi bi-trash"></i> 删除</button>
+                    <button type="button" class="btn btn-primary" onclick="savePlan()"><i class="bi bi-check2-circle"></i> 保存</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<style>
-    /* 统计卡片样式（与医生工作台一致） */
-    .stat-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        flex-shrink: 0;
-    }
-    .stat-icon.primary {
-        background-color: rgba(22, 93, 255, 0.1);
-        color: #165DFF;
-    }
-    .stat-icon.success {
-        background-color: rgba(0, 180, 42, 0.1);
-        color: #00B42A;
-    }
-    .stat-icon.warning {
-        background-color: rgba(255, 125, 0, 0.1);
-        color: #FF7D00;
-    }
-    .stat-icon.info {
-        background-color: rgba(134, 144, 156, 0.1);
-        color: #4E5969;
-    }
-    .stat-value {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-    .stat-label {
-        font-size: 14px;
-        color: #4E5969;
-        margin-bottom: 5px;
-    }
-    .stat-trend {
-        font-size: 12px;
-        color: #86909C;
-    }
-    .list-group-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-left: none;
-        border-right: none;
-        transition: background 0.2s;
-    }
-    .list-group-item:hover {
-        background-color: rgba(22, 93, 255, 0.03);
-    }
-    .badge-pending {
-        background-color: #FF7D00;
-        color: white;
-    }
-    .badge-completed {
-        background-color: #00B42A;
-        color: white;
-    }
-    .plan-actions .btn {
-        margin-left: 5px;
-    }
-    @media (max-width: 768px) {
-        .list-group-item {
-            flex-direction: column;
-            align-items: flex-start;
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentEditId = null;
+        let allPlans = [];
+
+        function dayDiff(dateStr) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const d = new Date(dateStr); d.setHours(0,0,0,0);
+            return Math.round((d - today) / (1000 * 60 * 60 * 24));
         }
-        .plan-actions {
-            margin-top: 10px;
-            align-self: flex-end;
-        }
-    }
-</style>
 
-<script>
-    let currentEditId = null;
+        async function loadPlans() {
+            try {
+                const response = await fetch('/api/followup');
+                if (!response.ok) throw new Error();
+                allPlans = await response.json();
+                const pending = allPlans.filter(p => p.status === 'pending');
+                const completed = allPlans.filter(p => p.status === 'completed');
+                const upcoming = pending.filter(p => { const d = dayDiff(p.suggested_date); return d >= 0 && d <= 7; });
+                const overdue = pending.filter(p => dayDiff(p.suggested_date) < 0);
+                document.getElementById('pendingCount').innerText = pending.length;
+                document.getElementById('upcomingCount').innerText = upcoming.length;
+                document.getElementById('overdueCount').innerText = overdue.length;
+                document.getElementById('completedCount').innerText = completed.length;
 
-    async function loadPlans() {
-        try {
-            const response = await fetch('/api/followup');
-            if (!response.ok) throw new Error('加载失败');
-            const plans = await response.json();
-            const pending = plans.filter(p => p.status === 'pending');
-            const completed = plans.filter(p => p.status === 'completed');
-            const today = new Date();
-            const upcoming = plans.filter(p => {
-                if (p.status !== 'pending') return false;
-                const date = new Date(p.suggested_date);
-                const diffDays = (date - today) / (1000 * 60 * 60 * 24);
-                return diffDays >= 0 && diffDays <= 7;
-            });
-            document.getElementById('pendingCount').innerText = pending.length;
-            document.getElementById('completedCount').innerText = completed.length;
-            document.getElementById('upcomingCount').innerText = upcoming.length;
-            document.getElementById('totalCount').innerText = plans.length;
-
-            const container = document.getElementById('planList');
-            if (!plans.length) {
-                container.innerHTML = '<div class="text-center py-5 text-muted">暂无随访计划，点击“新建随访计划”添加</div>';
-                return;
+                const container = document.getElementById('planList');
+                if (!allPlans.length) {
+                    container.innerHTML = '<div class="empty-box"><i class="bi bi-calendar-heart"></i><h5 class="mt-3 text-muted">暂无随访计划</h5><p class="text-muted">创建随访计划，按时复查、动态掌握病情。</p><button class="btn btn-primary btn-sm" onclick="showCreatePlanModal()"><i class="bi bi-plus-circle"></i> 新建随访计划</button></div>';
+                    return;
+                }
+                container.innerHTML = allPlans.map(plan => {
+                    const done = plan.status === 'completed';
+                    const diff = dayDiff(plan.suggested_date);
+                    const boxCls = done ? 'done' : (diff < 0 ? 'overdue' : '');
+                    const d = new Date(plan.suggested_date);
+                    const md = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+                    let badge;
+                    if (done) badge = '<span class="badge bg-success">已完成</span>';
+                    else if (diff < 0) badge = `<span class="badge bg-danger">已逾期 ${-diff} 天</span>`;
+                    else if (diff === 0) badge = '<span class="badge bg-warning text-dark">今天到期</span>';
+                    else badge = `<span class="badge bg-primary">还有 ${diff} 天</span>`;
+                    return `
+                    <div class="plan-card mb-3">
+                        <div class="date-box ${boxCls}">
+                            <div class="d">${d.getDate()}</div>
+                            <div class="m">${d.getMonth()+1}月</div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+                                <h6 class="mb-1">${md} ${badge}</h6>
+                                <small class="text-muted">创建于 ${plan.created_at || ''}</small>
+                            </div>
+                            <div class="small text-muted mb-2">${plan.notes || '无随访说明'}</div>
+                            <div class="d-flex flex-wrap gap-1">
+                                ${!done ? `<button class="btn btn-sm btn-outline-success" onclick="markComplete(${plan.plan_id})"><i class="bi bi-check-circle"></i> 标记完成</button>` : ''}
+                                <button class="btn btn-sm btn-outline-primary" onclick="editPlan(${plan.plan_id})"><i class="bi bi-pencil"></i> 编辑</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deletePlan(${plan.plan_id})"><i class="bi bi-trash"></i> 删除</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('planList').innerHTML = '<div class="text-center py-5 text-danger">加载失败，请刷新重试</div>';
             }
-            container.innerHTML = plans.map(plan => `
-                <div class="list-group-item">
-                    <div>
-                        <h6 class="mb-1">
-                            📅 建议日期：${plan.suggested_date}
-                            <span class="badge ${plan.status === 'pending' ? 'badge-pending' : 'badge-completed'} ms-2">
-                                ${plan.status === 'pending' ? '待执行' : '已完成'}
-                            </span>
-                        </h6>
-                        <p class="mb-1 small text-muted">${plan.notes || '无备注'}</p>
-                        <small class="text-muted">创建时间：${new Date(plan.created_at).toLocaleString()}</small>
-                    </div>
-                    <div class="plan-actions">
-                        <button class="btn btn-sm btn-outline-primary" onclick="editPlan(${plan.plan_id})">
-                            <i class="bi bi-pencil"></i> 编辑
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deletePlan(${plan.plan_id})">
-                            <i class="bi bi-trash"></i> 删除
-                        </button>
-                        ${plan.status === 'pending' ? `
-                            <button class="btn btn-sm btn-outline-success" onclick="markComplete(${plan.plan_id})">
-                                <i class="bi bi-check-circle"></i> 标记完成
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error(error);
-            document.getElementById('planList').innerHTML = '<div class="text-center py-5 text-danger">加载失败，请刷新重试</div>';
         }
-    }
 
-    function showCreatePlanModal() {
-        currentEditId = null;
-        document.getElementById('planModalTitle').innerText = '新建随访计划';
-        document.getElementById('planForm').reset();
-        document.getElementById('deletePlanBtn').style.display = 'none';
-        new bootstrap.Modal(document.getElementById('planModal')).show();
-    }
+        function appendPlanNote(text) {
+            const ta = document.getElementById('planNotes');
+            ta.value = text;
+            ta.focus();
+        }
 
-    async function editPlan(planId) {
-        try {
-            const response = await fetch(`/api/followup?plan_id=${planId}`);
-            if (!response.ok) throw new Error();
-            const plan = await response.json();
+        function showCreatePlanModal() {
+            currentEditId = null;
+            document.getElementById('planModalTitle').innerHTML = '<i class="bi bi-calendar-plus"></i> 新建随访计划';
+            document.getElementById('planForm').reset();
+            document.getElementById('suggestedDate').min = new Date().toISOString().split('T')[0];
+            document.getElementById('deletePlanBtn').style.display = 'none';
+            new bootstrap.Modal(document.getElementById('planModal')).show();
+        }
+
+        function editPlan(planId) {
+            const plan = allPlans.find(p => p.plan_id === planId);
+            if (!plan) return;
             currentEditId = planId;
-            document.getElementById('planModalTitle').innerText = '编辑随访计划';
+            document.getElementById('planModalTitle').innerHTML = '<i class="bi bi-pencil-square"></i> 编辑随访计划';
             document.getElementById('suggestedDate').value = plan.suggested_date;
+            document.getElementById('suggestedDate').min = new Date().toISOString().split('T')[0];
             document.getElementById('planNotes').value = plan.notes || '';
             document.getElementById('deletePlanBtn').style.display = 'block';
             new bootstrap.Modal(document.getElementById('planModal')).show();
-        } catch (err) {
-            alert('获取计划详情失败');
         }
-    }
 
-    async function savePlan() {
-        const suggestedDate = document.getElementById('suggestedDate').value;
-        if (!suggestedDate) {
-            alert('请填写建议复查日期');
-            return;
+        async function savePlan() {
+            const suggestedDate = document.getElementById('suggestedDate').value;
+            if (!suggestedDate) { alert('请填写建议复查日期'); return; }
+            const notes = document.getElementById('planNotes').value.trim();
+            const body = JSON.stringify({ suggested_date: suggestedDate, notes: notes });
+            try {
+                const response = await fetch('/api/followup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body
+                });
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('planModal')).hide();
+                    loadPlans();
+                } else {
+                    alert('操作失败: ' + (result.error || '未知错误'));
+                }
+            } catch (e) { alert('网络错误'); }
         }
-        const notes = document.getElementById('planNotes').value;
-        const url = '/api/followup';
-        const method = 'POST';
-        const body = JSON.stringify({ suggested_date: suggestedDate, notes: notes });
-        try {
-            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body });
-            const result = await response.json();
-            if (result.success) {
-                alert(currentEditId ? '更新成功' : '创建成功');
-                bootstrap.Modal.getInstance(document.getElementById('planModal')).hide();
-                loadPlans();
-            } else {
-                alert('操作失败: ' + (result.error || '未知错误'));
-            }
-        } catch (error) {
-            alert('网络错误');
-        }
-    }
 
-    async function deletePlan(planId) {
-        if (!confirm('确定删除该随访计划吗？')) return;
-        try {
-            const response = await fetch(`/api/followup?plan_id=${planId}`, { method: 'DELETE' });
-            const result = await response.json();
-            if (result.success) {
-                alert('删除成功');
-                loadPlans();
-                const modal = bootstrap.Modal.getInstance(document.getElementById('planModal'));
-                if (modal) modal.hide();
-            } else {
-                alert('删除失败');
-            }
-        } catch (error) {
-            alert('网络错误');
+        async function deletePlan(planId) {
+            if (!planId) return;
+            if (!confirm('确定删除该随访计划吗？')) return;
+            try {
+                const response = await fetch(`/api/followup?plan_id=${planId}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('planModal'))?.hide();
+                    loadPlans();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (e) { alert('网络错误'); }
         }
-    }
 
-    async function markComplete(planId) {
-        if (!confirm('标记为已完成？')) return;
-        try {
-            const response = await fetch('/api/followup', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plan_id: planId, status: 'completed' })
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('已标记完成');
-                loadPlans();
-            } else {
-                alert('操作失败');
-            }
-        } catch (error) {
-            alert('网络错误');
+        async function markComplete(planId) {
+            if (!confirm('标记为已完成？')) return;
+            try {
+                const response = await fetch('/api/followup', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan_id: planId, status: 'completed' })
+                });
+                const result = await response.json();
+                if (result.success) loadPlans();
+                else alert('操作失败');
+            } catch (e) { alert('网络错误'); }
         }
-    }
 
-    document.addEventListener('DOMContentLoaded', loadPlans);
-</script>
-{% endblock %}
+        document.addEventListener('DOMContentLoaded', loadPlans);
+    </script>
+</body>
+</html>
