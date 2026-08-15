@@ -19,7 +19,7 @@ from decimal import Decimal
 
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config['SECRET_KEY'] = 'your-secret-key-here'  # 应使用强密钥
+app.config['SECRET_KEY'] = '4a55ca79078c8fcd2435348e794f8d86d9fd64c6feef9c752ec2a6dc0c69c22c'
 
 # 初始化Flask-Login
 login_manager = LoginManager()

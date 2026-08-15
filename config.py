@@ -8,7 +8,7 @@ class Config:
     MYSQL_DB = 'rare_disease_diagnosis'
     
     # 应用配置
-    SECRET_KEY = 'your_secret_key_here'
+    SECRET_KEY = '4a55ca79078c8fcd2435348e794f8d86d9fd64c6feef9c752ec2a6dc0c69c22c'
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
     MAX_CONTENT_LENGTH = 64 * 1024 * 1024  # 64MB 文件上传限制（支持30张DICOM序列一次上传）
     

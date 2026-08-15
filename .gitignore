@@ -56,6 +56,10 @@ logs/
 *.tmp
 *.temp
 temp/
+~$*
+
+# 部署截图（含运行界面数据，不入库）
+deployment_screenshots/
 
 # IDE 文件
 .idea/

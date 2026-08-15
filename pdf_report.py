@@ -16,28 +16,66 @@ from reportlab.platypus import (
 )
 
 
-# ---------- 字体注册（Windows 中文字体） ----------
+# ---------- 字体注册（Windows / Linux 中文字体自动识别） ----------
 def _register_fonts():
-    font_dir = r'C:\Windows\Fonts'
-    candidates = {
-        'SimHei': ('simhei.ttf', None),
-        'Deng': ('Deng.ttf', None),
-        'DengB': ('Dengb.ttf', None),
-    }
-    for name, (file, _) in candidates.items():
-        path = os.path.join(font_dir, file)
+    # Windows 常用中文字体
+    for name, path in [
+        ('SimHei', r'C:\Windows\Fonts\simhei.ttf'),
+        ('Deng', r'C:\Windows\Fonts\Deng.ttf'),
+        ('DengB', r'C:\Windows\Fonts\Dengb.ttf'),
+    ]:
         if os.path.exists(path):
-            pdfmetrics.registerFont(TTFont(name, path))
+            try:
+                pdfmetrics.registerFont(TTFont(name, path))
+            except Exception:
+                pass
+    # Linux 常用中文字体：.ttc 逐个 subfont 尝试，.ttf 直接注册
+    for name, path in [
+        ('NotoSansCJK', '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'),
+        ('NotoSansCJKB', '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'),
+        ('DroidSansFallback', '/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf'),
+        ('WenQuanYi', '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc'),
+        ('WenQuanYiB', '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'),
+    ]:
+        if not os.path.exists(path):
+            continue
+        if path.endswith('.ttf'):
+            try:
+                pdfmetrics.registerFont(TTFont(name, path))
+                continue
+            except Exception:
+                pass
+        for idx in range(8):
+            try:
+                pdfmetrics.registerFont(TTFont(name, path, subfontIndex=idx))
+                break
+            except Exception:
+                continue
     # 字体映射（缺字回退）
     pdfmetrics.registerFontFamily(
         'Deng', normal='Deng', bold='DengB', italic='Deng', boldItalic='DengB')
+    pdfmetrics.registerFontFamily(
+        'NotoSansCJK', normal='NotoSansCJK', bold='NotoSansCJKB',
+        italic='NotoSansCJK', boldItalic='NotoSansCJKB')
 
 
 _register_fonts()
 
-HEAD_FONT = 'SimHei' if 'SimHei' in pdfmetrics.getRegisteredFontNames() else 'Deng'
-BODY_FONT = 'Deng' if 'Deng' in pdfmetrics.getRegisteredFontNames() else 'SimHei'
-BOLD_FONT = 'DengB' if 'DengB' in pdfmetrics.getRegisteredFontNames() else HEAD_FONT
+_REG = set(pdfmetrics.getRegisteredFontNames())
+
+
+def _pick_font(prefs):
+    """从候选字体中选第一个已注册的；全部缺失时退回 Helvetica（避免崩溃）"""
+    for n in prefs:
+        if n in _REG:
+            return n
+    return 'Helvetica'
+
+
+HEAD_FONT = _pick_font(['SimHei', 'NotoSansCJK', 'Deng', 'WenQuanYi', 'DroidSansFallback'])
+BODY_FONT = _pick_font(['Deng', 'NotoSansCJK', 'SimHei', 'WenQuanYi', 'DroidSansFallback'])
+BOLD_FONT = _pick_font(['DengB', 'NotoSansCJKB', 'NotoSansCJK', 'SimHei',
+                        'WenQuanYiB', 'WenQuanYi', 'DroidSansFallback'])
 
 PRIMARY = colors.HexColor('#165DFF')
 PRIMARY_DARK = colors.HexColor('#0E42D2')
