@@ -46,14 +46,26 @@
         .info-box { background: #F7F8FA; border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
         .info-box .k { font-size: 12px; color: #86909C; }
         .info-box .v { font-size: 14px; font-weight: 500; }
-        .print-only { display: none; }
+        /* ===== 标准打印报告（仅打印时显示） ===== */
+        .print-report { display: none; }
+        .print-report .pr-title { text-align: center; font-size: 20pt; font-weight: 700; color: #000; margin-bottom: 4px; }
+        .print-report .pr-sub { text-align: center; font-size: 12pt; color: #444; margin-bottom: 2px; }
+        .print-report .pr-meta { text-align: center; font-size: 10pt; color: #666; margin-bottom: 10px; }
+        .print-report .pr-rule { border-bottom: 2px solid #000; margin-bottom: 12px; }
+        .print-report .pr-sec { font-size: 13pt; font-weight: 700; margin: 14px 0 6px; padding-left: 8px; border-left: 4px solid #444; }
+        .print-report .pr-body { font-size: 12pt; line-height: 1.9; margin: 0 0 8px; }
+        .print-report .pr-item { font-size: 12pt; line-height: 1.9; margin: 0 0 2px; }
+        .print-report .pr-tag { display: inline-block; border: 1px solid #999; border-radius: 4px; padding: 1px 8px; font-size: 11pt; margin: 0 6px 6px 0; }
+        .print-report .pr-table { width: 100%; border-collapse: collapse; font-size: 11.5pt; margin: 6px 0 10px; }
+        .print-report .pr-table th, .print-report .pr-table td { border: 1px solid #333; padding: 5px 8px; text-align: left; }
+        .print-report .pr-table th { background: #f0f0f0; font-weight: 700; width: 28%; }
+        .print-report .pr-note { margin-top: 16px; padding: 8px 10px; border: 1px solid #999; font-size: 10.5pt; color: #444; }
+        .print-report .pr-footer { margin-top: 18px; text-align: center; font-size: 9.5pt; color: #888; border-top: 1px solid #ccc; padding-top: 6px; }
         @media print {
-            .no-print, .main-header, .sidebar, .btn { display: none !important; }
-            .print-only { display: block !important; }
-            .content { margin-left: 0 !important; padding: 0 !important; }
-            .card-kb { box-shadow: none !important; border: 1px solid #D9D9D9; break-inside: avoid; }
-            .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            @page { margin: 14mm; }
+            body { background: #fff !important; }
+            .no-print, .main-header, .sidebar, .content, .btn, .toolbar, .card-kb, .hero { display: none !important; }
+            .print-report { display: block !important; }
+            @page { size: A4; margin: 18mm 16mm; }
         }
     </style>
 </head>
@@ -97,7 +109,7 @@
         <div class="content">
             <div class="d-flex justify-content-between align-items-center mb-3 no-print">
                 <a href="{{ url_for('disease_query') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回知识库</a>
-                <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+                <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> 打印标准报告</button>
             </div>
 
             <div class="hero">
@@ -157,6 +169,55 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- 标准格式化打印报告 -->
+    <div class="print-report">
+        <div class="pr-title">肺纤维化疾病知识库 · 疾病资料报告</div>
+        <div class="pr-sub">{{ disease.name }}</div>
+        <div class="pr-meta">报告编号：KB-{{ disease.disease_id }}-{{ today.replace('年', '').replace('月', '').replace('日', '') }}　|　生成时间：{{ today }}　|　来源：肺影智诊系统</div>
+        <div class="pr-rule"></div>
+
+        <div class="pr-sec">一、疾病概述</div>
+        <p class="pr-body">{{ disease.description or '暂无疾病描述。' }}</p>
+
+        <div class="pr-sec">二、疾病基本信息</div>
+        <table class="pr-table">
+            <tr><th>疾病名称</th><td>{{ disease.name }}</td></tr>
+            <tr><th>ICD-10 编码</th><td>{{ disease.icd_code or '未设置' }}</td></tr>
+            <tr><th>疾病分类</th><td>{{ disease.category or '间质性肺病' }}</td></tr>
+            {% if disease.incidence %}<tr><th>高危人群 / 流行病学</th><td>{{ disease.incidence }}</td></tr>{% endif %}
+            {% if disease.inheritance %}<tr><th>发病特点</th><td>{{ disease.inheritance }}</td></tr>{% endif %}
+        </table>
+
+        {% if disease.symptoms %}
+        <div class="pr-sec">三、常见症状</div>
+        <div>
+            {% for s in disease.symptoms.split(',') %}
+            <span class="pr-tag">{{ s.strip() }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if disease.diagnostic_criteria %}
+        <div class="pr-sec">四、诊断标准 / 方法</div>
+        <p class="pr-body">{{ disease.diagnostic_criteria }}</p>
+        {% endif %}
+
+        {% if disease.treatment_options %}
+        <div class="pr-sec">五、治疗方案</div>
+        <p class="pr-body">{{ disease.treatment_options }}</p>
+        {% endif %}
+
+        {% if disease.prevention %}
+        <div class="pr-sec">六、预防措施</div>
+        <p class="pr-body">{{ disease.prevention }}</p>
+        {% endif %}
+
+        <div class="pr-note">
+            <strong>说明：</strong>本报告由肺影智诊系统疾病知识库自动生成，内容仅供临床参考，具体诊疗请结合患者实际情况及最新临床指南。
+        </div>
+        <div class="pr-footer">肺影智诊系统 · 肺纤维化疾病知识库资料（第 1 页 / 共 1 页）</div>
     </div>
 </body>
 </html>

@@ -1635,7 +1635,8 @@ def disease_detail(disease_id):
         flash('疾病不存在', 'danger')
         return redirect(url_for('disease_query'))
     disease = _disease_to_frontend(rows[0])
-    return render_template('disease_detail.html', disease=disease)
+    return render_template('disease_detail.html', disease=disease,
+                           today=datetime.date.today().strftime('%Y年%m月%d日'))
 
 
 # 患者预约挂号
