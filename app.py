@@ -1601,7 +1601,7 @@ def doctor_create_appointment():
 @app.route('/disease_query')
 @login_required
 def disease_query():
-    if current_user.user_type != 'doctor':
+    if current_user.user_type not in ('doctor', 'admin'):
         flash('无权访问此页面', 'danger')
         return redirect(url_for('patient_dashboard'))
     db = Database()
@@ -1622,7 +1622,7 @@ def disease_query():
 @app.route('/disease/<int:disease_id>')
 @login_required
 def disease_detail(disease_id):
-    if current_user.user_type != 'doctor':
+    if current_user.user_type not in ('doctor', 'admin'):
         flash('无权访问此页面', 'danger')
         return redirect(url_for('patient_dashboard'))
     db = Database()
