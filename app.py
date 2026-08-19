@@ -549,6 +549,11 @@ def add_patient():
     gender = request.form.get('gender')
     contact_number = request.form.get('contact_number')
     medical_history = request.form.get('medical_history')
+    occupation = request.form.get('occupation')
+    address = request.form.get('address')
+    disease_type = request.form.get('disease_type')
+    family_history = request.form.get('family_history')
+    allergies = request.form.get('allergies')
     
     if not name:
         return jsonify({'success': False, 'message': '姓名不能为空'})
@@ -557,7 +562,10 @@ def add_patient():
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'})
     
-    patient_id = db.add_patient(name, age, gender, contact_number, medical_history)
+    patient_id = db.add_patient(name, age, gender, contact_number, medical_history,
+                                occupation=occupation, address=address,
+                                disease_type=disease_type,
+                                family_history=family_history, allergies=allergies)
     db.disconnect()
     
     if patient_id:
@@ -860,12 +868,20 @@ def update_patient(patient_id):
     gender = request.form.get('gender')
     contact_number = request.form.get('contact_number')
     medical_history = request.form.get('medical_history')
+    occupation = request.form.get('occupation')
+    address = request.form.get('address')
+    disease_type = request.form.get('disease_type')
+    family_history = request.form.get('family_history')
+    allergies = request.form.get('allergies')
     db = Database()
     if not db.connect():
         return jsonify({'success': False, 'message': '数据库连接失败'})
     result = db.execute_insert(
-        """UPDATE patients SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s WHERE patient_id=%s""",
-        (name, age, gender, contact_number, medical_history, patient_id)
+        """UPDATE patients SET name=%s, age=%s, gender=%s, contact_number=%s, medical_history=%s,
+           occupation=%s, address=%s, disease_type=%s, family_history=%s, allergies=%s, updated_at=NOW()
+           WHERE patient_id=%s""",
+        (name, age, gender, contact_number, medical_history,
+         occupation, address, disease_type, family_history, allergies, patient_id)
     )
     db.disconnect()
     if result is not None:
@@ -1376,7 +1392,16 @@ def patient_list():
     if not db.connect():
         flash('数据库连接失败', 'danger')
         return render_template('patient_list.html', patients=[])
-    patients = db.get_patients()
+    patients = db.get_patients() or []
+    for p in patients:
+        if hasattr(p.get('created_at'), 'strftime'):
+            p['created_at'] = p['created_at'].strftime('%Y-%m-%d')
+        p['images_count'] = (db.execute_query(
+            "SELECT COUNT(*) AS c FROM medical_images WHERE patient_id=%s", (p['patient_id'],)) or [{'c': 0}])[0]['c']
+        p['reports_count'] = (db.execute_query(
+            "SELECT COUNT(*) AS c FROM diagnosis_reports WHERE patient_id=%s", (p['patient_id'],)) or [{'c': 0}])[0]['c']
+        p['followups_count'] = (db.execute_query(
+            "SELECT COUNT(*) AS c FROM followup_plans WHERE patient_id=%s", (p['patient_id'],)) or [{'c': 0}])[0]['c']
     db.disconnect()
     return render_template('patient_list.html', patients=patients)
 

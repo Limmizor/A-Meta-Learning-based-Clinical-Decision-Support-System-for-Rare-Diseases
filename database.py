@@ -143,11 +143,16 @@ class Database:
         """彻底删除患者：依赖外键 ON DELETE CASCADE 自动清理全部关联数据（返回受影响行数）"""
         return self.execute_update("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
 
-    def add_patient(self, name, age, gender, contact_number, medical_history):
+    def add_patient(self, name, age, gender, contact_number, medical_history,
+                    occupation=None, address=None, disease_type=None,
+                    family_history=None, allergies=None):
         return self.execute_insert(
-            """INSERT INTO patients (name, age, gender, contact_number, medical_history, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            (name, age, gender, contact_number, medical_history, datetime.datetime.now())
+            """INSERT INTO patients (name, age, gender, contact_number, medical_history,
+               occupation, address, disease_type, family_history, allergies, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (name, age, gender, contact_number, medical_history,
+             occupation, address, disease_type, family_history, allergies,
+             datetime.datetime.now())
         )
 
     # ---------- 医学影像 ----------
