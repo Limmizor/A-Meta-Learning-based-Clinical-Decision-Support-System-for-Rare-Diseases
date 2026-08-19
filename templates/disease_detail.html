@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ disease.name }} - 肺影智诊系统</title>
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <style>
+        :root {
+            --primary: #165DFF; --primary-dark: #0E42D2; --secondary: #4E5969;
+            --success: #00B42A; --warning: #FF7D00; --danger: #F53F3F;
+            --border-color: #E5E6EB; --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+        body { font-family: 'Microsoft YaHei', sans-serif; color: #1D2129; background-color: #F7F8FA; margin: 0; padding: 0; }
+        .main-header { height: 70px; background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%); box-shadow: 0 4px 18px rgba(22,93,255,0.25); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .header-container { display: flex; align-items: center; justify-content: space-between; height: 100%; max-width: 1500px; margin: 0 auto; padding: 0 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo i { font-size: 24px; color: #fff; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #fff; }
+        .main-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 10px; padding: 3px; }
+        .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: rgba(255,255,255,0.92); text-decoration: none; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,0.15); }
+        .nav-link.active { background-color: #fff; color: var(--primary); font-weight: 600; }
+        .user-info { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #fff, #dbe8ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.6); }
+        .user-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .main-container { display: flex; margin-top: 70px; min-height: calc(100vh - 70px); }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border-color); padding: 20px 0; height: calc(100vh - 70px); position: fixed; overflow-y: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu-title { padding: 0 20px 8px; font-size: 12px; color: #86909C; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-menu-item { margin-bottom: 2px; }
+        .sidebar-menu-link { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--secondary); text-decoration: none; transition: all 0.2s; }
+        .sidebar-menu-link:hover { color: var(--primary); background-color: rgba(22,93,255,0.05); }
+        .sidebar-menu-link.active { color: var(--primary); background-color: rgba(22,93,255,0.08); border-right: 3px solid var(--primary); }
+        .content { margin-left: 220px; padding: 24px; width: 100%; }
+
+        .hero { background: linear-gradient(135deg, #0E42D2 0%, #165DFF 60%, #00B4D8 100%); border-radius: 16px; color: #fff; padding: 28px 30px; box-shadow: 0 8px 26px rgba(22,93,255,0.25); margin-bottom: 20px; position: relative; overflow: hidden; }
+        .hero::after { content: ''; position: absolute; right: -50px; top: -50px; width: 200px; height: 200px; border-radius: 50%; border: 30px solid rgba(255,255,255,0.08); }
+        .hero h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .hero .meta { color: rgba(255,255,255,0.85); font-size: 13px; }
+        .card-kb { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 20px 24px; margin-bottom: 16px; }
+        .kb-title { font-size: 15px; font-weight: 700; color: var(--primary-dark); border-left: 4px solid var(--primary); padding-left: 10px; margin-bottom: 12px; }
+        .kb-text { font-size: 14px; line-height: 1.9; color: #374151; }
+        .symptom-tag { background: #F2F3F5; color: #4E5969; border-radius: 8px; padding: 4px 12px; font-size: 13px; display: inline-block; margin: 0 6px 8px 0; }
+        .info-box { background: #F7F8FA; border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+        .info-box .k { font-size: 12px; color: #86909C; }
+        .info-box .v { font-size: 14px; font-weight: 500; }
+        .print-only { display: none; }
+        @media print {
+            .no-print, .main-header, .sidebar, .btn { display: none !important; }
+            .print-only { display: block !important; }
+            .content { margin-left: 0 !important; padding: 0 !important; }
+            .card-kb { box-shadow: none !important; border: 1px solid #D9D9D9; break-inside: avoid; }
+            .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 14mm; }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('doctor_dashboard') }}" class="logo"><i class="bi bi-clipboard2-pulse-fill"></i><span class="logo-text">肺影智诊系统</span></a>
+            <nav class="main-nav">
+                <a href="{{ url_for('doctor_dashboard') }}" class="nav-link"><i class="bi bi-house"></i> 工作台</a>
+                <a href="{{ url_for('patient_list') }}" class="nav-link"><i class="bi bi-people"></i> 患者管理</a>
+                <a href="{{ url_for('doctor_reports') }}" class="nav-link"><i class="bi bi-clipboard2-check"></i> 报告复核</a>
+                <a href="{{ url_for('disease_query') }}" class="nav-link active"><i class="bi bi-book"></i> 疾病知识库</a>
+                <a href="{{ url_for('doctor_chat') }}" class="nav-link"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            </nav>
+            <a href="{{ url_for('profile') }}" class="user-info">
+                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '医' }}</div>
+                <div class="user-name">{{ current_user.full_name or '医生' }}</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_dashboard') }}" class="sidebar-menu-link"><i class="bi bi-speedometer2"></i><span>首页</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_list') }}" class="sidebar-menu-link"><i class="bi bi-people"></i><span>患者管理</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_schedule') }}" class="sidebar-menu-link"><i class="bi bi-calendar-week"></i><span>今日日程</span></a></li>
+                <li class="sidebar-menu-title">诊断管理</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_ai_diagnosis') }}" class="sidebar-menu-link"><i class="bi bi-cpu"></i><span>AI辅助诊断</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_reports') }}" class="sidebar-menu-link"><i class="bi bi-clipboard2-check"></i><span>报告复核</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('disease_query') }}" class="sidebar-menu-link active"><i class="bi bi-book"></i><span>疾病知识库</span></a></li>
+                <li class="sidebar-menu-title">沟通</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+            </ul>
+        </aside>
+
+        <div class="content">
+            <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                <a href="{{ url_for('disease_query') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回知识库</a>
+                <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+            </div>
+
+            <div class="hero">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div style="width:54px;height:54px;border-radius:12px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:26px;"><i class="bi bi-lungs"></i></div>
+                    <div>
+                        <h1 class="mb-1">{{ disease.name }}</h1>
+                        <div class="meta"><i class="bi bi-asterisk"></i> ICD-10：{{ disease.icd_code or '未设置' }}　·　{{ disease.category or '间质性肺病' }}</div>
+                    </div>
+                </div>
+                <p style="margin:0;color:rgba(255,255,255,0.95);font-size:14px;line-height:1.9;">{{ disease.description or '暂无疾病描述。' }}</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    {% if disease.symptoms %}
+                    <div class="card-kb">
+                        <div class="kb-title"><i class="bi bi-clipboard-pulse me-1"></i>常见症状</div>
+                        <div>
+                            {% for s in disease.symptoms.split(',') %}
+                            <span class="symptom-tag">{{ s.strip() }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if disease.diagnostic_criteria %}
+                    <div class="card-kb">
+                        <div class="kb-title"><i class="bi bi-clipboard-check me-1"></i>诊断标准 / 方法</div>
+                        <div class="kb-text">{{ disease.diagnostic_criteria }}</div>
+                    </div>
+                    {% endif %}
+                    {% if disease.treatment_options %}
+                    <div class="card-kb">
+                        <div class="kb-title"><i class="bi bi-capsule me-1"></i>治疗方案</div>
+                        <div class="kb-text">{{ disease.treatment_options }}</div>
+                    </div>
+                    {% endif %}
+                    {% if disease.prevention %}
+                    <div class="card-kb">
+                        <div class="kb-title"><i class="bi bi-shield-check me-1"></i>预防措施</div>
+                        <div class="kb-text">{{ disease.prevention }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-lg-4">
+                    <div class="card-kb">
+                        <div class="kb-title"><i class="bi bi-info-circle me-1"></i>疾病信息</div>
+                        <div class="info-box"><div class="k">ICD-10 编码</div><div class="v">{{ disease.icd_code or '未设置' }}</div></div>
+                        <div class="info-box"><div class="k">疾病分类</div><div class="v">{{ disease.category or '间质性肺病' }}</div></div>
+                        {% if disease.incidence %}<div class="info-box"><div class="k">高危人群 / 流行病学</div><div class="v">{{ disease.incidence }}</div></div>{% endif %}
+                        {% if disease.inheritance %}<div class="info-box"><div class="k">发病特点</div><div class="v">{{ disease.inheritance }}</div></div>{% endif %}
+                    </div>
+                    <div class="card-kb no-print">
+                        <div class="kb-title"><i class="bi bi-lightbulb me-1"></i>提示</div>
+                        <div class="kb-text small text-muted">以上内容仅供临床参考，具体诊疗请结合患者实际情况与最新临床指南。</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

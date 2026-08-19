@@ -1617,6 +1617,27 @@ def disease_query():
                          diseases=diseases, 
                          featured_diseases=featured_diseases)
 
+
+# 疾病知识库详情页
+@app.route('/disease/<int:disease_id>')
+@login_required
+def disease_detail(disease_id):
+    if current_user.user_type != 'doctor':
+        flash('无权访问此页面', 'danger')
+        return redirect(url_for('patient_dashboard'))
+    db = Database()
+    if not db.connect():
+        flash('数据库连接失败', 'danger')
+        return redirect(url_for('disease_query'))
+    rows = db.execute_query("SELECT * FROM diseases WHERE disease_id = %s", (disease_id,))
+    db.disconnect()
+    if not rows:
+        flash('疾病不存在', 'danger')
+        return redirect(url_for('disease_query'))
+    disease = _disease_to_frontend(rows[0])
+    return render_template('disease_detail.html', disease=disease)
+
+
 # 患者预约挂号
 @app.route('/patient/appointment')
 @login_required

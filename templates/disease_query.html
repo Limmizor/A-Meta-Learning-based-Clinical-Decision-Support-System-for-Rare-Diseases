@@ -1,734 +1,237 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>肺纤维化疾病知识库 - 肺影智诊系统</title>
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <style>
+        :root {
+            --primary: #165DFF; --primary-dark: #0E42D2; --secondary: #4E5969;
+            --success: #00B42A; --warning: #FF7D00; --danger: #F53F3F;
+            --border-color: #E5E6EB; --shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.06);
+        }
+        body { font-family: 'Microsoft YaHei', sans-serif; color: #1D2129; background-color: #F7F8FA; margin: 0; padding: 0; }
+        .main-header { height: 70px; background: linear-gradient(135deg, #0E42D2 0%, #165DFF 50%, #00B4D8 100%); box-shadow: 0 4px 18px rgba(22,93,255,0.25); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .header-container { display: flex; align-items: center; justify-content: space-between; height: 100%; max-width: 1500px; margin: 0 auto; padding: 0 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo i { font-size: 24px; color: #fff; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #fff; }
+        .main-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 10px; padding: 3px; }
+        .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: rgba(255,255,255,0.92); text-decoration: none; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+        .nav-link:hover { color: #fff; background-color: rgba(255,255,255,0.15); }
+        .nav-link.active { background-color: #fff; color: var(--primary); font-weight: 600; }
+        .user-info { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #fff, #dbe8ff); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.6); }
+        .user-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .main-container { display: flex; margin-top: 70px; min-height: calc(100vh - 70px); }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid var(--border-color); padding: 20px 0; height: calc(100vh - 70px); position: fixed; overflow-y: auto; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        .sidebar-menu-title { padding: 0 20px 8px; font-size: 12px; color: #86909C; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-menu-item { margin-bottom: 2px; }
+        .sidebar-menu-link { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--secondary); text-decoration: none; transition: all 0.2s; }
+        .sidebar-menu-link:hover { color: var(--primary); background-color: rgba(22,93,255,0.05); }
+        .sidebar-menu-link.active { color: var(--primary); background-color: rgba(22,93,255,0.08); border-right: 3px solid var(--primary); }
+        .content { margin-left: 220px; padding: 24px; width: 100%; }
 
-{% block title %}肺纤维化疾病查询 - 肺影智诊系统{% endblock %}
+        .stat-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+        .stat-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
+        .stat-icon.primary { background: rgba(22,93,255,0.1); color: #165DFF; }
+        .stat-icon.success { background: rgba(0,180,42,0.1); color: #00B42A; }
+        .stat-icon.info    { background: rgba(134,144,156,0.1); color: #4E5969; }
+        .stat-value { font-size: 24px; font-weight: 700; line-height: 1.1; }
+        .stat-label { font-size: 13px; color: #86909C; }
 
-{% block content %}
-<div class="container mt-4">
-    <!-- 页面标题和操作按钮 -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-lungs me-2"></i>肺纤维化及相关疾病查询</h1>
-        <div class="btn-group">
-            <button class="btn btn-outline-primary" onclick="showAddDiseaseModal()">
-                <i class="bi bi-plus-circle"></i> 添加疾病
-            </button>
-            <button class="btn btn-outline-success" onclick="refreshData()">
-                <i class="bi bi-arrow-clockwise"></i> 刷新数据
-            </button>
+        .toolbar { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 12px 16px; }
+        .cat-chip { border: 1px solid var(--border-color); background: #fff; color: var(--secondary); border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+        .cat-chip:hover { border-color: var(--primary); color: var(--primary); }
+        .cat-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .disease-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; height: 100%; display: flex; flex-direction: column; }
+        .disease-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.10); }
+        .disease-card .icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(22,93,255,0.1); color: #165DFF; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .symptom-tag { background: #F2F3F5; color: #4E5969; border-radius: 6px; padding: 2px 8px; font-size: 12px; }
+        .empty-box { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 50px 20px; text-align: center; }
+        .empty-box i { font-size: 56px; color: #C9CDD4; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('doctor_dashboard') }}" class="logo"><i class="bi bi-clipboard2-pulse-fill"></i><span class="logo-text">肺影智诊系统</span></a>
+            <nav class="main-nav">
+                <a href="{{ url_for('doctor_dashboard') }}" class="nav-link"><i class="bi bi-house"></i> 工作台</a>
+                <a href="{{ url_for('patient_list') }}" class="nav-link"><i class="bi bi-people"></i> 患者管理</a>
+                <a href="{{ url_for('doctor_reports') }}" class="nav-link"><i class="bi bi-clipboard2-check"></i> 报告复核</a>
+                <a href="{{ url_for('disease_query') }}" class="nav-link active"><i class="bi bi-book"></i> 疾病知识库</a>
+                <a href="{{ url_for('doctor_chat') }}" class="nav-link"><i class="bi bi-chat-dots"></i> 在线咨询</a>
+            </nav>
+            <a href="{{ url_for('profile') }}" class="user-info">
+                <div class="user-avatar">{{ current_user.full_name[0] if current_user.full_name else '医' }}</div>
+                <div class="user-name">{{ current_user.full_name or '医生' }}</div>
+            </a>
         </div>
-    </div>
+    </header>
 
-    <!-- 搜索区域 -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="input-group">
-                        <span class="input-group-text bg-primary text-white">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" class="form-control" id="searchInput" 
-                               placeholder="输入疾病名称、症状、ICD编码等进行搜索..." 
-                               onkeyup="searchDiseases()">
-                        <button class="btn btn-primary" onclick="searchDiseases()">
-                            <i class="bi bi-search"></i> 搜索
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <select class="form-select" id="categoryFilter" onchange="filterDiseases()">
-                        <option value="">所有分类</option>
-                        <option value="ipf">特发性肺纤维化</option>
-                        <option value="nsip">非特异性间质性肺炎</option>
-                        <option value="ctd-ild">结缔组织病相关ILD</option>
-                        <option value="hp">过敏性肺炎</option>
-                        <option value="pneumoconiosis">尘肺/石棉肺</option>
-                        <option value="drug-induced">药物性肺纤维化</option>
-                        <option value="other">其他间质性肺病</option>
-                    </select>
-                </div>
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="sidebar-menu-title">工作台</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_dashboard') }}" class="sidebar-menu-link"><i class="bi bi-speedometer2"></i><span>首页</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('patient_list') }}" class="sidebar-menu-link"><i class="bi bi-people"></i><span>患者管理</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_schedule') }}" class="sidebar-menu-link"><i class="bi bi-calendar-week"></i><span>今日日程</span></a></li>
+                <li class="sidebar-menu-title">诊断管理</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_ai_diagnosis') }}" class="sidebar-menu-link"><i class="bi bi-cpu"></i><span>AI辅助诊断</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_reports') }}" class="sidebar-menu-link"><i class="bi bi-clipboard2-check"></i><span>报告复核</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('disease_query') }}" class="sidebar-menu-link active"><i class="bi bi-book"></i><span>疾病知识库</span></a></li>
+                <li class="sidebar-menu-title">沟通</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('doctor_chat') }}" class="sidebar-menu-link"><i class="bi bi-chat-dots"></i><span>在线咨询</span></a></li>
+                <li class="sidebar-menu-title">系统设置</li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('profile') }}" class="sidebar-menu-link"><i class="bi bi-person"></i><span>个人信息</span></a></li>
+                <li class="sidebar-menu-item"><a href="{{ url_for('logout') }}" class="sidebar-menu-link"><i class="bi bi-box-arrow-right"></i><span>退出登录</span></a></li>
+            </ul>
+        </aside>
+
+        <div class="content">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h1 class="h3 mb-0"><i class="bi bi-book me-2"></i>肺纤维化疾病知识库 <small class="text-muted fs-6 fw-normal ms-2">肺纤维化及相关间质性肺病分型资料库</small></h1>
             </div>
-            
-            <!-- 快速搜索标签（替换为肺纤维化相关） -->
-            <div class="mt-3">
-                <small class="text-muted me-2">快速搜索:</small>
+
+            <!-- 统计 -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4"><div class="stat-card"><div class="stat-icon primary"><i class="bi bi-capsule"></i></div><div><div class="stat-value">{{ diseases|length }}</div><div class="stat-label">疾病条目</div></div></div></div>
+                <div class="col-md-4"><div class="stat-card"><div class="stat-icon info"><i class="bi bi-tags"></i></div><div><div class="stat-value" id="catCount">0</div><div class="stat-label">分型分类</div></div></div></div>
+                <div class="col-md-4"><div class="stat-card"><div class="stat-icon success"><i class="bi bi-star"></i></div><div><div class="stat-value">{{ featured_diseases|length }}</div><div class="stat-label">推荐条目</div></div></div></div>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="toolbar mb-4">
+                <div class="input-group mb-3" style="max-width: 420px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索疾病名称 / ICD编码 / 症状 / 描述..." onkeyup="filterDiseases()">
+                </div>
                 <div class="d-flex flex-wrap gap-2">
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('特发性肺纤维化')">特发性肺纤维化(IPF)</span>
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('非特异性间质性肺炎')">非特异性间质性肺炎(NSIP)</span>
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('结缔组织病相关')">结缔组织病相关ILD</span>
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('过敏性肺炎')">过敏性肺炎(HP)</span>
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('石棉肺')">石棉肺</span>
-                    <span class="badge bg-light text-dark cursor-pointer" onclick="quickSearch('药物性肺纤维化')">药物性肺纤维化</span>
+                    <span class="cat-chip active" data-cat="all" onclick="setCat('all', this)">全部</span>
+                    <span class="cat-chip" data-cat="ipf" onclick="setCat('ipf', this)">特发性肺纤维化</span>
+                    <span class="cat-chip" data-cat="nsip" onclick="setCat('nsip', this)">NSIP</span>
+                    <span class="cat-chip" data-cat="ctd-ild" onclick="setCat('ctd-ild', this)">CTD-ILD</span>
+                    <span class="cat-chip" data-cat="hp" onclick="setCat('hp', this)">过敏性肺炎</span>
+                    <span class="cat-chip" data-cat="pneumoconiosis" onclick="setCat('pneumoconiosis', this)">尘肺/职业性</span>
+                    <span class="cat-chip" data-cat="drug-induced" onclick="setCat('drug-induced', this)">药物性</span>
+                    <span class="cat-chip" data-cat="other" onclick="setCat('other', this)">其他ILD</span>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- 特色疾病推荐 -->
-    {% if featured_diseases %}
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-warning text-dark">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-star-fill"></i> 常见肺纤维化疾病推荐
-            </h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                {% for disease in featured_diseases %}
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100 disease-card featured">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="card-title text-primary">{{ disease.name }}</h6>
-                                <span class="badge bg-warning">推荐</span>
+            <!-- 推荐疾病 -->
+            {% if featured_diseases %}
+            <div class="mb-4">
+                <h6 class="mb-3"><i class="bi bi-star-fill text-warning me-1"></i>推荐条目</h6>
+                <div class="row g-3" id="featuredRow">
+                    {% for d in featured_diseases %}
+                    <div class="col-md-4 disease-item" data-cat="{{ d.category or 'other' }}" data-kw="{{ d.name }} {{ d.icd_code }} {{ d.symptoms }} {{ d.description }}">
+                        <div class="disease-card" onclick="location.href='/disease/{{ d.disease_id }}'">
+                            <div class="d-flex align-items-start gap-3 mb-2">
+                                <div class="icon"><i class="bi bi-lungs"></i></div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="mb-0">{{ d.name }}</h6>
+                                        <span class="badge bg-warning text-dark">推荐</span>
+                                    </div>
+                                    <div class="muted small"><i class="bi bi-asterisk"></i> ICD-10：{{ d.icd_code or '未设置' }}</div>
+                                </div>
                             </div>
-                            <p class="card-text small text-muted">
-                                {{ disease.description[:100] }}{% if disease.description|length > 100 %}...{% endif %}
-                            </p>
-                            <div class="disease-meta">
-                                <small class="text-muted">
-                                    <i class="bi bi-clock"></i> 
-                                    {{ disease.updated_at.strftime('%Y-%m-%d') if disease.updated_at else '未知' }}
-                                </small>
+                            <p class="small text-muted flex-grow-1 mb-2">{{ d.description[:90] }}{% if d.description and d.description|length > 90 %}...{% endif %}</p>
+                            <span class="btn btn-sm btn-outline-primary align-self-start"><i class="bi bi-book"></i> 查看详情</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 全部疾病 -->
+            <h6 class="mb-3"><i class="bi bi-collection me-1"></i>全部分型</h6>
+            {% if diseases %}
+            <div class="row g-3" id="diseaseRow">
+                {% for d in diseases %}
+                <div class="col-md-6 col-xl-4 disease-item" data-cat="{{ d.category or 'other' }}" data-kw="{{ d.name }} {{ d.icd_code }} {{ d.symptoms }} {{ d.description }}">
+                    <div class="disease-card" onclick="location.href='/disease/{{ d.disease_id }}'">
+                        <div class="d-flex align-items-start gap-3 mb-2">
+                            <div class="icon"><i class="bi bi-lungs"></i></div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ d.name }}</h6>
+                                <div class="d-flex flex-wrap gap-1 mb-1">
+                                    <span class="badge bg-secondary">ICD-10：{{ d.icd_code or '未设置' }}</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="card-footer bg-transparent">
-                            <button class="btn btn-sm btn-outline-primary w-100" 
-                                    onclick="viewDiseaseDetail('{{ disease.disease_id }}')">
-                                查看详情
-                            </button>
+                        <p class="small text-muted flex-grow-1 mb-2">{{ d.description[:90] }}{% if d.description and d.description|length > 90 %}...{% endif %}</p>
+                        {% if d.symptoms %}
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            {% for s in d.symptoms.split(',')[:3] %}
+                            <span class="symptom-tag">{{ s.strip() }}</span>
+                            {% endfor %}
                         </div>
+                        {% endif %}
+                        <span class="btn btn-sm btn-outline-primary align-self-start"><i class="bi bi-book"></i> 查看详情</span>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 疾病列表 -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-capsule"></i> 肺纤维化疾病数据库
-                <span class="badge bg-light text-primary ms-2" id="diseaseCount">{{ diseases|length }} 种疾病</span>
-            </h5>
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-light" onclick="sortDiseases('name')">
-                    <i class="bi bi-sort-alpha-down"></i> 按名称
-                </button>
-                <button class="btn btn-light" onclick="sortDiseases('date')">
-                    <i class="bi bi-sort-numeric-down"></i> 按时间
-                </button>
-            </div>
-        </div>
-        <div class="card-body">
-            <div id="diseaseList">
-                {% if diseases %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>疾病名称</th>
-                                <th>ICD编码</th>
-                                <th>主要症状</th>
-                                <th>治疗方案</th>
-                                <th>更新日期</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for disease in diseases %}
-                            <tr class="disease-item">
-                                <td>
-                                    <strong class="text-primary">{{ disease.name }}</strong>
-                                    {% if disease.is_featured %}
-                                    <i class="bi bi-star-fill text-warning ms-1" title="推荐疾病"></i>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary">{{ disease.icd_code or '未设置' }}</span>
-                                </td>
-                                <td>
-                                    <small class="text-muted">
-                                        {{ disease.symptoms[:50] if disease.symptoms else '暂无症状描述' }}{% if disease.symptoms and disease.symptoms|length > 50 %}...{% endif %}
-                                    </small>
-                                </td>
-                                <td>
-                                    <small class="text-muted">
-                                        {{ disease.treatment_options[:50] if disease.treatment_options else '暂无治疗方案' }}{% if disease.treatment_options and disease.treatment_options|length > 50 %}...{% endif %}
-                                    </small>
-                                </td>
-                                <td>
-                                    <small class="text-muted">
-                                        {{ disease.updated_at.strftime('%Y-%m-%d') if disease.updated_at else '未知' }}
-                                    </small>
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-primary" 
-                                                onclick="viewDiseaseDetail('{{ disease.disease_id }}')">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <button class="btn btn-outline-info" 
-                                                onclick="editDisease('{{ disease.disease_id }}')">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-outline-danger" 
-                                                onclick="deleteDisease('{{ disease.disease_id }}')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                 </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-5">
-                    <i class="bi bi-capsule display-1 text-muted"></i>
-                    <h5 class="mt-3 text-muted">暂无肺纤维化疾病数据</h5>
-                    <p class="text-muted">请添加疾病信息以完善数据库</p>
-                    <button class="btn btn-primary" onclick="showAddDiseaseModal()">
-                        <i class="bi bi-plus-circle"></i> 添加第一个疾病
-                    </button>
-                </div>
-                {% endif %}
-            </div>
+            {% else %}
+            <div class="empty-box"><i class="bi bi-journal-x"></i><h5 class="mt-3 text-muted">知识库暂无数据</h5><p class="text-muted">请联系管理员补充疾病资料。</p></div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- 统计信息（调整为肺纤维化相关分类） -->
-    <div class="row mt-4">
-        <div class="col-md-3">
-            <div class="card text-bg-primary">
-                <div class="card-body text-center">
-                    <h4 class="card-title">{{ diseases|length }}</h4>
-                    <p class="card-text">总疾病数</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-success">
-                <div class="card-body text-center">
-                    <h4 class="card-title">{{ featured_diseases|length }}</h4>
-                    <p class="card-text">推荐疾病</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-warning">
-                <div class="card-body text-center">
-                    <h4 class="card-title" id="ipfCount">0</h4>
-                    <p class="card-text">特发性肺纤维化</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-bg-info">
-                <div class="card-body text-center">
-                    <h4 class="card-title" id="ctdCount">0</h4>
-                    <p class="card-text">继发性肺纤维化</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        const CATEGORY_MAP = {
+            'ipf': ['特发性肺纤维化'],
+            'nsip': ['非特异性间质性肺炎', 'NSIP'],
+            'ctd-ild': ['结缔组织病'],
+            'hp': ['过敏性肺炎'],
+            'pneumoconiosis': ['石棉', '尘肺', '矽肺', '职业'],
+            'drug-induced': ['药物'],
+            'other': []
+        };
 
-<!-- 疾病详情模态框（内容动态加载，无需修改） -->
-<div class="modal fade" id="diseaseDetailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="diseaseDetailTitle">疾病详情</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="diseaseDetailContent">
-                    <!-- 疾病详情内容将通过JavaScript动态加载 -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                <button type="button" class="btn btn-primary" onclick="printDiseaseInfo()">
-                    <i class="bi bi-printer"></i> 打印信息
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 添加/编辑疾病模态框（表单字段已适配 treatment_options） -->
-<div class="modal fade" id="diseaseFormModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="diseaseFormTitle">添加疾病</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="diseaseForm">
-                    <input type="hidden" id="diseaseId">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">疾病名称 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="diseaseName" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">ICD-10编码</label>
-                                <input type="text" class="form-control" id="icdCode" placeholder="如：J84.1">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">疾病分类</label>
-                        <select class="form-select" id="diseaseCategory">
-                            <option value="ipf">特发性肺纤维化</option>
-                            <option value="nsip">非特异性间质性肺炎</option>
-                            <option value="ctd-ild">结缔组织病相关ILD</option>
-                            <option value="hp">过敏性肺炎</option>
-                            <option value="pneumoconiosis">尘肺/石棉肺</option>
-                            <option value="drug-induced">药物性肺纤维化</option>
-                            <option value="other">其他间质性肺病</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">疾病描述</label>
-                        <textarea class="form-control" id="diseaseDescription" rows="3" 
-                                  placeholder="请输入疾病的详细描述..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">常见症状</label>
-                        <textarea class="form-control" id="diseaseSymptoms" rows="3" 
-                                  placeholder="请输入疾病的常见症状，用逗号分隔..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">诊断标准</label>
-                        <textarea class="form-control" id="diagnosticCriteria" rows="3" 
-                                  placeholder="请输入疾病的诊断标准..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">治疗方案</label>
-                        <textarea class="form-control" id="treatmentPlan" rows="3" 
-                                  placeholder="请输入疾病的治疗方案（如抗纤维化药物、免疫抑制剂等）..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">预防措施</label>
-                        <textarea class="form-control" id="preventionMeasures" rows="2" 
-                                  placeholder="请输入疾病的预防措施..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">高危人群 / 流行病学</label>
-                        <input type="text" class="form-control" id="incidenceRate" 
-                               placeholder="如：老年男性、吸烟、职业粉尘暴露等">
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="isFeatured">
-                            <label class="form-check-label" for="isFeatured">
-                                标记为推荐疾病
-                            </label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger" id="deleteDiseaseBtn" style="display: none;" 
-                        onclick="confirmDeleteDisease()">删除</button>
-                <button type="button" class="btn btn-primary" onclick="saveDisease()">保存</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-.disease-card {
-    transition: all 0.3s ease;
-    border: 1px solid #e9ecef;
-}
-
-.disease-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.disease-card.featured {
-    border-left: 4px solid #ffc107;
-}
-
-.cursor-pointer {
-    cursor: pointer;
-}
-
-.disease-meta {
-    border-top: 1px solid #f0f0f0;
-    padding-top: 8px;
-    margin-top: 8px;
-}
-
-.table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    color: #495057;
-}
-
-.disease-item:hover {
-    background-color: rgba(13, 110, 253, 0.05);
-}
-
-.badge {
-    font-size: 0.75em;
-}
-
-.card {
-    border: none;
-    border-radius: 12px;
-}
-
-.card-header {
-    border-radius: 12px 12px 0 0 !important;
-    border-bottom: 1px solid rgba(0,0,0,0.125);
-}
-</style>
-
-<script>
-// 初始化页面
-document.addEventListener('DOMContentLoaded', function() {
-    updateStatistics();
-});
-
-// 更新统计信息（根据实际数据计算分类计数）
-function updateStatistics() {
-    // 这里可以根据表格中疾病名称包含的关键字来统计，简化版先使用总数演示
-    const total = document.querySelectorAll('.disease-item').length;
-    // 示例：假设IPF类疾病占比30%，继发性占比50%
-    document.getElementById('ipfCount').textContent = Math.floor(total * 0.3);
-    document.getElementById('ctdCount').textContent = Math.floor(total * 0.5);
-}
-
-// 搜索疾病
-function searchDiseases() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const diseaseItems = document.querySelectorAll('.disease-item');
-    let visibleCount = 0;
-    
-    diseaseItems.forEach(item => {
-        const diseaseName = item.querySelector('strong').textContent.toLowerCase();
-        const diseaseSymptoms = item.querySelector('td:nth-child(3)').textContent.toLowerCase();
-        const diseaseTreatment = item.querySelector('td:nth-child(4)').textContent.toLowerCase();
-        
-        const isVisible = diseaseName.includes(searchTerm) || 
-                         diseaseSymptoms.includes(searchTerm) || 
-                         diseaseTreatment.includes(searchTerm);
-        
-        item.style.display = isVisible ? '' : 'none';
-        if (isVisible) visibleCount++;
-    });
-    
-    document.getElementById('diseaseCount').textContent = `${visibleCount} 种疾病`;
-}
-
-// 快速搜索
-function quickSearch(term) {
-    document.getElementById('searchInput').value = term;
-    searchDiseases();
-}
-
-// 筛选疾病（可根据分类列，简化处理）
-function filterDiseases() {
-    const category = document.getElementById('categoryFilter').value;
-    if (!category) {
-        // 显示全部
-        document.querySelectorAll('.disease-item').forEach(item => item.style.display = '');
-        document.getElementById('diseaseCount').textContent = `${document.querySelectorAll('.disease-item').length} 种疾病`;
-        return;
-    }
-    // 根据疾病名称中的关键字进行简单筛选
-    const keywordMap = {
-        'ipf': ['特发性肺纤维化', 'IPF'],
-        'nsip': ['非特异性间质性肺炎', 'NSIP'],
-        'ctd-ild': ['结缔组织病', 'CTD', '类风湿', '硬皮病'],
-        'hp': ['过敏性肺炎', 'HP', '外源性'],
-        'pneumoconiosis': ['石棉肺', '尘肺', '矽肺'],
-        'drug-induced': ['药物性', '胺碘酮', '博来霉素']
-    };
-    const keywords = keywordMap[category] || [];
-    const diseaseItems = document.querySelectorAll('.disease-item');
-    let visibleCount = 0;
-    diseaseItems.forEach(item => {
-        const name = item.querySelector('strong').textContent;
-        const isMatch = keywords.some(kw => name.includes(kw));
-        item.style.display = isMatch ? '' : 'none';
-        if (isMatch) visibleCount++;
-    });
-    document.getElementById('diseaseCount').textContent = `${visibleCount} 种疾病`;
-}
-
-// 排序疾病（简单实现）
-function sortDiseases(method) {
-    const tbody = document.querySelector('#diseaseList tbody');
-    if (!tbody) return;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    if (method === 'name') {
-        rows.sort((a, b) => {
-            const nameA = a.querySelector('strong').textContent;
-            const nameB = b.querySelector('strong').textContent;
-            return nameA.localeCompare(nameB);
-        });
-    } else if (method === 'date') {
-        rows.sort((a, b) => {
-            const dateA = a.querySelector('td:nth-child(5)').textContent;
-            const dateB = b.querySelector('td:nth-child(5)').textContent;
-            return dateB.localeCompare(dateA);
-        });
-    }
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-// 查看疾病详情（调用后端API获取真实数据）
-function viewDiseaseDetail(diseaseId) {
-    // 实际应用中应该通过 AJAX 从 /api/diseases/<id> 获取
-    // 这里为了演示，从当前表格行提取部分信息，或者调用后端接口
-    fetch(`/api/diseases/${diseaseId}`)
-        .then(response => response.json())
-        .then(disease => {
-            displayDiseaseDetail(disease);
-        })
-        .catch(error => {
-            console.error('获取疾病详情失败', error);
-            // 降级：从当前页面表格中提取信息
-            const row = document.querySelector(`.disease-item button[onclick*="viewDiseaseDetail('${diseaseId}')"]`).closest('tr');
-            if (row) {
-                const name = row.querySelector('strong').textContent;
-                const icd = row.querySelector('td:nth-child(2) .badge').textContent;
-                const symptoms = row.querySelector('td:nth-child(3)').textContent;
-                const treatment = row.querySelector('td:nth-child(4)').textContent;
-                displayDiseaseDetail({
-                    name: name,
-                    icd_code: icd,
-                    symptoms: symptoms,
-                    treatment_options: treatment,
-                    description: '暂无详细描述，请通过编辑功能补充。',
-                    diagnostic_criteria: '暂无',
-                    prevention: '暂无',
-                    incidence: '未知',
-                    inheritance: '未知'
-                });
+        function catOf(el) {
+            const name = (el.querySelector('h6') || {}).textContent || '';
+            for (const [cat, kws] of Object.entries(CATEGORY_MAP)) {
+                if (kws.some(k => name.includes(k))) return cat;
             }
-        });
-}
-
-function displayDiseaseDetail(disease) {
-    const container = document.getElementById('diseaseDetailContent');
-    container.innerHTML = `
-        <div class="row">
-            <div class="col-md-8">
-                <h4 class="text-primary">${escapeHtml(disease.name)}</h4>
-                <div class="mb-3">
-                    <span class="badge bg-secondary me-2">ICD-10: ${escapeHtml(disease.icd_code || '未设置')}</span>
-                    <span class="badge bg-info">${escapeHtml(disease.category || '间质性肺病')}</span>
-                </div>
-                <p>${escapeHtml(disease.description || '暂无描述')}</p>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <h6>疾病信息</h6>
-                        <p><strong>高危人群:</strong> ${escapeHtml(disease.incidence || '未知')}</p>
-                        <p><strong>发病特点:</strong> ${escapeHtml(disease.inheritance || '未设置')}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0">常见症状</h6>
-                    </div>
-                    <div class="card-body">
-                        <p>${escapeHtml(disease.symptoms || '暂无')}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-warning text-dark">
-                        <h6 class="mb-0">诊断标准</h6>
-                    </div>
-                    <div class="card-body">
-                        <p>${escapeHtml(disease.diagnostic_criteria || '暂无')}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0">治疗方案</h6>
-                    </div>
-                    <div class="card-body">
-                        <p>${escapeHtml(disease.treatment_options || '暂无')}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0">预防措施</h6>
-                    </div>
-                    <div class="card-body">
-                        <p>${escapeHtml(disease.prevention || '暂无')}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('diseaseDetailTitle').textContent = `${disease.name} - 疾病详情`;
-    new bootstrap.Modal(document.getElementById('diseaseDetailModal')).show();
-}
-
-// 简单的防XSS函数
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-        return c;
-    });
-}
-
-// 打印疾病信息
-function printDiseaseInfo() {
-    window.print();
-}
-
-// 显示添加疾病模态框
-function showAddDiseaseModal() {
-    document.getElementById('diseaseFormTitle').textContent = '添加疾病';
-    document.getElementById('diseaseForm').reset();
-    document.getElementById('deleteDiseaseBtn').style.display = 'none';
-    document.getElementById('diseaseId').value = '';
-    new bootstrap.Modal(document.getElementById('diseaseFormModal')).show();
-}
-
-// 编辑疾病
-function editDisease(diseaseId) {
-    // 从后端获取疾病数据填充表单
-    fetch(`/api/diseases/${diseaseId}`)
-        .then(response => response.json())
-        .then(disease => {
-            document.getElementById('diseaseFormTitle').textContent = '编辑疾病';
-            document.getElementById('deleteDiseaseBtn').style.display = 'block';
-            document.getElementById('diseaseId').value = disease.disease_id;
-            document.getElementById('diseaseName').value = disease.name || '';
-            document.getElementById('icdCode').value = disease.icd_code || '';
-            // 设置分类（根据名称简单映射，实际可扩展）
-            const categorySelect = document.getElementById('diseaseCategory');
-            if (disease.name.includes('特发性')) categorySelect.value = 'ipf';
-            else if (disease.name.includes('非特异性')) categorySelect.value = 'nsip';
-            else if (disease.name.includes('结缔组织')) categorySelect.value = 'ctd-ild';
-            else if (disease.name.includes('过敏性')) categorySelect.value = 'hp';
-            else if (disease.name.includes('石棉')) categorySelect.value = 'pneumoconiosis';
-            else if (disease.name.includes('药物')) categorySelect.value = 'drug-induced';
-            else categorySelect.value = 'other';
-            document.getElementById('diseaseDescription').value = disease.description || '';
-            document.getElementById('diseaseSymptoms').value = disease.symptoms || '';
-            document.getElementById('diagnosticCriteria').value = disease.diagnostic_criteria || '';
-            document.getElementById('treatmentPlan').value = disease.treatment_options || '';
-            document.getElementById('preventionMeasures').value = disease.prevention || '';
-            document.getElementById('incidenceRate').value = disease.incidence || '';
-            document.getElementById('isFeatured').checked = disease.is_featured || false;
-            new bootstrap.Modal(document.getElementById('diseaseFormModal')).show();
-        })
-        .catch(error => {
-            console.error('获取疾病数据失败', error);
-            alert('获取疾病数据失败，请刷新后重试');
-        });
-}
-
-// 保存疾病（提交到后端）
-function saveDisease() {
-    const form = document.getElementById('diseaseForm');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-    const diseaseId = document.getElementById('diseaseId').value;
-    const data = {
-        name: document.getElementById('diseaseName').value,
-        icd_code: document.getElementById('icdCode').value,
-        category: document.getElementById('diseaseCategory').value,
-        description: document.getElementById('diseaseDescription').value,
-        symptoms: document.getElementById('diseaseSymptoms').value,
-        diagnostic_criteria: document.getElementById('diagnosticCriteria').value,
-        treatment_options: document.getElementById('treatmentPlan').value,
-        prevention: document.getElementById('preventionMeasures').value,
-        incidence: document.getElementById('incidenceRate').value,
-        is_featured: document.getElementById('isFeatured').checked
-    };
-    const url = diseaseId ? `/api/diseases/${diseaseId}` : '/api/diseases';
-    const method = diseaseId ? 'PUT' : 'POST';
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert(`${diseaseId ? '更新' : '添加'}疾病成功！`);
-            const modal = bootstrap.Modal.getInstance(document.getElementById('diseaseFormModal'));
-            modal.hide();
-            refreshData();
-        } else {
-            alert('保存失败: ' + result.message);
+            return 'other';
         }
-    })
-    .catch(error => {
-        console.error('保存失败', error);
-        alert('网络错误，请稍后重试');
-    });
-}
 
-// 确认删除疾病
-function confirmDeleteDisease() {
-    if (confirm('确定要删除这个疾病吗？此操作不可恢复！')) {
-        deleteDisease(document.getElementById('diseaseId').value);
-    }
-}
+        function refreshCategory() {
+            const cats = new Set();
+            document.querySelectorAll('.disease-item').forEach(el => cats.add(catOf(el)));
+            document.getElementById('catCount').innerText = cats.size || '0';
+        }
 
-// 删除疾病
-function deleteDisease(diseaseId) {
-    fetch(`/api/diseases/${diseaseId}`, { method: 'DELETE' })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                alert('疾病删除成功！');
-                const modal = bootstrap.Modal.getInstance(document.getElementById('diseaseFormModal'));
-                modal.hide();
-                refreshData();
-            } else {
-                alert('删除失败: ' + result.message);
-            }
-        })
-        .catch(error => {
-            console.error('删除失败', error);
-            alert('网络错误');
-        });
-}
+        function setCat(cat, el) {
+            document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            filterDiseases();
+        }
 
-// 刷新数据
-function refreshData() {
-    window.location.reload();
-}
-</script>
-{% endblock %}
+        function filterDiseases() {
+            const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+            const cat = document.querySelector('.cat-chip.active')?.dataset.cat || 'all';
+            let shown = 0;
+            document.querySelectorAll('.disease-item').forEach(el => {
+                const c = catOf(el);
+                const okCat = cat === 'all' || c === cat;
+                const okKw = !kw || (el.dataset.kw || '').toLowerCase().includes(kw);
+                const show = okCat && okKw;
+                el.style.display = show ? '' : 'none';
+                if (show) shown++;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', refreshCategory);
+    </script>
+</body>
+</html>
